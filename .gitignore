@@ -1,0 +1,9 @@
+build/
+build_tests/
+*.user
+test_diff.txt
+test_merge.txt
+out.txt
+
+# Binarios externos: se bajan con setup.bat (ver tools/VERSIONS.md)
+tools/*.exe
