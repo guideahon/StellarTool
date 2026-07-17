@@ -17,15 +17,20 @@ jobs:
           version: '6.8.3'
           arch: win64_msvc2022_64
 
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
       - name: Configure (tests)
-        run: cmake -S . -B build_tests -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTS=ON
+        run: cmake -S . -B build_tests -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON
 
       - name: Build tests
-        run: cmake --build build_tests --config Release --target StellarToolTests
+        run: cmake --build build_tests --target StellarToolTests
 
       - name: Run tests
         run: |
-          .\build_tests\Release\StellarToolTests.exe
+          .\build_tests\StellarToolTests.exe
           if ($LASTEXITCODE -ne 0) {
             Get-Content test_diff.txt -ErrorAction SilentlyContinue
             Get-Content test_merge.txt -ErrorAction SilentlyContinue
@@ -33,7 +38,7 @@ jobs:
           }
 
       - name: Configure (app)
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 
       - name: Build app
-        run: cmake --build build --config Release --target StellarTool
+        run: cmake --build build --target StellarTool
