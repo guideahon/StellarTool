@@ -18,6 +18,9 @@ public:
     bool zenAvailable() const;
 
     bool unpack(const QString &pakPath, const QString &outDir, QString *error = nullptr);
+    // Convierte un contenedor Zen/IoStore (.utoc) a assets legacy con retoc.
+    // Devuelve la cantidad de assets extraídos (0 = no se pudo revertir).
+    int toLegacy(const QString &utocPath, const QString &outDir, QString *error = nullptr);
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
     // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
     bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
