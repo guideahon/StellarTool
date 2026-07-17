@@ -11,13 +11,13 @@ Item {
         spacing: 12
 
         Label {
-            text: "Mods cargados"
+            text: I18n.s.home_title
             color: Theme.text
             font.pixelSize: 22
             font.bold: true
         }
         Label {
-            text: "Agregá mods (.pak, .zip o carpeta). El orden define la prioridad por defecto: el primero gana."
+            text: I18n.s.home_subtitle
             color: Theme.textDim
             wrapMode: Text.Wrap
             Layout.fillWidth: true
@@ -34,7 +34,7 @@ Item {
 
             Label {
                 anchors.centerIn: parent
-                text: "Arrastrá acá un .pak / .zip / carpeta, o usá los botones"
+                text: I18n.s.home_dropzone
                 color: Theme.textDim
             }
             DropArea {
@@ -50,25 +50,25 @@ Item {
         RowLayout {
             spacing: 8
             Button {
-                text: "Agregar archivo..."
+                text: I18n.s.home_add_file
                 enabled: !App.busy
                 onClicked: fileDialog.open()
             }
             Button {
-                text: "Agregar carpeta..."
+                text: I18n.s.home_add_folder
                 enabled: !App.busy
                 onClicked: folderDialog.open()
             }
             Item { Layout.fillWidth: true }
             Button {
-                text: "Importar baseline..."
+                text: I18n.s.home_import_baseline
                 enabled: !App.busy
                 onClicked: baselineDialog.open()
                 ToolTip.visible: hovered
-                ToolTip.text: "Carpeta con JSONs de tablas vanilla (dump de UAssetGUI/FModel)"
+                ToolTip.text: I18n.s.home_import_baseline_tip
             }
             Button {
-                text: "Analizar cambios"
+                text: I18n.s.home_analyze
                 enabled: !App.busy && App.modModel.rowCount() > 0 && App.toolsAvailable
                 highlighted: true
                 onClicked: App.analyze()
@@ -109,14 +109,14 @@ Item {
                         spacing: 2
                         Label { text: name; color: Theme.text; font.pixelSize: 16; font.bold: true }
                         Label {
-                            text: tableCount + " tablas · " + otherCount + " otros assets"
-                                  + (unreadableCount > 0 ? " · " + unreadableCount + " no analizables" : "")
+                            text: I18n.s.home_tables_assets.replace("%1", tableCount).replace("%2", otherCount)
+                                  + (unreadableCount > 0 ? I18n.s.home_unreadable.replace("%1", unreadableCount) : "")
                             color: unreadableCount > 0 ? Theme.warn : Theme.textDim
                             font.pixelSize: 12
                         }
                     }
                     Button {
-                        text: "Quitar"
+                        text: I18n.s.home_remove
                         enabled: !App.busy
                         onClicked: App.removeMod(index)
                     }
@@ -125,7 +125,7 @@ Item {
             Label {
                 anchors.centerIn: parent
                 visible: parent.count === 0
-                text: "Todavía no hay mods cargados"
+                text: I18n.s.home_empty
                 color: Theme.textDim
             }
         }

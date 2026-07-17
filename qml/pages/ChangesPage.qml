@@ -12,7 +12,7 @@ Item {
         RowLayout {
             spacing: 10
             Label {
-                text: "Cambios (" + App.changeModel.totalCount + ")"
+                text: I18n.s.changes_title + " (" + App.changeModel.totalCount + ")"
                 color: Theme.text
                 font.pixelSize: 22
                 font.bold: true
@@ -20,7 +20,7 @@ Item {
             Item { Layout.fillWidth: true }
             CheckBox {
                 id: onlyConflicts
-                text: "Solo conflictos"
+                text: I18n.s.changes_only_conflicts
                 onCheckedChanged: App.changeModel.onlyConflicts = checked
                 contentItem: Label {
                     text: onlyConflicts.text
@@ -31,7 +31,7 @@ Item {
             }
             TextField {
                 id: search
-                placeholderText: "Buscar..."
+                placeholderText: I18n.s.changes_search
                 Layout.preferredWidth: 240
                 onTextChanged: App.changeModel.filterText = text
                 color: Theme.text
@@ -43,7 +43,7 @@ Item {
 
         Label {
             visible: !App.analyzed
-            text: "Cargá mods y ejecutá \"Analizar cambios\" en la página Mods."
+            text: I18n.s.changes_hint
             color: Theme.textDim
         }
 
@@ -74,12 +74,12 @@ Item {
                         Layout.fillWidth: true
                     }
                     Button {
-                        text: "Todo"
+                        text: I18n.s.changes_all
                         flat: true
                         onClicked: App.changeModel.setTableChecked(section, true)
                     }
                     Button {
-                        text: "Nada"
+                        text: I18n.s.changes_none
                         flat: true
                         onClicked: App.changeModel.setTableChecked(section, false)
                     }
@@ -120,7 +120,7 @@ Item {
                         Label {
                             id: confLabel
                             anchors.centerIn: parent
-                            text: "conflicto"
+                            text: I18n.s.badge_conflict
                             font.pixelSize: 11; font.bold: true
                             color: "#14161c"
                         }

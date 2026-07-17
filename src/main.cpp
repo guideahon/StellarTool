@@ -1,11 +1,17 @@
 #include "AppController.h"
 #include "HeadlessRunner.h"
+#include "Translator.h"
 
 #include <QGuiApplication>
 #include <QCoreApplication>
 #include <QCommandLineParser>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQmlError>
+#include <QStandardPaths>
+#include <QDir>
+#include <QFile>
+#include <QFileInfo>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -74,9 +80,20 @@ int main(int argc, char *argv[]) {
     app.setApplicationName(QStringLiteral("StellarTool"));
 
     st::AppController controller;
+    st::Translator translator;
 
     QQmlApplicationEngine engine;
+    QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError> &ws) {
+        QFile f(QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                + QStringLiteral("/qml.log"));
+        QDir().mkpath(QFileInfo(f).absolutePath());
+        if (f.open(QIODevice::WriteOnly | QIODevice::Append)) {
+            for (const QQmlError &w : ws)
+                f.write((w.toString() + QLatin1Char('\n')).toUtf8());
+        }
+    });
     engine.rootContext()->setContextProperty(QStringLiteral("App"), &controller);
+    engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &translator);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;

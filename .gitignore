@@ -11,3 +11,5 @@ tools/*.usmap
 headless_*.txt
 tools/*.dll
 hz.txt
+qmlerr.txt
+qmlout.txt
