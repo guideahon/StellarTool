@@ -24,6 +24,7 @@ signals:
 private:
     bool stageSource(const QString &sourcePath, const QString &modWorkDir,
                      QString *contentDir, QString *error);
+    bool unpackPakInto(const QString &pak, const QString &extractDir, QString *error);
     void scanAssets(ModPackage &pkg);
 
     PakService *m_pak;

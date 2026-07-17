@@ -22,6 +22,31 @@ static QStringList findPaks(const QString &dir) {
     return out;
 }
 
+// Desempaqueta un .pak en extractDir. Detecta contenedores Zen/IoStore
+// (sibling .utoc): intenta revertir a legacy con retoc; si no se puede
+// (limitación conocida en mods ya empaquetados), da un error accionable.
+bool ModImporter::unpackPakInto(const QString &pak, const QString &extractDir, QString *error) {
+    const QFileInfo fi(pak);
+    const QString utoc = fi.absolutePath() + QLatin1Char('/') + fi.completeBaseName() + QStringLiteral(".utoc");
+    if (QFileInfo::exists(utoc)) {
+        // Mod Zen/IoStore: el .pak es cáscara; los datos están en .ucas/.utoc.
+        if (m_pak->zenAvailable()) {
+            emit progress(tr("Convirtiendo %1 (Zen→legacy)...").arg(fi.fileName()));
+            QString convErr;
+            if (m_pak->toLegacy(utoc, extractDir, &convErr) > 0)
+                return true;
+        }
+        if (error) *error = tr("'%1' es un mod Zen/IoStore (.ucas/.utoc) y no se pudo "
+                               "revertir a legacy (los contenedores de mods ya empaquetados "
+                               "no siempre se pueden desempaquetar). Usá la versión legacy del "
+                               "mod: un .pak clásico, o la carpeta con los .uasset (ej: el dir "
+                               "'package' con SB/Content/...).").arg(fi.fileName());
+        return false;
+    }
+    emit progress(tr("Desempaquetando %1...").arg(fi.fileName()));
+    return m_pak->unpack(pak, extractDir, error);
+}
+
 bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkDir,
                               QString *contentDir, QString *error) {
     const QFileInfo fi(sourcePath);
@@ -32,10 +57,8 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
         // Carpeta: puede contener paks o assets sueltos.
         const QStringList paks = findPaks(sourcePath);
         if (!paks.isEmpty()) {
-            for (const QString &pak : paks) {
-                emit progress(tr("Desempaquetando %1...").arg(QFileInfo(pak).fileName()));
-                if (!m_pak->unpack(pak, extractDir, error)) return false;
-            }
+            for (const QString &pak : paks)
+                if (!unpackPakInto(pak, extractDir, error)) return false;
         } else {
             emit progress(tr("Copiando carpeta..."));
             QDirIterator it(sourcePath, QDir::Files, QDirIterator::Subdirectories);
@@ -51,31 +74,41 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
             }
         }
     } else if (fi.suffix().compare(QLatin1String("pak"), Qt::CaseInsensitive) == 0) {
-        // Mods Zen/IoStore: el .pak es una cáscara vacía y los datos viven en
-        // .ucas/.utoc. retoc no puede reconvertir contenedores de mods ya
-        // empaquetados, así que se pide la fuente legacy.
-        const QString utoc = fi.absolutePath() + QLatin1Char('/') + fi.completeBaseName() + QStringLiteral(".utoc");
-        if (QFileInfo::exists(utoc)) {
-            if (error) *error = tr("'%1' es un mod Zen/IoStore (.ucas/.utoc); no se puede "
-                                   "desempaquetar el contenedor. Cargá el mod como carpeta "
-                                   "con los .uasset legacy (ej: el dir 'package' con SB/Content/...).")
-                                   .arg(fi.fileName());
+        if (!unpackPakInto(sourcePath, extractDir, error)) return false;
+    } else if (fi.suffix().compare(QLatin1String("utoc"), Qt::CaseInsensitive) == 0) {
+        // Contenedor Zen directo.
+        if (m_pak->zenAvailable() && m_pak->toLegacy(sourcePath, extractDir, error) > 0) {
+            // ok
+        } else {
+            if (error) *error = tr("'%1' es un contenedor Zen/IoStore que no se pudo revertir "
+                                   "a legacy. Usá la versión legacy del mod.").arg(fi.fileName());
             return false;
         }
-        emit progress(tr("Desempaquetando %1...").arg(fi.fileName()));
-        if (!m_pak->unpack(sourcePath, extractDir, error)) return false;
     } else if (fi.suffix().compare(QLatin1String("zip"), Qt::CaseInsensitive) == 0) {
         const QString zipDir = modWorkDir + QStringLiteral("/zip");
         emit progress(tr("Extrayendo zip..."));
         if (!m_pak->extractZip(sourcePath, zipDir, error)) return false;
         const QStringList paks = findPaks(zipDir);
-        if (paks.isEmpty()) {
-            if (error) *error = tr("El zip no contiene ningún .pak");
-            return false;
-        }
-        for (const QString &pak : paks) {
-            emit progress(tr("Desempaquetando %1...").arg(QFileInfo(pak).fileName()));
-            if (!m_pak->unpack(pak, extractDir, error)) return false;
+        if (!paks.isEmpty()) {
+            for (const QString &pak : paks)
+                if (!unpackPakInto(pak, extractDir, error)) return false;
+        } else {
+            // Zip sin paks: puede traer .uasset sueltos (ej. layout package/SB/...).
+            emit progress(tr("Copiando contenido del zip..."));
+            bool anyAsset = false;
+            QDirIterator it(zipDir, QDir::Files, QDirIterator::Subdirectories);
+            while (it.hasNext()) {
+                const QString src = it.next();
+                const QString rel = QDir(zipDir).relativeFilePath(src);
+                const QString dst = extractDir + QLatin1Char('/') + rel;
+                QDir().mkpath(QFileInfo(dst).absolutePath());
+                QFile::copy(src, dst);
+                if (src.endsWith(QLatin1String(".uasset"), Qt::CaseInsensitive)) anyAsset = true;
+            }
+            if (!anyAsset) {
+                if (error) *error = tr("El zip no contiene ni .pak ni assets .uasset.");
+                return false;
+            }
         }
     } else {
         if (error) *error = tr("Formato no soportado: %1 (se acepta .pak, .zip o carpeta)").arg(fi.suffix());

@@ -2,6 +2,7 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFileInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -113,6 +114,24 @@ bool PakService::createZip(const QString &srcDir, const QString &outZip, QString
     }
     args << entries;
     return runProcess(QStringLiteral("tar"), args, error);
+}
+
+int PakService::toLegacy(const QString &utocPath, const QString &outDir, QString *error) {
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral("retoc.exe no encontrado en tools/.");
+        return 0;
+    }
+    QDir().mkpath(outDir);
+    if (!runProcess(retoc, {QStringLiteral("to-legacy"),
+                            QStringLiteral("--version"), QStringLiteral("UE4_26"),
+                            utocPath, outDir}, error))
+        return 0;
+    // retoc no falla aunque no extraiga nada; contamos los .uasset producidos.
+    int n = 0;
+    QDirIterator it(outDir, {QStringLiteral("*.uasset")}, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) { it.next(); ++n; }
+    return n;
 }
 
 bool PakService::extractZip(const QString &zipPath, const QString &outDir, QString *error) {
