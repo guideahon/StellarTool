@@ -1,0 +1,1 @@
+Merge table mods (SkillTable, CharacterTable...) without losing anything: see every value each mod changes, pick with checkboxes, resolve conflicts line by line, export one verified merged pak + mod-manager zip. GUI and CLI. Open source.
