@@ -15,6 +15,7 @@ class UAssetService;
 class ModImporter;
 class BaselineManager;
 class ProjectStore;
+class Translator;
 
 class AppController : public QObject {
     Q_OBJECT
@@ -28,9 +29,10 @@ class AppController : public QObject {
     Q_PROPERTY(st::ConflictModel *conflictModel READ conflictModel CONSTANT)
     Q_PROPERTY(bool analyzed READ analyzed NOTIFY analysisChanged)
     Q_PROPERTY(QString lastMergeResult READ lastMergeResult NOTIFY mergeFinished)
+    Q_PROPERTY(bool lastMergeOk READ lastMergeOk NOTIFY mergeFinished)
     Q_PROPERTY(bool exportZip READ exportZip WRITE setExportZip NOTIFY exportZipChanged)
 public:
-    explicit AppController(QObject *parent = nullptr);
+    explicit AppController(Translator *i18n, QObject *parent = nullptr);
     ~AppController() override;
 
     bool busy() const { return m_busy; }
@@ -40,6 +42,7 @@ public:
     QString toolsError() const;
     bool analyzed() const { return m_analyzed; }
     QString lastMergeResult() const { return m_lastMergeResult; }
+    bool lastMergeOk() const { return m_lastMergeOk; }
     bool exportZip() const { return m_exportZip; }
     void setExportZip(bool v) { if (m_exportZip != v) { m_exportZip = v; emit exportZipChanged(); } }
 
@@ -76,10 +79,12 @@ signals:
 private:
     void setBusy(bool b, const QString &status = {});
     void setStatus(const QString &s);
+    QString t(const QString &key) const;   // traducción vía Translator
     QString workRoot() const;
     void runAnalysis();                      // en worker thread
     QString runMerge(const QString &outDir); // en worker thread; devuelve error o vacío
 
+    Translator *m_i18n;
     PakService *m_pak;
     UAssetService *m_uasset;
     ModImporter *m_importer;
@@ -97,6 +102,7 @@ private:
     bool m_busy = false;
     bool m_analyzed = false;
     bool m_exportZip = true;
+    bool m_lastMergeOk = false;
     QString m_statusText;
     QString m_lastMergeResult;
 };

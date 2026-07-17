@@ -1,6 +1,7 @@
 #include "ModImporter.h"
 #include "PakService.h"
 #include "UAssetService.h"
+#include "../Translator.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -12,8 +13,12 @@ Q_LOGGING_CATEGORY(lcImport, "st.import")
 
 namespace st {
 
-ModImporter::ModImporter(PakService *pak, UAssetService *uasset, QObject *parent)
-    : QObject(parent), m_pak(pak), m_uasset(uasset) {}
+ModImporter::ModImporter(PakService *pak, UAssetService *uasset, Translator *i18n, QObject *parent)
+    : QObject(parent), m_pak(pak), m_uasset(uasset), m_i18n(i18n) {}
+
+QString ModImporter::t(const QString &key) const {
+    return m_i18n ? m_i18n->t(key) : key;
+}
 
 static QStringList findPaks(const QString &dir) {
     QStringList out;
@@ -31,19 +36,15 @@ bool ModImporter::unpackPakInto(const QString &pak, const QString &extractDir, Q
     if (QFileInfo::exists(utoc)) {
         // Mod Zen/IoStore: el .pak es cáscara; los datos están en .ucas/.utoc.
         if (m_pak->zenAvailable()) {
-            emit progress(tr("Convirtiendo %1 (Zen→legacy)...").arg(fi.fileName()));
+            emit progress(t(QStringLiteral("core_converting_zen")).arg(fi.fileName()));
             QString convErr;
             if (m_pak->toLegacy(utoc, extractDir, &convErr) > 0)
                 return true;
         }
-        if (error) *error = tr("'%1' es un mod Zen/IoStore (.ucas/.utoc) y no se pudo "
-                               "revertir a legacy (los contenedores de mods ya empaquetados "
-                               "no siempre se pueden desempaquetar). Usá la versión legacy del "
-                               "mod: un .pak clásico, o la carpeta con los .uasset (ej: el dir "
-                               "'package' con SB/Content/...).").arg(fi.fileName());
+        if (error) *error = t(QStringLiteral("err_zen_mod")).arg(fi.fileName());
         return false;
     }
-    emit progress(tr("Desempaquetando %1...").arg(fi.fileName()));
+    emit progress(t(QStringLiteral("core_unpacking")).arg(fi.fileName()));
     return m_pak->unpack(pak, extractDir, error);
 }
 
@@ -60,7 +61,7 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
             for (const QString &pak : paks)
                 if (!unpackPakInto(pak, extractDir, error)) return false;
         } else {
-            emit progress(tr("Copiando carpeta..."));
+            emit progress(t(QStringLiteral("core_copying_folder")));
             QDirIterator it(sourcePath, QDir::Files, QDirIterator::Subdirectories);
             while (it.hasNext()) {
                 const QString src = it.next();
@@ -68,7 +69,7 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
                 const QString dst = extractDir + QLatin1Char('/') + rel;
                 QDir().mkpath(QFileInfo(dst).absolutePath());
                 if (!QFile::copy(src, dst)) {
-                    if (error) *error = tr("No se pudo copiar %1").arg(rel);
+                    if (error) *error = t(QStringLiteral("err_copy_failed")).arg(rel);
                     return false;
                 }
             }
@@ -80,13 +81,12 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
         if (m_pak->zenAvailable() && m_pak->toLegacy(sourcePath, extractDir, error) > 0) {
             // ok
         } else {
-            if (error) *error = tr("'%1' es un contenedor Zen/IoStore que no se pudo revertir "
-                                   "a legacy. Usá la versión legacy del mod.").arg(fi.fileName());
+            if (error) *error = t(QStringLiteral("err_zen_container")).arg(fi.fileName());
             return false;
         }
     } else if (fi.suffix().compare(QLatin1String("zip"), Qt::CaseInsensitive) == 0) {
         const QString zipDir = modWorkDir + QStringLiteral("/zip");
-        emit progress(tr("Extrayendo zip..."));
+        emit progress(t(QStringLiteral("core_extracting_zip")));
         if (!m_pak->extractZip(sourcePath, zipDir, error)) return false;
         const QStringList paks = findPaks(zipDir);
         if (!paks.isEmpty()) {
@@ -94,7 +94,7 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
                 if (!unpackPakInto(pak, extractDir, error)) return false;
         } else {
             // Zip sin paks: puede traer .uasset sueltos (ej. layout package/SB/...).
-            emit progress(tr("Copiando contenido del zip..."));
+            emit progress(t(QStringLiteral("core_copying_zip")));
             bool anyAsset = false;
             QDirIterator it(zipDir, QDir::Files, QDirIterator::Subdirectories);
             while (it.hasNext()) {
@@ -106,12 +106,12 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
                 if (src.endsWith(QLatin1String(".uasset"), Qt::CaseInsensitive)) anyAsset = true;
             }
             if (!anyAsset) {
-                if (error) *error = tr("El zip no contiene ni .pak ni assets .uasset.");
+                if (error) *error = t(QStringLiteral("err_zip_empty"));
                 return false;
             }
         }
     } else {
-        if (error) *error = tr("Formato no soportado: %1 (se acepta .pak, .zip o carpeta)").arg(fi.suffix());
+        if (error) *error = t(QStringLiteral("err_unsupported")).arg(fi.suffix());
         return false;
     }
     *contentDir = extractDir;
@@ -136,7 +136,7 @@ void ModImporter::scanAssets(ModPackage &pkg) {
             const QString jsonPath = jsonDir + QLatin1Char('/')
                 + QString(asset.gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
             QString err;
-            emit progress(tr("Analizando %1...").arg(fi.fileName()));
+            emit progress(t(QStringLiteral("core_analyzing_asset")).arg(fi.fileName()));
             if (m_uasset->toJson(path, jsonPath, &err)) {
                 QFile f(jsonPath);
                 QJsonObject root;
@@ -177,7 +177,7 @@ ModPackage ModImporter::import(const QString &sourcePath, const QString &workRoo
     pkg.extractDir = contentDir;
     scanAssets(pkg);
     if (pkg.assets.isEmpty()) {
-        if (error) *error = tr("El mod no contiene assets");
+        if (error) *error = t(QStringLiteral("err_no_assets"));
         return {};
     }
     return pkg;

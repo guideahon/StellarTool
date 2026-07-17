@@ -7,6 +7,7 @@
 #include "core/ProjectStore.h"
 #include "core/TableDiffEngine.h"
 #include "core/MergeEngine.h"
+#include "Translator.h"
 
 #include <QtConcurrent>
 #include <QDir>
@@ -19,17 +20,22 @@
 
 namespace st {
 
-AppController::AppController(QObject *parent)
+AppController::AppController(Translator *i18n, QObject *parent)
     : QObject(parent),
+      m_i18n(i18n),
       m_pak(new PakService(this)),
       m_uasset(new UAssetService(this)),
-      m_importer(new ModImporter(m_pak, m_uasset, this)),
+      m_importer(new ModImporter(m_pak, m_uasset, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, this)),
       m_store(new ProjectStore(this)) {
     connect(m_importer, &ModImporter::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     m_changeModel.setItems(&m_items);
     m_conflictModel.setSource(&m_items, &m_groups);
+}
+
+QString AppController::t(const QString &key) const {
+    return m_i18n ? m_i18n->t(key) : key;
 }
 
 AppController::~AppController() = default;
@@ -43,7 +49,7 @@ QString AppController::toolsError() const {
     if (!m_pak->available()) missing << QStringLiteral("repak.exe");
     if (!m_uasset->available()) missing << QStringLiteral("UAssetGUI.exe");
     if (missing.isEmpty()) return {};
-    return tr("Faltan binarios en tools/: %1. Ver tools/VERSIONS.md.").arg(missing.join(QStringLiteral(", ")));
+    return t(QStringLiteral("tools_missing")).arg(missing.join(QStringLiteral(", ")));
 }
 
 void AppController::setBusy(bool b, const QString &status) {
@@ -68,17 +74,17 @@ void AppController::addMod(const QUrl &url) {
     const QString path = url.isLocalFile() ? url.toLocalFile() : url.toString();
     for (const auto &m : m_mods) {
         if (QFileInfo(m.sourcePath) == QFileInfo(path)) {
-            emit errorOccurred(tr("Ese mod ya está cargado."));
+            emit errorOccurred(t(QStringLiteral("err_mod_exists")));
             return;
         }
     }
-    setBusy(true, tr("Importando %1...").arg(QFileInfo(path).fileName()));
+    setBusy(true, t(QStringLiteral("core_importing")).arg(QFileInfo(path).fileName()));
     std::ignore = QtConcurrent::run([this, path] {
         QString error;
         ModPackage pkg = m_importer->import(path, workRoot(), &error);
         QMetaObject::invokeMethod(this, [this, pkg, error] {
             if (pkg.assets.isEmpty()) {
-                emit errorOccurred(error.isEmpty() ? tr("No se pudo importar el mod.") : error);
+                emit errorOccurred(error.isEmpty() ? t(QStringLiteral("err_import_failed")) : error);
             } else {
                 ModPackage p = pkg;
                 p.loadOrder = m_mods.size();
@@ -136,13 +142,13 @@ void AppController::runAnalysis() {
         m_changeModel.refresh();
         m_conflictModel.refresh();
         emit analysisChanged();
-        setBusy(false, tr("%1 cambios, %2 conflictos").arg(m_items.size()).arg(m_groups.size()));
+        setBusy(false, t(QStringLiteral("core_summary")).arg(m_items.size()).arg(m_groups.size()));
     }, Qt::QueuedConnection);
 }
 
 void AppController::analyze() {
     if (m_busy || m_mods.isEmpty()) return;
-    setBusy(true, tr("Analizando cambios..."));
+    setBusy(true, t(QStringLiteral("core_analyzing")));
     std::ignore = QtConcurrent::run([this] { runAnalysis(); });
 }
 
@@ -292,7 +298,7 @@ QString AppController::runMerge(const QString &outDir) {
         const QString outUasset = contentDir + QLatin1Char('/') + gamePath;
         QString err;
         QMetaObject::invokeMethod(this, [this, gamePath] {
-            setStatus(tr("Generando %1...").arg(QFileInfo(gamePath).fileName()));
+            setStatus(t(QStringLiteral("core_generating")).arg(QFileInfo(gamePath).fileName()));
         }, Qt::QueuedConnection);
         if (!m_uasset->fromJson(mergedJson, outUasset, &err))
             return err;
@@ -316,7 +322,7 @@ QString AppController::runMerge(const QString &outDir) {
     // 3) Empaquetar. Con retoc disponible se genera contenedor Zen/IoStore
     //    (formato nativo de Stellar Blade); si no, pak legacy.
     QString err;
-    QMetaObject::invokeMethod(this, [this] { setStatus(tr("Empaquetando...")); }, Qt::QueuedConnection);
+    QMetaObject::invokeMethod(this, [this] { setStatus(t(QStringLiteral("core_packing"))); }, Qt::QueuedConnection);
     const QString baseName = QStringLiteral("zzz_StellarTool_Merged_P");
     if (m_pak->zenAvailable()) {
         if (!m_pak->packZen(contentDir, outDir + QLatin1Char('/') + baseName + QStringLiteral(".utoc"), &err))
@@ -328,7 +334,7 @@ QString AppController::runMerge(const QString &outDir) {
 
     // 4) Zip instalable para mod managers (Vortex, etc.): Paks/<archivos> + readme.
     if (m_exportZip) {
-        QMetaObject::invokeMethod(this, [this] { setStatus(tr("Generando zip...")); }, Qt::QueuedConnection);
+        QMetaObject::invokeMethod(this, [this] { setStatus(t(QStringLiteral("core_making_zip"))); }, Qt::QueuedConnection);
         const QString zipStage = mergeRoot + QStringLiteral("/zipstage");
         QDir().mkpath(zipStage + QStringLiteral("/Paks"));
         for (const QString &ext : {QStringLiteral("pak"), QStringLiteral("ucas"), QStringLiteral("utoc")}) {
@@ -365,26 +371,27 @@ void AppController::merge(const QUrl &outDirUrl) {
     if (m_busy || !m_analyzed) return;
     const QStringList pending = unresolvedConflictTitles();
     if (!pending.isEmpty()) {
-        emit errorOccurred(tr("Hay %1 conflictos sin resolver:\n%2")
+        emit errorOccurred(t(QStringLiteral("err_unresolved"))
                                .arg(pending.size())
                                .arg(pending.mid(0, 8).join(QLatin1Char('\n'))));
         return;
     }
     const QString outDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile() : outDirUrl.toString();
     if (outDir.isEmpty()) {
-        emit errorOccurred(tr("Elegí una carpeta de destino."));
+        emit errorOccurred(t(QStringLiteral("err_choose_out")));
         return;
     }
-    setBusy(true, tr("Mergeando..."));
+    setBusy(true, t(QStringLiteral("core_merging")));
     std::ignore = QtConcurrent::run([this, outDir] {
         const QString error = runMerge(outDir);
         QMetaObject::invokeMethod(this, [this, error, outDir] {
             if (error.isEmpty()) {
-                m_lastMergeResult = m_exportZip
-                    ? tr("OK: zzz_StellarTool_Merged_P + zip instalable generados y verificados en %1.").arg(outDir)
-                    : tr("OK: zzz_StellarTool_Merged_P generado y verificado en %1.").arg(outDir);
+                m_lastMergeOk = true;
+                m_lastMergeResult = (m_exportZip ? t(QStringLiteral("merge_ok_zip"))
+                                                 : t(QStringLiteral("merge_ok"))).arg(outDir);
             } else {
-                m_lastMergeResult = tr("Error: %1").arg(error);
+                m_lastMergeOk = false;
+                m_lastMergeResult = t(QStringLiteral("merge_err")).arg(error);
                 emit errorOccurred(error);
             }
             emit mergeFinished();
@@ -396,14 +403,14 @@ void AppController::merge(const QUrl &outDirUrl) {
 void AppController::importBaseline(const QUrl &dirUrl) {
     if (m_busy) return;
     const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
-    setBusy(true, tr("Importando baseline..."));
+    setBusy(true, t(QStringLiteral("core_importing_baseline")));
     std::ignore = QtConcurrent::run([this, dir] {
         QString error;
         int imported = 0;
         const bool ok = m_baseline->importFromDir(dir, &error, &imported);
         QMetaObject::invokeMethod(this, [this, ok, error, imported] {
             if (ok) {
-                setStatus(tr("Baseline: %1 tablas importadas.").arg(imported));
+                setStatus(t(QStringLiteral("core_baseline_done")).arg(imported));
                 emit baselineChanged();
                 m_analyzed = false;
                 emit analysisChanged();
@@ -427,7 +434,7 @@ void AppController::saveProject(const QUrl &fileUrl) {
     if (!m_store->save(path, state, &error))
         emit errorOccurred(error);
     else
-        setStatus(tr("Proyecto guardado."));
+        setStatus(t(QStringLiteral("core_project_saved")));
 }
 
 void AppController::loadProject(const QUrl &fileUrl) {
@@ -446,7 +453,7 @@ void AppController::loadProject(const QUrl &fileUrl) {
     m_changeModel.refresh();
     m_conflictModel.refresh();
 
-    setBusy(true, tr("Cargando proyecto..."));
+    setBusy(true, t(QStringLiteral("core_loading_project")));
     std::ignore = QtConcurrent::run([this, state] {
         QList<ModPackage> mods;
         QString error;
@@ -460,7 +467,7 @@ void AppController::loadProject(const QUrl &fileUrl) {
         QMetaObject::invokeMethod(this, [this, mods, state] {
             m_mods = mods;
             m_modModel.setMods(m_mods);
-            setBusy(true, tr("Analizando..."));
+            setBusy(true, t(QStringLiteral("core_analyzing")));
             std::ignore = QtConcurrent::run([this, state] {
                 runAnalysis();
                 QMetaObject::invokeMethod(this, [this, state] {
