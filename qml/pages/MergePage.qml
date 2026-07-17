@@ -70,6 +70,20 @@ Item {
             }
         }
 
+        CheckBox {
+            id: zipCheck
+            checked: App.exportZip
+            onToggled: App.exportZip = checked
+            text: "Generar también .zip instalable (Paks\\ + readme, para Vortex u otro mod manager)"
+            contentItem: Label {
+                text: zipCheck.text
+                color: Theme.text
+                leftPadding: zipCheck.indicator.width + 6
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.Wrap
+            }
+        }
+
         RowLayout {
             spacing: 8
             Button {

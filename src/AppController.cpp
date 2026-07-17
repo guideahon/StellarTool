@@ -13,6 +13,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QDateTime>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -316,14 +317,46 @@ QString AppController::runMerge(const QString &outDir) {
     //    (formato nativo de Stellar Blade); si no, pak legacy.
     QString err;
     QMetaObject::invokeMethod(this, [this] { setStatus(tr("Empaquetando...")); }, Qt::QueuedConnection);
+    const QString baseName = QStringLiteral("zzz_StellarTool_Merged_P");
     if (m_pak->zenAvailable()) {
-        const QString outUtoc = outDir + QStringLiteral("/zzz_StellarTool_Merged_P.utoc");
-        if (!m_pak->packZen(contentDir, outUtoc, &err))
+        if (!m_pak->packZen(contentDir, outDir + QLatin1Char('/') + baseName + QStringLiteral(".utoc"), &err))
             return err;
     } else {
-        const QString outPak = outDir + QStringLiteral("/zzz_StellarTool_Merged_P.pak");
-        if (!m_pak->pack(contentDir, outPak, &err))
+        if (!m_pak->pack(contentDir, outDir + QLatin1Char('/') + baseName + QStringLiteral(".pak"), &err))
             return err;
+    }
+
+    // 4) Zip instalable para mod managers (Vortex, etc.): Paks/<archivos> + readme.
+    if (m_exportZip) {
+        QMetaObject::invokeMethod(this, [this] { setStatus(tr("Generando zip...")); }, Qt::QueuedConnection);
+        const QString zipStage = mergeRoot + QStringLiteral("/zipstage");
+        QDir().mkpath(zipStage + QStringLiteral("/Paks"));
+        for (const QString &ext : {QStringLiteral("pak"), QStringLiteral("ucas"), QStringLiteral("utoc")}) {
+            const QString src = outDir + QLatin1Char('/') + baseName + QLatin1Char('.') + ext;
+            if (QFileInfo::exists(src))
+                QFile::copy(src, zipStage + QStringLiteral("/Paks/") + baseName + QLatin1Char('.') + ext);
+        }
+        QStringList modNames;
+        for (const auto &m : m_mods) modNames << QStringLiteral("- %1").arg(m.name);
+        int selectedCount = 0;
+        for (const auto &c : m_items) if (c.selected) ++selectedCount;
+        QFile readme(zipStage + QStringLiteral("/README.txt"));
+        if (readme.open(QIODevice::WriteOnly)) {
+            readme.write(tr("Merge generado por Stellar Tool\n"
+                            "https://github.com/guideahon/StellarTool\n\n"
+                            "Fecha: %1\nMods de origen:\n%2\n\nCambios aplicados: %3\n\n"
+                            "Instalacion manual: copiar el contenido de Paks\\ a\n"
+                            "  steamapps\\common\\StellarBlade\\SB\\Content\\Paks\\~mods\n"
+                            "O instalar este zip directamente con tu mod manager (Vortex, etc.).\n"
+                            "Desactiva los mods de origen para que no pisen el merge.\n")
+                             .arg(QDateTime::currentDateTime().toString(Qt::ISODate),
+                                  modNames.join(QLatin1Char('\n')))
+                             .arg(selectedCount)
+                             .toUtf8());
+            readme.close();
+        }
+        if (!m_pak->createZip(zipStage, outDir + QStringLiteral("/zzz_StellarTool_Merged.zip"), &err))
+            return tr("El pak se generó pero falló el zip: %1").arg(err);
     }
     return {};
 }
@@ -347,7 +380,9 @@ void AppController::merge(const QUrl &outDirUrl) {
         const QString error = runMerge(outDir);
         QMetaObject::invokeMethod(this, [this, error, outDir] {
             if (error.isEmpty()) {
-                m_lastMergeResult = tr("OK: zzz_StellarTool_Merged_P generado y verificado en %1.").arg(outDir);
+                m_lastMergeResult = m_exportZip
+                    ? tr("OK: zzz_StellarTool_Merged_P + zip instalable generados y verificados en %1.").arg(outDir)
+                    : tr("OK: zzz_StellarTool_Merged_P generado y verificado en %1.").arg(outDir);
             } else {
                 m_lastMergeResult = tr("Error: %1").arg(error);
                 emit errorOccurred(error);

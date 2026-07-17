@@ -22,6 +22,8 @@ public:
     // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
     bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
     bool extractZip(const QString &zipPath, const QString &outDir, QString *error = nullptr);
+    // Comprime el contenido de srcDir (recursivo) en outZip.
+    bool createZip(const QString &srcDir, const QString &outZip, QString *error = nullptr);
 
 private:
     bool runProcess(const QString &exe, const QStringList &args, QString *error, int timeoutMs = 300000);

@@ -43,7 +43,9 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
                                [--baseline <dir>] [--prefer <nombreMod>]
 ```
 
-- `analyze` lista todos los cambios y marca conflictos; `merge` además genera el pak.
+- `analyze` lista todos los cambios y marca conflictos; `merge` además genera el pak
+  y un **`zzz_StellarTool_Merged.zip` instalable** (`Paks\` + readme) listo para
+  Vortex u otro mod manager (`--no-zip` para omitirlo; en la UI es un checkbox).
 - Conflictos: gana el primer `--mod` (prioridad por orden), salvo `--prefer`.
 - `--baseline` acepta carpetas con JSONs de UAssetGUI o `.uasset` legacy (los convierte).
 - Exit code 0 = OK; salida apta para scripts/CI.
