@@ -26,6 +26,7 @@ set(CORE_SOURCES
     src/models/ConflictModel.cpp
     src/AppController.cpp
     src/HeadlessRunner.cpp
+    src/Translator.cpp
 )
 set(CORE_HEADERS
     src/core/ModTypes.h
@@ -41,6 +42,7 @@ set(CORE_HEADERS
     src/models/ConflictModel.h
     src/AppController.h
     src/HeadlessRunner.h
+    src/Translator.h
 )
 
 qt_add_executable(StellarTool
@@ -53,6 +55,11 @@ file(GLOB_RECURSE QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} qml/*.qml)
 qt_add_resources(StellarTool "qml"
     PREFIX "/"
     FILES ${QML_FILES} qml/qmldir
+)
+file(GLOB I18N_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} i18n/*.json)
+qt_add_resources(StellarTool "i18n"
+    PREFIX "/"
+    FILES ${I18N_FILES}
 )
 
 target_include_directories(StellarTool PRIVATE src)

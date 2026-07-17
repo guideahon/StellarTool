@@ -11,7 +11,7 @@ Item {
 
         RowLayout {
             Label {
-                text: "Conflictos"
+                text: I18n.s.conflicts_title
                 color: Theme.text
                 font.pixelSize: 22
                 font.bold: true
@@ -23,7 +23,7 @@ Item {
                 Label {
                     id: pendingLabel
                     anchors.centerIn: parent
-                    text: App.conflictModel.pendingCount + " sin resolver"
+                    text: I18n.s.conflicts_unresolved.replace("%1", App.conflictModel.pendingCount)
                     color: "#14161c"; font.bold: true; font.pixelSize: 12
                 }
             }
@@ -32,7 +32,7 @@ Item {
 
         Label {
             visible: App.analyzed && App.conflictModel.rowCount() === 0
-            text: "Sin conflictos entre los mods cargados. 🎉"
+            text: I18n.s.conflicts_none
             color: Theme.ok
         }
 
@@ -40,7 +40,7 @@ Item {
         RowLayout {
             visible: App.conflictModel.rowCount() > 0
             spacing: 8
-            Label { text: "Preferir en todos los conflictos:"; color: Theme.textDim }
+            Label { text: I18n.s.conflicts_prefer_all; color: Theme.textDim }
             Repeater {
                 model: App.modModel
                 delegate: Button {
@@ -82,7 +82,7 @@ Item {
                     Label { text: title; color: Theme.text; font.bold: true; font.pixelSize: 15 }
                     Label {
                         visible: App.hasBaseline
-                        text: "Vanilla: " + baseText
+                        text: I18n.s.conflicts_vanilla.replace("%1", baseText)
                         color: Theme.textDim
                         font.pixelSize: 12
                     }

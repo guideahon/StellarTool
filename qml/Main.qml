@@ -4,6 +4,7 @@ import QtQuick.Layouts
 import QtQuick.Dialogs
 import "."
 import "pages"
+import "components"
 
 ApplicationWindow {
     id: win
@@ -12,12 +13,11 @@ ApplicationWindow {
     height: 760
     minimumWidth: 900
     minimumHeight: 560
-    title: "Stellar Tool — merge de mods de Stellar Blade"
+    title: "Stellar Tool — " + I18n.s.app_subtitle
     color: Theme.bg
 
     property int currentPage: 0
 
-    // ---- Barra lateral ----
     RowLayout {
         anchors.fill: parent
         spacing: 0
@@ -42,10 +42,11 @@ ApplicationWindow {
 
                 Repeater {
                     model: [
-                        { label: "Mods", page: 0 },
-                        { label: "Cambios", page: 1 },
-                        { label: "Conflictos", page: 2 },
-                        { label: "Merge", page: 3 },
+                        { key: "nav_mods", page: 0 },
+                        { key: "nav_changes", page: 1 },
+                        { key: "nav_conflicts", page: 2 },
+                        { key: "nav_merge", page: 3 },
+                        { key: "nav_settings", page: 4 },
                     ]
                     delegate: Rectangle {
                         required property var modelData
@@ -58,7 +59,7 @@ ApplicationWindow {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
                             anchors.leftMargin: 14
-                            text: modelData.label
+                            text: I18n.s[modelData.key]
                             color: win.currentPage === modelData.page ? Theme.text : Theme.textDim
                             font.pixelSize: 15
                         }
@@ -99,7 +100,7 @@ ApplicationWindow {
                 Label {
                     visible: !App.hasBaseline
                     Layout.fillWidth: true
-                    text: "Sin baseline vanilla: los cambios se muestran sin \"antes → después\" y las filas aparecen completas."
+                    text: I18n.s.no_baseline_warning
                     color: Theme.warn
                     wrapMode: Text.Wrap
                     font.pixelSize: 12
@@ -122,7 +123,6 @@ ApplicationWindow {
 
         Rectangle { Layout.preferredWidth: 1; Layout.fillHeight: true; color: Theme.border }
 
-        // ---- Contenido ----
         StackLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -132,14 +132,14 @@ ApplicationWindow {
             ChangesPage {}
             ConflictsPage {}
             MergePage {}
+            SettingsPage {}
         }
     }
 
-    // ---- Errores ----
     Dialog {
         id: errorDialog
         modal: true
-        title: "Error"
+        title: I18n.s.error
         anchors.centerIn: parent
         width: Math.min(640, win.width - 80)
         standardButtons: Dialog.Ok
@@ -158,4 +158,11 @@ ApplicationWindow {
             errorDialog.open()
         }
     }
+
+    // Popup de primer arranque: elegir idioma.
+    LanguageDialog {
+        id: langDialog
+        anchors.centerIn: parent
+    }
+    Component.onCompleted: if (!I18n.chosen) langDialog.open()
 }

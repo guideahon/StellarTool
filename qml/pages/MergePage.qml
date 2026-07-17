@@ -11,7 +11,7 @@ Item {
         spacing: 12
 
         Label {
-            text: "Merge"
+            text: I18n.s.merge_title
             color: Theme.text
             font.pixelSize: 22
             font.bold: true
@@ -32,21 +32,21 @@ Item {
                 anchors.margins: 12
                 spacing: 4
                 Label {
-                    text: "Cambios detectados: " + App.changeModel.totalCount
+                    text: I18n.s.merge_changes_detected.replace("%1", App.changeModel.totalCount)
                     color: Theme.text
                 }
                 Label {
-                    text: "Conflictos sin resolver: " + App.conflictModel.pendingCount
+                    text: I18n.s.merge_unresolved.replace("%1", App.conflictModel.pendingCount)
                     color: App.conflictModel.pendingCount > 0 ? Theme.warn : Theme.ok
                 }
                 Label {
-                    text: "Salida: zzz_StellarTool_Merged.pak (el prefijo zzz asegura prioridad de carga)"
+                    text: I18n.s.merge_output_note
                     color: Theme.textDim
                     font.pixelSize: 12
                 }
                 Label {
                     visible: !App.hasBaseline
-                    text: "Sin baseline: las tablas parten del mod de mayor prioridad y se aplican las selecciones encima."
+                    text: I18n.s.merge_nobaseline_note
                     color: Theme.warn
                     font.pixelSize: 12
                     wrapMode: Text.Wrap
@@ -60,12 +60,12 @@ Item {
             TextField {
                 id: outDir
                 Layout.fillWidth: true
-                placeholderText: "Carpeta destino (ej: ...\\StellarBlade\\SB\\Content\\Paks\\~mods)"
+                placeholderText: I18n.s.merge_outdir_placeholder
                 color: Theme.text
                 background: Rectangle { color: Theme.panel; border.color: Theme.border; radius: Theme.radius }
             }
             Button {
-                text: "Elegir..."
+                text: I18n.s.merge_choose
                 onClicked: outDirDialog.open()
             }
         }
@@ -74,7 +74,7 @@ Item {
             id: zipCheck
             checked: App.exportZip
             onToggled: App.exportZip = checked
-            text: "Generar también .zip instalable (Paks\\ + readme, para Vortex u otro mod manager)"
+            text: I18n.s.merge_zip_check
             contentItem: Label {
                 text: zipCheck.text
                 color: Theme.text
@@ -87,19 +87,19 @@ Item {
         RowLayout {
             spacing: 8
             Button {
-                text: "Generar pak mergeado"
+                text: I18n.s.merge_generate
                 highlighted: true
                 enabled: !App.busy && App.analyzed && App.conflictModel.pendingCount === 0
                           && outDir.text.length > 0
                 onClicked: App.merge("file:///" + outDir.text.replace(/\\/g, "/"))
             }
             Button {
-                text: "Guardar proyecto..."
+                text: I18n.s.merge_save_project
                 enabled: App.analyzed
                 onClicked: saveDialog.open()
             }
             Button {
-                text: "Cargar proyecto..."
+                text: I18n.s.merge_load_project
                 enabled: !App.busy
                 onClicked: loadDialog.open()
             }
