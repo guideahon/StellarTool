@@ -98,6 +98,23 @@ bool PakService::pack(const QString &contentDir, const QString &outPak, QString 
                               contentDir, outPak}, error);
 }
 
+bool PakService::createZip(const QString &srcDir, const QString &outZip, QString *error) {
+    QDir().mkpath(QFileInfo(outZip).absolutePath());
+    QFile::remove(outZip);
+    // bsdtar de Windows detecta formato zip por la extensión con -a. Se pasan
+    // las entradas de primer nivel por nombre para evitar el prefijo "./".
+    QStringList args{QStringLiteral("-a"), QStringLiteral("-c"),
+                     QStringLiteral("-f"), QDir::toNativeSeparators(outZip),
+                     QStringLiteral("-C"), QDir::toNativeSeparators(srcDir)};
+    const QStringList entries = QDir(srcDir).entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+    if (entries.isEmpty()) {
+        if (error) *error = QStringLiteral("Nada que comprimir en %1").arg(srcDir);
+        return false;
+    }
+    args << entries;
+    return runProcess(QStringLiteral("tar"), args, error);
+}
+
 bool PakService::extractZip(const QString &zipPath, const QString &outDir, QString *error) {
     QDir().mkpath(outDir);
     // tar.exe (bsdtar) viene con Windows 10+ y soporta zip.

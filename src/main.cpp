@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("out"), QStringLiteral("Carpeta destino del pak mergeado"), QStringLiteral("dir")});
         parser.addOption({QStringLiteral("baseline"), QStringLiteral("Carpeta con JSONs de tablas vanilla"), QStringLiteral("dir")});
         parser.addOption({QStringLiteral("prefer"), QStringLiteral("Nombre de mod que gana todos sus conflictos"), QStringLiteral("mod")});
+        parser.addOption({QStringLiteral("no-zip"), QStringLiteral("No generar el zip instalable junto al pak")});
         parser.process(app);
 
         const QStringList pos = parser.positionalArguments();
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
         }
 
         st::AppController controller;
+        controller.setExportZip(!parser.isSet(QStringLiteral("no-zip")));
         st::HeadlessRunner runner(&controller);
         return runner.run(command, parser.values(QStringLiteral("mod")),
                           parser.value(QStringLiteral("out")),

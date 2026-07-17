@@ -28,6 +28,7 @@ class AppController : public QObject {
     Q_PROPERTY(st::ConflictModel *conflictModel READ conflictModel CONSTANT)
     Q_PROPERTY(bool analyzed READ analyzed NOTIFY analysisChanged)
     Q_PROPERTY(QString lastMergeResult READ lastMergeResult NOTIFY mergeFinished)
+    Q_PROPERTY(bool exportZip READ exportZip WRITE setExportZip NOTIFY exportZipChanged)
 public:
     explicit AppController(QObject *parent = nullptr);
     ~AppController() override;
@@ -39,6 +40,8 @@ public:
     QString toolsError() const;
     bool analyzed() const { return m_analyzed; }
     QString lastMergeResult() const { return m_lastMergeResult; }
+    bool exportZip() const { return m_exportZip; }
+    void setExportZip(bool v) { if (m_exportZip != v) { m_exportZip = v; emit exportZipChanged(); } }
 
     ModListModel *modModel() { return &m_modModel; }
     ChangeListModel *changeModel() { return &m_changeModel; }
@@ -67,6 +70,7 @@ signals:
     void baselineChanged();
     void analysisChanged();
     void mergeFinished();
+    void exportZipChanged();
     void errorOccurred(const QString &message);
 
 private:
@@ -92,6 +96,7 @@ private:
 
     bool m_busy = false;
     bool m_analyzed = false;
+    bool m_exportZip = true;
     QString m_statusText;
     QString m_lastMergeResult;
 };
