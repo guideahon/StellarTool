@@ -9,6 +9,19 @@ Herramienta de escritorio (Qt 6/QML, Windows) para analizar y **mergear mods de 
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
 
+## Instalación (usuario final)
+
+Descargá el `StellarTool-<version>.zip` de la pestaña **Releases** del repo (o de
+Nexus Mods), extraelo donde quieras y ejecutá `StellarTool.exe`. Es autocontenido:
+incluye el runtime de Qt y los binarios de `tools\` (repak, retoc, UAssetGUI y el
+mapping de Stellar Blade). No instala nada ni toca archivos del juego.
+
+## Empaquetar un release (mantenedores)
+
+```bat
+package.bat NOPAUSE   :: setup + build Release + genera dist\StellarTool-<version>.zip
+```
+
 ## Instalación (desde código)
 
 Requisitos: Windows 10/11, [Qt 6.4+](https://www.qt.io/download-open-source) (MSVC x64; el build script asume `C:\Qt\6.8.3\msvc2022_64`), Visual Studio Build Tools 2019/2022 y CMake 3.21+.

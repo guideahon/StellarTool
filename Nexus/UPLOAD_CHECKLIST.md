@@ -2,9 +2,9 @@
 
 Antes de cada release en Nexus Mods:
 
-1. **Zip de release**: `build\Release\` completo (exe + dlls de Qt + `tools\` con
-   repak/retoc/UAssetGUI/usmap) como `Stellar Tool-<version>.zip`. Probar en una
-   máquina/carpeta limpia que abre y mergea.
+1. **Zip de release**: correr `package.bat NOPAUSE` → genera `dist\StellarTool-<version>.zip`
+   (exe + runtime Qt + `tools\` con repak/retoc/UAssetGUI/usmap, sin oo2core). Probar en
+   una máquina/carpeta limpia que abre y mergea.
    - Verificar licencias de redistribución de los binarios bundled (repak/retoc: MIT;
      UAssetGUI: MIT). El `.usmap` es de la comunidad: enlazar la fuente en la
      descripción en lugar de redistribuir si hay dudas.

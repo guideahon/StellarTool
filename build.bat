@@ -36,14 +36,11 @@ if /I "%CONFIG%"=="Debug" set DEPLOY_FLAG=--debug
 "%WINDEPLOYQT%" %DEPLOY_FLAG% --qmldir "%~dp0qml" --no-translations --compiler-runtime "%EXE_PATH%" >nul
 if errorlevel 1 ( echo === windeployqt FAILED === & goto :failed )
 
-REM Copiar binarios externos junto al exe
-if exist "%~dp0tools\repak.exe" (
-    if not exist "%~dp0build\%CONFIG%\tools" mkdir "%~dp0build\%CONFIG%\tools"
-    copy /Y "%~dp0tools\repak.exe" "%~dp0build\%CONFIG%\tools\" >nul
-)
-if exist "%~dp0tools\UAssetGUI.exe" (
-    if not exist "%~dp0build\%CONFIG%\tools" mkdir "%~dp0build\%CONFIG%\tools"
-    copy /Y "%~dp0tools\UAssetGUI.exe" "%~dp0build\%CONFIG%\tools\" >nul
+REM Copiar externos junto al exe (los que existan). oo2core NO se copia (Oodle,
+REM propietaria; retoc no lo necesita para el flujo de esta tool).
+if not exist "%~dp0build\%CONFIG%\tools" mkdir "%~dp0build\%CONFIG%\tools"
+for %%F in (repak.exe retoc.exe UAssetGUI.exe StellarBlade.usmap) do (
+    if exist "%~dp0tools\%%F" copy /Y "%~dp0tools\%%F" "%~dp0build\%CONFIG%\tools\" >nul
 )
 
 echo.
