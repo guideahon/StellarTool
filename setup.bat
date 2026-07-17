@@ -20,7 +20,7 @@ if not exist tools\repak.exe (
 )
 
 if not exist tools\UAssetGUI.exe (
-    echo [INFO] Descargando UAssetGUI (experimental, 1.1.1+)...
+    echo [INFO] Descargando UAssetGUI experimental 1.1.1+ ...
     powershell -NoProfile -Command "Invoke-WebRequest '%UASSETGUI_URL%' -OutFile 'tools\UAssetGUI.exe'"
     if not exist tools\UAssetGUI.exe ( echo [ERROR] No se pudo descargar UAssetGUI.exe & exit /b 1 )
 )
@@ -32,18 +32,18 @@ if not exist tools\retoc.exe (
 )
 
 echo [INFO] Verificando hash de repak...
-powershell -NoProfile -Command "$h=(Get-FileHash tools\repak.exe -Algorithm SHA256).Hash; if($h -ne 'FCD538E5994B9BB833622D425AE346F4E0692F02D4B0025114A559F9B6286022'){Write-Host '[WARN] hash repak.exe distinto al esperado:' $h} else {Write-Host '[INFO] Hash OK.'}"
+powershell -NoProfile -Command "try { $h=(Get-FileHash 'tools\repak.exe' -Algorithm SHA256).Hash; if($h -eq 'FCD538E5994B9BB833622D425AE346F4E0692F02D4B0025114A559F9B6286022'){Write-Host '[INFO] Hash OK.'} else {Write-Host '[WARN] hash repak.exe distinto al esperado:' $h} } catch { Write-Host '[INFO] Verificacion de hash omitida.' }"
 
-if not exist tools\StellarBlade.usmap (
-    echo [INFO] Descargando StellarBlade.usmap ^(mappings, comunidad^)...
-    powershell -NoProfile -Command "try { Invoke-WebRequest '%USMAP_URL%' -OutFile 'tools\StellarBlade.usmap' } catch { }"
-    if not exist tools\StellarBlade.usmap (
-        echo [WARN] No se pudo descargar StellarBlade.usmap. Sin el, las tablas se
-        echo [WARN] decodifican sin nombres de propiedades. Ver tools\VERSIONS.md.
-    ) else (
-        echo [INFO] Mappings descargados.
-    )
-)
+if not exist tools\StellarBlade.usmap call :get_usmap
+goto :after_usmap
+:get_usmap
+echo [INFO] Descargando StellarBlade.usmap [mappings de la comunidad]
+powershell -NoProfile -Command "try { Invoke-WebRequest '%USMAP_URL%' -OutFile 'tools\StellarBlade.usmap' } catch { }"
+if exist tools\StellarBlade.usmap ( echo [INFO] Mappings descargados. & goto :eof )
+echo [WARN] No se pudo descargar StellarBlade.usmap; las tablas se decodifican sin
+echo [WARN] nombres de propiedades. Ver tools\VERSIONS.md.
+goto :eof
+:after_usmap
 
 echo [INFO] Setup completo. Compilar con: build.bat Release NOPAUSE
 exit /b 0
