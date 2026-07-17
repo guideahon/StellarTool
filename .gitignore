@@ -13,3 +13,4 @@ tools/*.dll
 hz.txt
 qmlerr.txt
 qmlout.txt
+shot_*.png
