@@ -59,3 +59,12 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
 - **Baseline vanilla**: extraíble del juego con
   `retoc to-legacy -f "<Tabla>" --version UE4_26 "<StellarBlade>\SB\Content\Paks" <out>`
   e importable desde la app o con `--baseline`.
+  **Si tenés mods instalados en `~mods`**: extraé desde una carpeta staging que
+  contenga solo los contenedores raíz del juego (`global.*` + `pakchunk*`) para
+  garantizar baseline vanilla pura. En la práctica retoc resuelve desde los
+  pakchunks aunque `~mods` esté presente (verificado por hash), pero el staging
+  elimina la duda:
+  ```bat
+  mkdir stage & copy "<Paks>\global.*" stage & copy "<Paks>\pakchunk*" stage
+  retoc to-legacy -f "<Tabla>" --version UE4_26 stage <out>
+  ```
