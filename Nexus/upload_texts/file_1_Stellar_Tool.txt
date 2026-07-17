@@ -1,0 +1,3 @@
+Main file - Stellar Tool
+
+The full tool (GUI + headless CLI), with Qt runtime and the required helper binaries (repak, retoc, UAssetGUI experimental) bundled. Extract anywhere and run StellarTool.exe. No installation, nothing written to the game folder; the merged output goes wherever you choose. See the description for the 4-step workflow and remember to disable the source mods after merging.
