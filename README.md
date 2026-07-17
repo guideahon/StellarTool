@@ -34,3 +34,28 @@ Los binarios externos no se versionan; `setup.bat` los baja de sus releases ofic
 5. **Merge**: elegí destino (idealmente `steamapps\common\StellarBlade\SB\Content\Paks\~mods`) y generá el pak. La tool verifica el resultado reconvirtiendo cada tabla. Los mods originales no se tocan: acordate de sacarlos de `~mods` para que no pisen el merge (el prefijo `zzz` le da prioridad de carga igualmente).
 
 Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
+
+## Modo headless (CLI)
+
+```bat
+StellarTool --headless analyze --mod "<pak/zip/carpeta>" --mod "<otro>" [--baseline <dir>]
+StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <dir> ^
+                               [--baseline <dir>] [--prefer <nombreMod>]
+```
+
+- `analyze` lista todos los cambios y marca conflictos; `merge` además genera el pak.
+- Conflictos: gana el primer `--mod` (prioridad por orden), salvo `--prefer`.
+- `--baseline` acepta carpetas con JSONs de UAssetGUI o `.uasset` legacy (los convierte).
+- Exit code 0 = OK; salida apta para scripts/CI.
+
+## Formatos de Stellar Blade
+
+- **Salida**: con `retoc.exe` presente se genera contenedor **Zen/IoStore**
+  (`zzz_StellarTool_Merged_P.utoc/.ucas/.pak`, verificado con `retoc verify`) — el
+  formato nativo del juego. Sin retoc, pak legacy V11.
+- **Entrada**: paks legacy, zips o carpetas con `.uasset`. Los mods ya empaquetados
+  como Zen (`.pak` cáscara + `.ucas/.utoc`) no se pueden desempaquetar (limitación
+  de retoc); usá la carpeta fuente legacy del mod.
+- **Baseline vanilla**: extraíble del juego con
+  `retoc to-legacy -f "<Tabla>" --version UE4_26 "<StellarBlade>\SB\Content\Paks" <out>`
+  e importable desde la app o con `--baseline`.

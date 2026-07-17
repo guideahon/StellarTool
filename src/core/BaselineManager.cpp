@@ -1,4 +1,5 @@
 #include "BaselineManager.h"
+#include "UAssetService.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -9,7 +10,8 @@
 
 namespace st {
 
-BaselineManager::BaselineManager(QObject *parent) : QObject(parent) {}
+BaselineManager::BaselineManager(UAssetService *uasset, QObject *parent)
+    : QObject(parent), m_uasset(uasset) {}
 
 QString BaselineManager::baselineDir() const {
     return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
@@ -36,18 +38,29 @@ bool BaselineManager::importFromDir(const QString &dir, QString *error, int *imp
     if (imported) *imported = 0;
     QDir().mkpath(baselineDir());
     int count = 0;
-    QDirIterator it(dir, {QStringLiteral("*.json")}, QDir::Files, QDirIterator::Subdirectories);
+    QDirIterator it(dir, {QStringLiteral("*.json"), QStringLiteral("*.uasset")},
+                    QDir::Files, QDirIterator::Subdirectories);
     while (it.hasNext()) {
         const QString path = it.next();
-        QFile f(path);
+        QString jsonSrc = path;
+        if (path.endsWith(QLatin1String(".uasset"), Qt::CaseInsensitive)) {
+            if (!m_uasset || !m_uasset->available()) continue;
+            const QString tmp = baselineDir() + QStringLiteral("/_convert_tmp.json");
+            QString err;
+            if (!m_uasset->toJson(path, tmp, &err)) continue;
+            jsonSrc = tmp;
+        }
+        QFile f(jsonSrc);
         if (!f.open(QIODevice::ReadOnly)) continue;
         const QJsonObject root = QJsonDocument::fromJson(f.readAll()).object();
+        f.close();
         if (!isDataTableJson(root)) continue;
         const QString dst = baselineDir() + QLatin1Char('/')
             + QFileInfo(path).completeBaseName().toLower() + QStringLiteral(".json");
         QFile::remove(dst);
-        if (QFile::copy(path, dst)) ++count;
+        if (QFile::copy(jsonSrc, dst)) ++count;
     }
+    QFile::remove(baselineDir() + QStringLiteral("/_convert_tmp.json"));
     if (imported) *imported = count;
     if (count == 0 && error)
         *error = tr("No se encontraron JSONs de DataTable en %1").arg(dir);

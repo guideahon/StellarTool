@@ -13,10 +13,14 @@ public:
     explicit PakService(QObject *parent = nullptr);
 
     static QString repakPath();       // tools/repak.exe junto al exe (o override por env ST_REPAK)
+    static QString retocPath();       // tools/retoc.exe (o env ST_RETOC); Zen/IoStore
     bool available() const;
+    bool zenAvailable() const;
 
     bool unpack(const QString &pakPath, const QString &outDir, QString *error = nullptr);
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
+    // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
+    bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
     bool extractZip(const QString &zipPath, const QString &outDir, QString *error = nullptr);
 
 private:

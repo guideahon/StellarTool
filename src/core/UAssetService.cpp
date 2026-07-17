@@ -27,6 +27,28 @@ QString UAssetService::uassetGuiPath() {
 
 bool UAssetService::available() const { return !uassetGuiPath().isEmpty(); }
 
+QString UAssetService::mappingName() { return QStringLiteral("StellarBlade"); }
+
+QString UAssetService::usmapPath() {
+    const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("ST_USMAP"));
+    if (!env.isEmpty() && QFileInfo::exists(env)) return env;
+    const QString bundled = QCoreApplication::applicationDirPath() + QStringLiteral("/tools/StellarBlade.usmap");
+    if (QFileInfo::exists(bundled)) return bundled;
+    const QString dev = QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools/StellarBlade.usmap");
+    if (QFileInfo::exists(dev)) return QFileInfo(dev).absoluteFilePath();
+    return {};
+}
+
+void UAssetService::ensureMappingInstalled() {
+    const QString usmap = usmapPath();
+    if (usmap.isEmpty()) return;
+    const QString dir = QDir::homePath() + QStringLiteral("/AppData/Roaming/UAssetGUI/Mappings");
+    const QString dst = dir + QLatin1Char('/') + mappingName() + QStringLiteral(".usmap");
+    if (QFileInfo::exists(dst)) return;
+    QDir().mkpath(dir);
+    QFile::copy(usmap, dst);
+}
+
 bool UAssetService::run(const QStringList &args, QString *error) {
     const QString exe = uassetGuiPath();
     if (exe.isEmpty()) {
@@ -57,8 +79,11 @@ bool UAssetService::run(const QStringList &args, QString *error) {
 
 bool UAssetService::toJson(const QString &uassetPath, const QString &jsonPath, QString *error) {
     QDir().mkpath(QFileInfo(jsonPath).absolutePath());
-    if (!run({QStringLiteral("tojson"), QDir::toNativeSeparators(uassetPath),
-              QDir::toNativeSeparators(jsonPath), engineVersion()}, error))
+    QStringList args{QStringLiteral("tojson"), QDir::toNativeSeparators(uassetPath),
+                     QDir::toNativeSeparators(jsonPath), engineVersion()};
+    if (!usmapPath().isEmpty())
+        args << QDir::toNativeSeparators(usmapPath());
+    if (!run(args, error))
         return false;
     if (!QFileInfo::exists(jsonPath)) {
         if (error) *error = QStringLiteral("UAssetGUI no produjo el JSON esperado");
@@ -69,8 +94,13 @@ bool UAssetService::toJson(const QString &uassetPath, const QString &jsonPath, Q
 
 bool UAssetService::fromJson(const QString &jsonPath, const QString &uassetPath, QString *error) {
     QDir().mkpath(QFileInfo(uassetPath).absolutePath());
-    if (!run({QStringLiteral("fromjson"), QDir::toNativeSeparators(jsonPath),
-              QDir::toNativeSeparators(uassetPath)}, error))
+    QStringList args{QStringLiteral("fromjson"), QDir::toNativeSeparators(jsonPath),
+                     QDir::toNativeSeparators(uassetPath)};
+    if (!usmapPath().isEmpty()) {
+        ensureMappingInstalled();
+        args << mappingName();
+    }
+    if (!run(args, error))
         return false;
     if (!QFileInfo::exists(uassetPath)) {
         if (error) *error = QStringLiteral("UAssetGUI no produjo el uasset esperado");

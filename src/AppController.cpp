@@ -23,7 +23,7 @@ AppController::AppController(QObject *parent)
       m_pak(new PakService(this)),
       m_uasset(new UAssetService(this)),
       m_importer(new ModImporter(m_pak, m_uasset, this)),
-      m_baseline(new BaselineManager(this)),
+      m_baseline(new BaselineManager(m_uasset, this)),
       m_store(new ProjectStore(this)) {
     connect(m_importer, &ModImporter::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
@@ -170,6 +170,26 @@ void AppController::resolveAllWithMod(const QString &modId) {
     m_conflictModel.refresh();
 }
 
+void AppController::resolveAllByPriority() {
+    QHash<QString, int> orderById;
+    for (const auto &m : m_mods) orderById.insert(m.id, m.loadOrder);
+    for (auto &g : m_groups) {
+        if (!g.resolvedModId.isEmpty()) continue;
+        QString best;
+        int bestOrder = INT_MAX;
+        for (int idx : g.itemIndexes) {
+            const int o = orderById.value(m_items.at(idx).modId, INT_MAX);
+            if (o < bestOrder) { bestOrder = o; best = m_items.at(idx).modId; }
+        }
+        if (best.isEmpty()) continue;
+        g.resolvedModId = best;
+        for (int idx : g.itemIndexes)
+            m_items[idx].selected = (m_items.at(idx).modId == best);
+    }
+    m_changeModel.refresh();
+    m_conflictModel.refresh();
+}
+
 QStringList AppController::unresolvedConflictTitles() const {
     QStringList out;
     for (const auto &g : m_groups) {
@@ -292,12 +312,19 @@ QString AppController::runMerge(const QString &outDir) {
     if (QDir(contentDir).isEmpty())
         return tr("No hay nada seleccionado para mergear.");
 
-    // 3) Empaquetar.
-    const QString outPak = outDir + QStringLiteral("/zzz_StellarTool_Merged.pak");
+    // 3) Empaquetar. Con retoc disponible se genera contenedor Zen/IoStore
+    //    (formato nativo de Stellar Blade); si no, pak legacy.
     QString err;
     QMetaObject::invokeMethod(this, [this] { setStatus(tr("Empaquetando...")); }, Qt::QueuedConnection);
-    if (!m_pak->pack(contentDir, outPak, &err))
-        return err;
+    if (m_pak->zenAvailable()) {
+        const QString outUtoc = outDir + QStringLiteral("/zzz_StellarTool_Merged_P.utoc");
+        if (!m_pak->packZen(contentDir, outUtoc, &err))
+            return err;
+    } else {
+        const QString outPak = outDir + QStringLiteral("/zzz_StellarTool_Merged_P.pak");
+        if (!m_pak->pack(contentDir, outPak, &err))
+            return err;
+    }
     return {};
 }
 
@@ -320,7 +347,7 @@ void AppController::merge(const QUrl &outDirUrl) {
         const QString error = runMerge(outDir);
         QMetaObject::invokeMethod(this, [this, error, outDir] {
             if (error.isEmpty()) {
-                m_lastMergeResult = tr("OK: %1/zzz_StellarTool_Merged.pak generado y verificado.").arg(outDir);
+                m_lastMergeResult = tr("OK: zzz_StellarTool_Merged_P generado y verificado en %1.").arg(outDir);
             } else {
                 m_lastMergeResult = tr("Error: %1").arg(error);
                 emit errorOccurred(error);

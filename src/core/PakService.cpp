@@ -26,6 +26,31 @@ QString PakService::repakPath() {
 
 bool PakService::available() const { return !repakPath().isEmpty(); }
 
+QString PakService::retocPath() {
+    const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("ST_RETOC"));
+    if (!env.isEmpty() && QFileInfo::exists(env)) return env;
+    const QString bundled = QCoreApplication::applicationDirPath() + QStringLiteral("/tools/retoc.exe");
+    if (QFileInfo::exists(bundled)) return bundled;
+    const QString dev = QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools/retoc.exe");
+    if (QFileInfo::exists(dev)) return QFileInfo(dev).absoluteFilePath();
+    return {};
+}
+
+bool PakService::zenAvailable() const { return !retocPath().isEmpty(); }
+
+bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QString *error) {
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral("retoc.exe no encontrado en tools/.");
+        return false;
+    }
+    QDir().mkpath(QFileInfo(outUtoc).absolutePath());
+    if (!runProcess(retoc, {QStringLiteral("to-zen"), contentDir, outUtoc,
+                            QStringLiteral("--version"), QStringLiteral("UE4_26")}, error))
+        return false;
+    return runProcess(retoc, {QStringLiteral("verify"), outUtoc}, error);
+}
+
 bool PakService::runProcess(const QString &exe, const QStringList &args, QString *error, int timeoutMs) {
     QProcess p;
     p.setProcessChannelMode(QProcess::MergedChannels);
