@@ -16,7 +16,7 @@ Requisitos: Windows 10/11, [Qt 6.4+](https://www.qt.io/download-open-source) (MS
 ```bat
 git clone https://github.com/guideahon/StellarTool.git
 cd StellarTool
-setup.bat                   :: descarga repak.exe y UAssetGUI.exe a tools\ (con verificación de hash)
+setup.bat                   :: descarga a tools\: repak, retoc, UAssetGUI y StellarBlade.usmap
 build.bat Release NOPAUSE   :: genera build\Release\StellarTool.exe (con Qt deployado)
 tests.bat Release           :: corre la suite de unit tests (diff/merge)
 ```

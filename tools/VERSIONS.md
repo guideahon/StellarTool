@@ -11,10 +11,13 @@ También se pueden apuntar con variables de entorno `ST_REPAK` / `ST_UASSETGUI`.
 
 ## Mappings (`StellarBlade.usmap`)
 
-Colocar `StellarBlade.usmap` en esta carpeta (o apuntar con env `ST_USMAP`). Sin él,
-UAssetGUI produce JSON sin nombres de propiedades y el diff pierde legibilidad.
-Se consigue en la comunidad de modding de Stellar Blade (dump de mappings del juego,
-p.ej. generado con UE4SS). No se versiona en el repo.
+`setup.bat` lo descarga automáticamente a esta carpeta desde el archivo público de
+la comunidad: https://github.com/TheNaeem/Unreal-Mappings-Archive
+(ruta `Stellar Blade/1.4.1/Mappings.usmap`). También se puede apuntar con env `ST_USMAP`.
+
+Sin él, UAssetGUI decodifica las DataTables de Stellar Blade sin nombres de
+propiedades (aparecen como RawExport) y el diff no funciona. **No se versiona en
+este repo** (mapping de la comunidad, licencia no declarada); solo se descarga.
 
 Al actualizar cualquiera de los dos: correr un round-trip de prueba
 (unpack → tojson → fromjson → pack) con un mod conocido antes de commitear,
