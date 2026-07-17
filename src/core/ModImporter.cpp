@@ -51,6 +51,17 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
             }
         }
     } else if (fi.suffix().compare(QLatin1String("pak"), Qt::CaseInsensitive) == 0) {
+        // Mods Zen/IoStore: el .pak es una cáscara vacía y los datos viven en
+        // .ucas/.utoc. retoc no puede reconvertir contenedores de mods ya
+        // empaquetados, así que se pide la fuente legacy.
+        const QString utoc = fi.absolutePath() + QLatin1Char('/') + fi.completeBaseName() + QStringLiteral(".utoc");
+        if (QFileInfo::exists(utoc)) {
+            if (error) *error = tr("'%1' es un mod Zen/IoStore (.ucas/.utoc); no se puede "
+                                   "desempaquetar el contenedor. Cargá el mod como carpeta "
+                                   "con los .uasset legacy (ej: el dir 'package' con SB/Content/...).")
+                                   .arg(fi.fileName());
+            return false;
+        }
         emit progress(tr("Desempaquetando %1...").arg(fi.fileName()));
         if (!m_pak->unpack(sourcePath, extractDir, error)) return false;
     } else if (fi.suffix().compare(QLatin1String("zip"), Qt::CaseInsensitive) == 0) {

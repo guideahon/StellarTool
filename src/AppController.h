@@ -49,6 +49,12 @@ public:
     Q_INVOKABLE void analyze();
     Q_INVOKABLE void resolveConflict(int groupId, const QString &modId);
     Q_INVOKABLE void resolveAllWithMod(const QString &modId);
+    Q_INVOKABLE void resolveAllByPriority(); // gana el mod con menor loadOrder
+
+    // Acceso de solo lectura (headless / tests).
+    const QList<ModPackage> &mods() const { return m_mods; }
+    const QList<ChangeItem> &items() const { return m_items; }
+    const QList<ConflictGroup> &groups() const { return m_groups; }
     Q_INVOKABLE void merge(const QUrl &outDirUrl);
     Q_INVOKABLE void importBaseline(const QUrl &dirUrl);
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);

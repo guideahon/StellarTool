@@ -25,6 +25,7 @@ set(CORE_SOURCES
     src/models/ChangeListModel.cpp
     src/models/ConflictModel.cpp
     src/AppController.cpp
+    src/HeadlessRunner.cpp
 )
 set(CORE_HEADERS
     src/core/ModTypes.h
@@ -39,6 +40,7 @@ set(CORE_HEADERS
     src/models/ChangeListModel.h
     src/models/ConflictModel.h
     src/AppController.h
+    src/HeadlessRunner.h
 )
 
 qt_add_executable(StellarTool
