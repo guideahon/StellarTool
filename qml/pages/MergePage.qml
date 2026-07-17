@@ -108,7 +108,7 @@ Item {
 
         Label {
             text: App.lastMergeResult
-            color: App.lastMergeResult.startsWith("OK") ? Theme.ok : Theme.danger
+            color: App.lastMergeOk ? Theme.ok : Theme.danger
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }

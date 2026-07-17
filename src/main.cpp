@@ -66,7 +66,8 @@ int main(int argc, char *argv[]) {
             return 2;
         }
 
-        st::AppController controller;
+        st::Translator translator;
+        st::AppController controller(&translator);
         controller.setExportZip(!parser.isSet(QStringLiteral("no-zip")));
         st::HeadlessRunner runner(&controller);
         return runner.run(command, parser.values(QStringLiteral("mod")),
@@ -79,8 +80,8 @@ int main(int argc, char *argv[]) {
     app.setOrganizationName(QStringLiteral("StellarTool"));
     app.setApplicationName(QStringLiteral("StellarTool"));
 
-    st::AppController controller;
     st::Translator translator;
+    st::AppController controller(&translator);
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError> &ws) {

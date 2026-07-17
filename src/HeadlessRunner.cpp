@@ -125,9 +125,8 @@ int HeadlessRunner::run(const QString &command, const QStringList &mods,
     m_controller->merge(QUrl::fromLocalFile(outDir));
     if (!waitIdle()) return 3;
 
-    const QString result = m_controller->lastMergeResult();
-    out(result);
-    return result.startsWith(QLatin1String("OK")) ? 0 : 5;
+    out(m_controller->lastMergeResult());
+    return m_controller->lastMergeOk() ? 0 : 5;
 }
 
 } // namespace st
