@@ -134,6 +134,26 @@ int PakService::toLegacy(const QString &utocPath, const QString &outDir, QString
     return n;
 }
 
+QStringList PakService::listZenAssets(const QString &utocPath) {
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) return {};
+    const QString tmp = QDir::tempPath() + QStringLiteral("/st_zenlist_")
+        + QFileInfo(utocPath).completeBaseName();
+    QDir(tmp).removeRecursively();
+    QDir().mkpath(tmp);
+    QStringList names;
+    if (runProcess(retoc, {QStringLiteral("unpack"), utocPath, tmp}, nullptr, 120000)) {
+        QDirIterator it(tmp, {QStringLiteral("*.uasset")}, QDir::Files, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            it.next();
+            names << it.fileInfo().completeBaseName();
+        }
+    }
+    QDir(tmp).removeRecursively();
+    names.sort();
+    return names;
+}
+
 bool PakService::extractZip(const QString &zipPath, const QString &outDir, QString *error) {
     QDir().mkpath(outDir);
     // tar.exe (bsdtar) viene con Windows 10+ y soporta zip.

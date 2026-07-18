@@ -79,6 +79,7 @@
   "err_import_failed": "No se pudo importar el mod.",
   "err_no_assets": "El mod no contiene assets.",
   "err_zen_mod": "'%1' es un mod Zen/IoStore (.ucas/.utoc) y no se pudo revertir a legacy (los contenedores de mods ya empaquetados no siempre se pueden desempaquetar). Usá la versión legacy del mod: un .pak clásico, o la carpeta con los .uasset (ej: el dir 'package' con SB/Content/...).",
+  "err_zen_mod_tables": "'%1' es un mod Zen/IoStore (.ucas/.utoc) que no se puede revertir a legacy, así que no se pueden leer sus valores para mergear.\n\nModifica: %2.\n\nPara mergearlo, conseguí la versión legacy del mod (un .pak clásico, o su carpeta fuente con los .uasset bajo SB/Content/...).",
   "err_zen_container": "'%1' es un contenedor Zen/IoStore que no se pudo revertir a legacy. Usá la versión legacy del mod.",
   "err_zip_empty": "El zip no contiene ni .pak ni assets .uasset.",
   "err_unsupported": "Formato no soportado: %1 (se acepta .pak, .zip o carpeta)",
