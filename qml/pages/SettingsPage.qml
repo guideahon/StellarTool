@@ -102,7 +102,17 @@ Item {
                         anchors.fill: parent
                         anchors.leftMargin: 12
                         spacing: 10
-                        Label { text: modelData.flag; font.pixelSize: 20 }
+                        Rectangle {
+                            width: 34; height: 22; radius: 5
+                            color: I18n.language === modelData.code ? Theme.accent : Theme.border
+                            Label {
+                                anchors.centerIn: parent
+                                text: modelData.code.split("_")[0].toUpperCase()
+                                color: I18n.language === modelData.code ? "#14161c" : Theme.text
+                                font.pixelSize: 11
+                                font.bold: true
+                            }
+                        }
                         Label {
                             text: modelData.name
                             color: Theme.text
