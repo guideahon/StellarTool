@@ -29,6 +29,11 @@ QString GamePaths::paksDir() {
     return root + QStringLiteral("/SB/Content/Paks");
 }
 
+QString GamePaths::modsDir() {
+    const QString paks = paksDir();
+    return paks.isEmpty() ? QString() : paks + QStringLiteral("/~mods");
+}
+
 bool GamePaths::hasGame() {
     const QString paks = paksDir();
     return !paks.isEmpty() && QFileInfo::exists(paks + QStringLiteral("/global.utoc"));

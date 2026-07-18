@@ -55,6 +55,7 @@ public:
 
     Q_INVOKABLE void addMod(const QUrl &url);
     Q_INVOKABLE void removeMod(int row);
+    Q_INVOKABLE void clearMods();
     Q_INVOKABLE void analyze();
     Q_INVOKABLE void resolveConflict(int groupId, const QString &modId);
     Q_INVOKABLE void resolveAllWithMod(const QString &modId);
@@ -70,6 +71,7 @@ public:
     QString gamePath() const;
     bool hasGamePath() const;
     Q_INVOKABLE void setGamePath(const QUrl &dirUrl);
+    Q_INVOKABLE QString defaultOutDir() const;   // <juego>/~mods si hay juego, si no vacío
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;

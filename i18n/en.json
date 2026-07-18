@@ -1,5 +1,6 @@
 {
   "app_subtitle": "Stellar Blade mod merger",
+  "nav_easy": "EasyMerge",
   "nav_mods": "Mods",
   "nav_changes": "Changes",
   "nav_conflicts": "Conflicts",
@@ -65,6 +66,19 @@
   "lang_popup_title": "Choose your language",
   "lang_popup_desc": "You can change it later in Settings.",
   "lang_popup_confirm": "Continue",
+
+  "easy_title": "EasyMerge",
+  "easy_subtitle": "Drop all your mods here and merge everything against vanilla in one click. Conflicts are auto-resolved by order (the first mod wins).",
+  "easy_dropzone": "Drop your .pak / .zip / folders here",
+  "easy_add": "Add mods...",
+  "easy_out": "Install to",
+  "easy_out_placeholder": "Destination folder (your ~mods)",
+  "easy_merge_btn": "Merge everything",
+  "easy_summary": "%1 changes · %2 conflicts (auto-resolved by order)",
+  "easy_need_analyze": "Add mods to start.",
+  "easy_advanced": "Advanced: pick individual changes",
+  "easy_advanced_hint": "Untick any change you don't want in the merge. Conflicts are resolved in favor of the first mod; use the Conflicts tab to change a winner.",
+  "easy_clear": "Clear all",
 
   "core_importing": "Importing %1...",
   "core_unpacking": "Unpacking %1...",
