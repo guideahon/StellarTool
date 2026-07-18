@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import ".."
 
 Item {
@@ -15,6 +16,62 @@ Item {
             font.pixelSize: 22
             font.bold: true
         }
+
+        // ---- Carpeta del juego + baseline ----
+        Label {
+            text: I18n.s.settings_game
+            color: Theme.text
+            font.pixelSize: 16
+            font.bold: true
+        }
+        Label {
+            text: I18n.s.settings_game_desc
+            color: Theme.textDim
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+                Layout.fillWidth: true
+                height: 34
+                radius: Theme.radius
+                color: Theme.panel
+                border.color: Theme.border
+                Label {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    verticalAlignment: Text.AlignVCenter
+                    text: App.hasGamePath ? App.gamePath : I18n.s.settings_game_none
+                    color: App.hasGamePath ? Theme.text : Theme.warn
+                    elide: Text.ElideMiddle
+                }
+            }
+            Button {
+                text: I18n.s.settings_game_choose
+                enabled: !App.busy
+                onClicked: gameDialog.open()
+            }
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Button {
+                text: I18n.s.settings_build_baseline
+                enabled: !App.busy && App.hasGamePath && App.toolsAvailable
+                highlighted: true
+                onClicked: App.buildBaselineFromGame()
+            }
+            Label {
+                text: App.hasBaseline ? I18n.s.settings_baseline_ok : I18n.s.settings_baseline_none
+                color: App.hasBaseline ? Theme.ok : Theme.textDim
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+            }
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
         Label {
             text: I18n.s.settings_language
@@ -63,5 +120,10 @@ Item {
         }
 
         Item { Layout.fillHeight: true }
+    }
+
+    FolderDialog {
+        id: gameDialog
+        onAccepted: App.setGamePath(selectedFolder)
     }
 }

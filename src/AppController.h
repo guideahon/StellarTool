@@ -23,6 +23,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(bool hasBaseline READ hasBaseline NOTIFY baselineChanged)
+    Q_PROPERTY(QString gamePath READ gamePath NOTIFY gamePathChanged)
+    Q_PROPERTY(bool hasGamePath READ hasGamePath NOTIFY gamePathChanged)
     Q_PROPERTY(bool toolsAvailable READ toolsAvailable CONSTANT)
     Q_PROPERTY(QString toolsError READ toolsError CONSTANT)
     Q_PROPERTY(st::ModListModel *modModel READ modModel CONSTANT)
@@ -65,6 +67,9 @@ public:
     Q_INVOKABLE void merge(const QUrl &outDirUrl);
     Q_INVOKABLE void importBaseline(const QUrl &dirUrl);
     Q_INVOKABLE void buildBaselineFromGame();
+    QString gamePath() const;
+    bool hasGamePath() const;
+    Q_INVOKABLE void setGamePath(const QUrl &dirUrl);
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;
@@ -73,6 +78,7 @@ signals:
     void busyChanged();
     void statusChanged();
     void baselineChanged();
+    void gamePathChanged();
     void analysisChanged();
     void mergeFinished();
     void exportZipChanged();
