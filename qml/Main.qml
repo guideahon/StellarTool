@@ -42,11 +42,12 @@ ApplicationWindow {
 
                 Repeater {
                     model: [
-                        { key: "nav_mods", page: 0 },
-                        { key: "nav_changes", page: 1 },
-                        { key: "nav_conflicts", page: 2 },
-                        { key: "nav_merge", page: 3 },
-                        { key: "nav_settings", page: 4 },
+                        { key: "nav_easy", page: 0 },
+                        { key: "nav_mods", page: 1 },
+                        { key: "nav_changes", page: 2 },
+                        { key: "nav_conflicts", page: 3 },
+                        { key: "nav_merge", page: 4 },
+                        { key: "nav_settings", page: 5 },
                     ]
                     delegate: Rectangle {
                         required property var modelData
@@ -64,7 +65,7 @@ ApplicationWindow {
                             font.pixelSize: 15
                         }
                         Rectangle {
-                            visible: modelData.page === 2 && App.conflictModel.pendingCount > 0
+                            visible: modelData.page === 3 && App.conflictModel.pendingCount > 0
                             anchors.right: parent.right
                             anchors.rightMargin: 10
                             anchors.verticalCenter: parent.verticalCenter
@@ -128,6 +129,7 @@ ApplicationWindow {
             Layout.fillHeight: true
             currentIndex: win.currentPage
 
+            EasyMergePage {}
             HomePage {}
             ChangesPage {}
             ConflictsPage {}

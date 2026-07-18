@@ -1,5 +1,6 @@
 {
   "app_subtitle": "Merge de mods de Stellar Blade",
+  "nav_easy": "EasyMerge",
   "nav_mods": "Mods",
   "nav_changes": "Cambios",
   "nav_conflicts": "Conflictos",
@@ -65,6 +66,19 @@
   "lang_popup_title": "Elegí tu idioma",
   "lang_popup_desc": "Podés cambiarlo después en Ajustes.",
   "lang_popup_confirm": "Continuar",
+
+  "easy_title": "EasyMerge",
+  "easy_subtitle": "Tirá todos tus mods acá y mergeá todo contra vanilla en un clic. Los conflictos se resuelven solos por orden (gana el primero).",
+  "easy_dropzone": "Arrastrá tus .pak / .zip / carpetas acá",
+  "easy_add": "Agregar mods...",
+  "easy_out": "Instalar en",
+  "easy_out_placeholder": "Carpeta destino (tu ~mods)",
+  "easy_merge_btn": "Mergear todo",
+  "easy_summary": "%1 cambios · %2 conflictos (resueltos por orden)",
+  "easy_need_analyze": "Agregá mods para empezar.",
+  "easy_advanced": "Avanzado: elegir cambios individuales",
+  "easy_advanced_hint": "Destildá los cambios que no querés en el merge. Los conflictos se resuelven a favor del primer mod; usá la pestaña Conflictos para cambiar el ganador.",
+  "easy_clear": "Limpiar todo",
 
   "core_importing": "Importando %1...",
   "core_unpacking": "Desempaquetando %1...",

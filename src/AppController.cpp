@@ -136,6 +136,20 @@ void AppController::removeMod(int row) {
     emit analysisChanged();
 }
 
+void AppController::clearMods() {
+    if (m_busy) return;
+    for (const auto &m : m_mods)
+        QDir(workRoot() + QLatin1Char('/') + m.id).removeRecursively();
+    m_mods.clear();
+    m_items.clear();
+    m_groups.clear();
+    m_analyzed = false;
+    m_modModel.setMods(m_mods);
+    m_changeModel.refresh();
+    m_conflictModel.refresh();
+    emit analysisChanged();
+}
+
 void AppController::runAnalysis() {
     QList<ChangeItem> items;
     for (const ModPackage &mod : m_mods) {
@@ -481,6 +495,7 @@ void AppController::merge(const QUrl &outDirUrl) {
 
 QString AppController::gamePath() const { return GamePaths::gameRoot(); }
 bool AppController::hasGamePath() const { return GamePaths::hasGame(); }
+QString AppController::defaultOutDir() const { return GamePaths::modsDir(); }
 
 void AppController::setGamePath(const QUrl &dirUrl) {
     const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();

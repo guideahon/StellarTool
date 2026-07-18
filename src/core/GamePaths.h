@@ -13,6 +13,7 @@ public:
     static QString gameRoot();               // .../StellarBlade  (guardado o autodetectado)
     static void setGameRoot(const QString &root);
     static QString paksDir();                // <root>/SB/Content/Paks
+    static QString modsDir();                // <root>/SB/Content/Paks/~mods (destino de instalación)
     static bool hasGame();                   // paksDir existe con global.utoc
     static QStringList globalContainerFiles(); // global.utoc/.ucas/.upak del juego
 
