@@ -79,6 +79,7 @@
   "err_import_failed": "Could not import the mod.",
   "err_no_assets": "The mod contains no assets.",
   "err_zen_mod": "'%1' is a Zen/IoStore mod (.ucas/.utoc) and could not be reverted to legacy (already-packed mod containers cannot always be unpacked). Use the legacy version of the mod: a classic .pak, or the folder with the .uasset files (e.g. the 'package' dir with SB/Content/...).",
+  "err_zen_mod_tables": "'%1' is a Zen/IoStore mod (.ucas/.utoc) that cannot be reverted to legacy, so its values can't be read for merging.\n\nIt modifies: %2.\n\nTo merge it, get the mod's legacy version (a classic .pak, or its source folder with the .uasset files under SB/Content/...).",
   "err_zen_container": "'%1' is a Zen/IoStore container that could not be reverted to legacy. Use the legacy version of the mod.",
   "err_zip_empty": "The zip contains neither .pak nor .uasset assets.",
   "err_unsupported": "Unsupported format: %1 (.pak, .zip or folder are accepted)",

@@ -41,7 +41,16 @@ bool ModImporter::unpackPakInto(const QString &pak, const QString &extractDir, Q
             if (m_pak->toLegacy(utoc, extractDir, &convErr) > 0)
                 return true;
         }
-        if (error) *error = t(QStringLiteral("err_zen_mod")).arg(fi.fileName());
+        if (error) {
+            // Aunque no se pueda convertir, retoc unpack sí lista las tablas del
+            // contenedor: se las mostramos al usuario para que sepa qué toca.
+            const QStringList tables = m_pak->zenAvailable() ? m_pak->listZenAssets(utoc) : QStringList();
+            if (!tables.isEmpty())
+                *error = t(QStringLiteral("err_zen_mod_tables"))
+                             .arg(fi.fileName(), tables.join(QStringLiteral(", ")));
+            else
+                *error = t(QStringLiteral("err_zen_mod")).arg(fi.fileName());
+        }
         return false;
     }
     emit progress(t(QStringLiteral("core_unpacking")).arg(fi.fileName()));

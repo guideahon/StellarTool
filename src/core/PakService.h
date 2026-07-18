@@ -21,6 +21,9 @@ public:
     // Convierte un contenedor Zen/IoStore (.utoc) a assets legacy con retoc.
     // Devuelve la cantidad de assets extraídos (0 = no se pudo revertir).
     int toLegacy(const QString &utocPath, const QString &outDir, QString *error = nullptr);
+    // Nombres de assets dentro de un contenedor Zen (vía retoc unpack), sin
+    // convertir. Útil para informar qué tablas toca un mod Zen no convertible.
+    QStringList listZenAssets(const QString &utocPath);
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
     // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
     bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
