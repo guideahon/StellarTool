@@ -35,6 +35,11 @@ Item {
             text: I18n.s.conflicts_none
             color: Theme.ok
         }
+        Label {
+            visible: !App.analyzed
+            text: I18n.s.conflicts_hint
+            color: Theme.textDim
+        }
 
         // Resolución masiva por mod
         RowLayout {

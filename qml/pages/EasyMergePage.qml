@@ -7,9 +7,19 @@ import ".."
 Item {
     id: page
 
+    signal openSettings()
+
     // Orquestación: analizar (si hace falta) -> resolver por prioridad -> mergear.
     property bool pendingMerge: false
     property string pendingOut: ""
+
+    // Auto-análisis: al terminar una importación (busy -> false) con mods
+    // cargados y sin análisis, analizar solo (construye baseline si hace falta).
+    function maybeAutoAnalyze() {
+        if (visible && !App.busy && !App.analyzed && App.modModel.rowCount() > 0
+            && App.toolsAvailable && !pendingMerge)
+            App.analyze()
+    }
 
     function resolvedOut() {
         if (outField.text.length > 0) return outField.text
@@ -38,8 +48,11 @@ Item {
                 page.pendingMerge = false
                 App.resolveAllByPriority()
                 App.merge(page.pendingOut)
+                return
             }
+            page.maybeAutoAnalyze()
         }
+        function onAnalysisChanged() { page.maybeAutoAnalyze() }
     }
 
     ColumnLayout {
@@ -68,6 +81,36 @@ Item {
             color: Theme.textDim
             wrapMode: Text.Wrap
             Layout.fillWidth: true
+        }
+
+        // Setup pendiente: sin juego configurado no se leen mods Zen.
+        Rectangle {
+            visible: !App.hasGamePath
+            Layout.fillWidth: true
+            Layout.preferredHeight: setupRow.height + 20
+            radius: Theme.radius
+            color: Qt.rgba(0.9, 0.7, 0.33, 0.10)
+            border.color: Theme.warn
+            RowLayout {
+                id: setupRow
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: 12
+                spacing: 10
+                Label { text: "⚠"; color: Theme.warn; font.pixelSize: 18 }
+                Label {
+                    text: I18n.s.easy_setup_banner
+                    color: Theme.text
+                    wrapMode: Text.Wrap
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: I18n.s.easy_setup_btn
+                    highlighted: true
+                    onClicked: page.openSettings()
+                }
+            }
         }
 
         // Drop zone grande (multi-archivo)
@@ -166,19 +209,30 @@ Item {
                 text: App.analyzed
                       ? I18n.s.easy_summary.replace("%1", App.changeModel.totalCount)
                                            .replace("%2", App.conflictModel.rowCount())
-                      : (App.modModel.rowCount() > 0 ? "" : I18n.s.easy_need_analyze)
+                      : (App.modModel.rowCount() > 0
+                         ? (App.busy ? I18n.s.easy_analyzing_hint : "")
+                         : I18n.s.easy_need_analyze)
                 color: Theme.textDim
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
         }
 
-        Label {
+        RowLayout {
             visible: App.lastMergeResult.length > 0
-            text: App.lastMergeResult
-            color: App.lastMergeOk ? Theme.ok : Theme.danger
-            wrapMode: Text.Wrap
             Layout.fillWidth: true
+            spacing: 10
+            Label {
+                text: App.lastMergeResult
+                color: App.lastMergeOk ? Theme.ok : Theme.danger
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            Button {
+                visible: App.lastMergeOk
+                text: I18n.s.easy_open_folder
+                onClicked: App.openDir(page.resolvedOut())
+            }
         }
 
         // ---- Advanced: habilitar/deshabilitar cambios ----
@@ -186,15 +240,16 @@ Item {
             Layout.fillWidth: true
             CheckBox {
                 id: advToggle
-                enabled: App.analyzed
+                enabled: !App.busy && App.modModel.rowCount() > 0
                 text: I18n.s.easy_advanced
                 contentItem: Label {
                     text: advToggle.text
-                    color: App.analyzed ? Theme.text : Theme.textDim
+                    color: advToggle.enabled ? Theme.text : Theme.textDim
                     leftPadding: advToggle.indicator.width + 6
                     verticalAlignment: Text.AlignVCenter
                 }
-                onClicked: if (checked && !App.analyzed) App.analyze()
+                // Al expandir sin análisis previo, analizar (construye baseline si hace falta).
+                onToggled: if (checked && !App.analyzed) App.analyze()
             }
             Item { Layout.fillWidth: true }
             CheckBox {

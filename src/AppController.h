@@ -25,6 +25,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool hasBaseline READ hasBaseline NOTIFY baselineChanged)
     Q_PROPERTY(QString gamePath READ gamePath NOTIFY gamePathChanged)
     Q_PROPERTY(bool hasGamePath READ hasGamePath NOTIFY gamePathChanged)
+    Q_PROPERTY(bool advancedMode READ advancedMode WRITE setAdvancedMode NOTIFY advancedModeChanged)
     Q_PROPERTY(bool toolsAvailable READ toolsAvailable CONSTANT)
     Q_PROPERTY(QString toolsError READ toolsError CONSTANT)
     Q_PROPERTY(st::ModListModel *modModel READ modModel CONSTANT)
@@ -72,6 +73,9 @@ public:
     bool hasGamePath() const;
     Q_INVOKABLE void setGamePath(const QUrl &dirUrl);
     Q_INVOKABLE QString defaultOutDir() const;   // <juego>/~mods si hay juego, si no vacío
+    Q_INVOKABLE void openDir(const QString &path); // abre la carpeta en el Explorador
+    bool advancedMode() const;
+    void setAdvancedMode(bool v);
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;
@@ -81,6 +85,7 @@ signals:
     void statusChanged();
     void baselineChanged();
     void gamePathChanged();
+    void advancedModeChanged();
     void analysisChanged();
     void mergeFinished();
     void exportZipChanged();
