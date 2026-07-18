@@ -16,7 +16,7 @@ You check the changes you want, and when two mods touch the same value with diff
 
 Main features
 
-- Load any number of mods: legacy .pak files, zips, or loose folders with .uasset tables.
+- Load any number of mods: legacy .pak files, zips, loose .uasset folders, AND Zen/IoStore mods (the usual Nexus format, .ucas/.utoc) via CUE4Parse.
 - Per-change checkboxes: every modified row/property is one line you can keep or drop. Whole tables can be toggled at once.
 - Real before/after values against a vanilla baseline, with percentages, so you know exactly what each mod does.
 - Conflict detection at value level (same table + same row + same property with different values). Side-by-side resolution, per conflict or "prefer this mod for everything".
@@ -29,10 +29,16 @@ Main features
   StellarTool --headless merge --mod "<A>" --mod "<B>" --out <dir> [--prefer <mod>]
 - Your source mods are never modified. The tool only writes the merged output.
 
+Reading Zen/IoStore mods
+
+Most Stellar Blade mods ship as Zen/IoStore containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse — point it at your Stellar Blade folder once (Settings; it auto-detects Steam) and it can analyze and diff Zen mods against vanilla.
+
+When merging Zen mods, numeric changes (HP, damage, shields, multipliers…) are written back and verified. Non-numeric changes (text, enums, arrays of effects, object references) are shown in the diff but skipped on write — they don't round-trip reliably into a Zen container yet. The tool counts and reports exactly how many were skipped, so nothing is silent.
+
 What it does NOT do
 
-- It cannot unpack mods already packed as Zen/IoStore containers (a shell .pak plus .ucas/.utoc): current community tooling cannot reverse those. Use the mod's legacy pak, zip, or loose-files version. Most gameplay/table mods on Nexus ship as legacy paks and work directly.
 - It does not edit values by hand (yet) — it merges what your mods already change.
+- Non-numeric changes from Zen mods aren't written back (see above).
 
 Install
 

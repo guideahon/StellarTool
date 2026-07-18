@@ -65,13 +65,18 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
 
 ## Formatos de Stellar Blade
 
-- **Salida**: con `retoc.exe` presente se genera contenedor **Zen/IoStore**
-  (`zzz_StellarTool_Merged_P.utoc/.ucas/.pak`, verificado con `retoc verify`) — el
-  formato nativo del juego. Sin retoc, pak legacy V11.
-- **Entrada**: paks legacy, zips o carpetas con `.uasset`. Los mods ya empaquetados
-  como Zen (`.pak` cáscara + `.ucas/.utoc`) no se pueden desempaquetar (limitación
-  de retoc); usá la carpeta fuente legacy del mod.
-- **Baseline vanilla**: extraíble del juego con
+- **Entrada**: paks legacy, zips o carpetas con `.uasset`, **y mods Zen/IoStore**
+  (`.pak` cáscara + `.ucas/.utoc`, el formato típico de Nexus). Los mods Zen se
+  leen con **CUE4Parse** (`cue4parse.exe`), que requiere apuntar a la carpeta del
+  juego (Ajustes) — usa el `global.utoc` del juego para resolver tipos.
+- **Salida**: contenedor **Zen/IoStore** (`zzz_StellarTool_Merged_P.utoc/.ucas/.pak`,
+  verificado) — formato nativo del juego. Sin retoc, pak legacy V11.
+- **Merge de mods Zen**: los valores **numéricos** (HP, daño, multiplicadores, etc.)
+  se mergean y round-tripean confiable. Los cambios **no numéricos** de mods Zen
+  (texto/enums/arrays/objetos) se muestran en el diff pero se **saltean** al escribir
+  (no round-tripean fiel a un contenedor Zen); la tool los cuenta y avisa.
+- **Baseline vanilla**: se construye con un clic desde Ajustes (lee todas las tablas
+  del juego con CUE4Parse). También extraíble manualmente del juego con
   `retoc to-legacy -f "<Tabla>" --version UE4_26 "<StellarBlade>\SB\Content\Paks" <out>`
   e importable desde la app o con `--baseline`.
   **Si tenés mods instalados en `~mods`**: extraé desde una carpeta staging que
