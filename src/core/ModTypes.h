@@ -77,6 +77,20 @@ QJsonArray dataTableRows(const QJsonObject &root);
 QJsonObject withDataTableRows(const QJsonObject &root, const QJsonArray &rows);
 bool isDataTableJson(const QJsonObject &root);
 
+// Convierte el JSON de una DataTable exportado por CUE4Parse (array con
+// [0].Rows = { fila: { prop: valor } }) al shape UAssetAPI que consume el diff
+// (Exports[0].Table.Data = [ {Name, Value:[props]} ]). Devuelve objeto vacío si
+// el JSON no tiene la forma esperada.
+QJsonObject cue4ToDataTableDoc(const QByteArray &cue4Json);
+
+// Normaliza una DataTable (UAssetAPI/UAssetGUI o ya convertida de CUE4Parse) a
+// una forma canónica limpia: cada propiedad = {Name, Value}, descartando la
+// metadata de serialización de UAssetGUI ($type, ArrayIndex, PropertyGuid,
+// IsZero, StructGUID, etc.). Así el diff compara valores reales sin importar
+// con qué parser se leyó cada lado. Los propPath (por Name) siguen siendo
+// válidos para aplicar el merge sobre el JSON real de UAssetGUI.
+QJsonObject normalizeDataTableDoc(const QJsonObject &root);
+
 // Comparación de valores con tolerancia float (epsilon relativo 1e-6).
 bool jsonValueEquals(const QJsonValue &a, const QJsonValue &b);
 

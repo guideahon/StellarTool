@@ -21,7 +21,7 @@ public:
     // Devuelve el exit code del proceso.
     int run(const QString &command, const QStringList &mods,
             const QString &outDir, const QString &baselineDir,
-            const QString &preferMod);
+            const QString &preferMod, bool rebuildBaseline = false);
 
 private:
     bool waitIdle();   // procesa el event loop hasta que controller no esté busy

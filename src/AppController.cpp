@@ -2,6 +2,8 @@
 
 #include "core/PakService.h"
 #include "core/UAssetService.h"
+#include "core/Cue4Service.h"
+#include "core/GamePaths.h"
 #include "core/ModImporter.h"
 #include "core/BaselineManager.h"
 #include "core/ProjectStore.h"
@@ -25,10 +27,13 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_i18n(i18n),
       m_pak(new PakService(this)),
       m_uasset(new UAssetService(this)),
-      m_importer(new ModImporter(m_pak, m_uasset, i18n, this)),
-      m_baseline(new BaselineManager(m_uasset, this)),
+      m_cue4(new Cue4Service(this)),
+      m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
+      m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
       m_store(new ProjectStore(this)) {
     connect(m_importer, &ModImporter::progress, this,
+            [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
+    connect(m_baseline, &BaselineManager::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     m_changeModel.setItems(&m_items);
     m_conflictModel.setSource(&m_items, &m_groups);
@@ -119,8 +124,10 @@ void AppController::runAnalysis() {
             if (asset.kind == ModAsset::DataTable) {
                 QFile f(asset.jsonPath);
                 if (!f.open(QIODevice::ReadOnly)) continue;
-                const QJsonObject modRoot = QJsonDocument::fromJson(f.readAll()).object();
-                const QJsonObject baseRoot = m_baseline->tableFor(asset.gamePath);
+                const QJsonObject modRoot = normalizeDataTableDoc(
+                    QJsonDocument::fromJson(f.readAll()).object());
+                QJsonObject baseRoot = m_baseline->tableFor(asset.gamePath);
+                if (!baseRoot.isEmpty()) baseRoot = normalizeDataTableDoc(baseRoot);
                 items << TableDiffEngine::diffTable(baseRoot, modRoot, asset.gamePath,
                                                     mod.id, mod.name);
             } else if (asset.kind != ModAsset::DataTable) {
@@ -395,6 +402,33 @@ void AppController::merge(const QUrl &outDirUrl) {
                 emit errorOccurred(error);
             }
             emit mergeFinished();
+            setBusy(false);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::buildBaselineFromGame() {
+    if (m_busy) return;
+    if (!GamePaths::hasGame()) {
+        emit errorOccurred(t(QStringLiteral("err_need_game_path")));
+        return;
+    }
+    const QString paks = GamePaths::paksDir();
+    const QString usmap = m_uasset->usmapPath();
+    setBusy(true, t(QStringLiteral("core_importing_baseline")));
+    std::ignore = QtConcurrent::run([this, paks, usmap] {
+        QString error;
+        int imported = 0;
+        const bool ok = m_baseline->buildFromGame(paks, usmap, &error, &imported);
+        QMetaObject::invokeMethod(this, [this, ok, error, imported] {
+            if (ok) {
+                setStatus(t(QStringLiteral("core_baseline_done")).arg(imported));
+                emit baselineChanged();
+                m_analyzed = false;
+                emit analysisChanged();
+            } else {
+                emit errorOccurred(error);
+            }
             setBusy(false);
         }, Qt::QueuedConnection);
     });

@@ -12,6 +12,7 @@ namespace st {
 
 class PakService;
 class UAssetService;
+class Cue4Service;
 class ModImporter;
 class BaselineManager;
 class ProjectStore;
@@ -63,6 +64,7 @@ public:
     const QList<ConflictGroup> &groups() const { return m_groups; }
     Q_INVOKABLE void merge(const QUrl &outDirUrl);
     Q_INVOKABLE void importBaseline(const QUrl &dirUrl);
+    Q_INVOKABLE void buildBaselineFromGame();
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;
@@ -87,6 +89,7 @@ private:
     Translator *m_i18n;
     PakService *m_pak;
     UAssetService *m_uasset;
+    Cue4Service *m_cue4;
     ModImporter *m_importer;
     BaselineManager *m_baseline;
     ProjectStore *m_store;

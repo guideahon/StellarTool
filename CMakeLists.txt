@@ -16,6 +16,8 @@ set(CORE_SOURCES
     src/core/ModTypes.cpp
     src/core/PakService.cpp
     src/core/UAssetService.cpp
+    src/core/Cue4Service.cpp
+    src/core/GamePaths.cpp
     src/core/BaselineManager.cpp
     src/core/ModImporter.cpp
     src/core/TableDiffEngine.cpp
@@ -32,6 +34,8 @@ set(CORE_HEADERS
     src/core/ModTypes.h
     src/core/PakService.h
     src/core/UAssetService.h
+    src/core/Cue4Service.h
+    src/core/GamePaths.h
     src/core/BaselineManager.h
     src/core/ModImporter.h
     src/core/TableDiffEngine.h
