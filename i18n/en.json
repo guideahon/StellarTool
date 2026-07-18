@@ -83,7 +83,7 @@
   "easy_setup_btn": "Set it up",
   "easy_open_folder": "Open folder",
   "easy_analyzing_hint": "Analyzing mods...",
-  "mode_advanced": "Advanced mode",
+  "mode_advanced": "Advanced",
   "mode_advanced_tip": "Workbench for building a merge-mod: mod priority, per-change selection, manual conflict resolution, projects.",
   "status_game_ok": "Game ✓",
   "status_game_missing": "Game: not set",
