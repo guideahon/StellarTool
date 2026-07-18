@@ -43,16 +43,16 @@ ApplicationWindow {
                 Repeater {
                     model: App.advancedMode
                            ? [
-                               { key: "nav_easy", page: 0 },
-                               { key: "nav_mods", page: 1 },
-                               { key: "nav_changes", page: 2 },
-                               { key: "nav_conflicts", page: 3 },
-                               { key: "nav_merge", page: 4 },
-                               { key: "nav_settings", page: 5 },
+                               { key: "nav_easy", icon: "⚡", page: 0 },
+                               { key: "nav_mods", icon: "📦", page: 1 },
+                               { key: "nav_changes", icon: "📝", page: 2 },
+                               { key: "nav_conflicts", icon: "⚔️", page: 3 },
+                               { key: "nav_merge", icon: "🔀", page: 4 },
+                               { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                            : [
-                               { key: "nav_easy", page: 0 },
-                               { key: "nav_settings", page: 5 },
+                               { key: "nav_easy", icon: "⚡", page: 0 },
+                               { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                     delegate: Rectangle {
                         required property var modelData
@@ -61,13 +61,26 @@ ApplicationWindow {
                         radius: Theme.radius
                         color: win.currentPage === modelData.page ? Theme.panelAlt : "transparent"
                         border.color: win.currentPage === modelData.page ? Theme.border : "transparent"
-                        Label {
+                        RowLayout {
                             anchors.verticalCenter: parent.verticalCenter
                             anchors.left: parent.left
-                            anchors.leftMargin: 14
-                            text: I18n.s[modelData.key]
-                            color: win.currentPage === modelData.page ? Theme.text : Theme.textDim
-                            font.pixelSize: 15
+                            anchors.leftMargin: 12
+                            anchors.right: parent.right
+                            anchors.rightMargin: 8
+                            spacing: 10
+                            Label {
+                                text: modelData.icon
+                                font.pixelSize: 15
+                                Layout.preferredWidth: 20
+                                horizontalAlignment: Text.AlignHCenter
+                            }
+                            Label {
+                                text: I18n.s[modelData.key]
+                                color: win.currentPage === modelData.page ? Theme.text : Theme.textDim
+                                font.pixelSize: 15
+                                elide: Text.ElideRight
+                                Layout.fillWidth: true
+                            }
                         }
                         Rectangle {
                             visible: modelData.page === 3 && App.conflictModel.pendingCount > 0
