@@ -479,6 +479,17 @@ void AppController::merge(const QUrl &outDirUrl) {
     });
 }
 
+QString AppController::gamePath() const { return GamePaths::gameRoot(); }
+bool AppController::hasGamePath() const { return GamePaths::hasGame(); }
+
+void AppController::setGamePath(const QUrl &dirUrl) {
+    const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
+    GamePaths::setGameRoot(dir);
+    emit gamePathChanged();
+    if (!GamePaths::hasGame())
+        emit errorOccurred(t(QStringLiteral("err_game_not_found")));
+}
+
 void AppController::buildBaselineFromGame() {
     if (m_busy) return;
     if (!GamePaths::hasGame()) {
