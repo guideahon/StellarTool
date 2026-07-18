@@ -43,7 +43,7 @@ bool HeadlessRunner::waitIdle() {
 
 int HeadlessRunner::run(const QString &command, const QStringList &mods,
                         const QString &outDir, const QString &baselineDir,
-                        const QString &preferMod) {
+                        const QString &preferMod, bool rebuildBaseline) {
     if (!m_controller->toolsAvailable()) {
         out(QStringLiteral("[ERROR] ") + m_controller->toolsError());
         return 2;
@@ -51,6 +51,12 @@ int HeadlessRunner::run(const QString &command, const QStringList &mods,
     if (mods.isEmpty()) {
         out(QStringLiteral("[ERROR] Falta al menos un --mod <ruta>"));
         return 2;
+    }
+
+    if (rebuildBaseline) {
+        out(QStringLiteral("[INFO] Reconstruyendo baseline desde el juego (CUE4Parse)..."));
+        m_controller->buildBaselineFromGame();
+        if (!waitIdle()) return 3;
     }
 
     if (!baselineDir.isEmpty()) {

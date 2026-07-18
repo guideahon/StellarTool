@@ -1,6 +1,7 @@
 #include "AppController.h"
 #include "HeadlessRunner.h"
 #include "Translator.h"
+#include "core/GamePaths.h"
 
 #include <QGuiApplication>
 #include <QCoreApplication>
@@ -57,6 +58,8 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("baseline"), QStringLiteral("Carpeta con JSONs de tablas vanilla"), QStringLiteral("dir")});
         parser.addOption({QStringLiteral("prefer"), QStringLiteral("Nombre de mod que gana todos sus conflictos"), QStringLiteral("mod")});
         parser.addOption({QStringLiteral("no-zip"), QStringLiteral("No generar el zip instalable junto al pak")});
+        parser.addOption({QStringLiteral("rebuild-baseline"), QStringLiteral("Reconstruir baseline vanilla desde el juego (CUE4Parse) antes de analizar")});
+        parser.addOption({QStringLiteral("game"), QStringLiteral("Ruta de instalación de Stellar Blade (para leer mods Zen)"), QStringLiteral("dir")});
         parser.process(app);
 
         const QStringList pos = parser.positionalArguments();
@@ -66,6 +69,8 @@ int main(int argc, char *argv[]) {
             return 2;
         }
 
+        if (parser.isSet(QStringLiteral("game")))
+            st::GamePaths::setGameRoot(parser.value(QStringLiteral("game")));
         st::Translator translator;
         st::AppController controller(&translator);
         controller.setExportZip(!parser.isSet(QStringLiteral("no-zip")));
@@ -73,7 +78,8 @@ int main(int argc, char *argv[]) {
         return runner.run(command, parser.values(QStringLiteral("mod")),
                           parser.value(QStringLiteral("out")),
                           parser.value(QStringLiteral("baseline")),
-                          parser.value(QStringLiteral("prefer")));
+                          parser.value(QStringLiteral("prefer")),
+                          parser.isSet(QStringLiteral("rebuild-baseline")));
     }
 
     QGuiApplication app(argc, argv);

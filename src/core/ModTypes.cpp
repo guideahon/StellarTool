@@ -129,6 +129,119 @@ QJsonObject withDataTableRows(const QJsonObject &root, const QJsonArray &rows) {
     return out;
 }
 
+// value CUE4Parse -> value UAssetAPI (recursivo).
+static QJsonValue cue4Value(const QJsonValue &v);
+
+// props object CUE4Parse -> array de {Name, Value} estilo UAssetAPI.
+static QJsonArray cue4Props(const QJsonObject &obj) {
+    QJsonArray out;
+    for (auto it = obj.begin(); it != obj.end(); ++it)
+        out.append(QJsonObject{{QStringLiteral("Name"), it.key()},
+                               {QStringLiteral("Value"), cue4Value(it.value())}});
+    return out;
+}
+
+static QJsonValue cue4Value(const QJsonValue &v) {
+    if (v.isObject())
+        return cue4Props(v.toObject());
+    if (v.isArray()) {
+        QJsonArray out;
+        for (const QJsonValue &e : v.toArray())
+            out.append(cue4Value(e));
+        return out;
+    }
+    return v;
+}
+
+QJsonObject cue4ToDataTableDoc(const QByteArray &cue4Json) {
+    const QJsonDocument doc = QJsonDocument::fromJson(cue4Json);
+    // CUE4Parse exporta un array de exports; buscamos el que tenga "Rows".
+    QJsonObject tableExport;
+    if (doc.isArray()) {
+        for (const QJsonValue &e : doc.array()) {
+            if (e.isObject() && e.toObject().contains(QLatin1String("Rows"))) {
+                tableExport = e.toObject();
+                break;
+            }
+        }
+    } else if (doc.isObject() && doc.object().contains(QLatin1String("Rows"))) {
+        tableExport = doc.object();
+    }
+    if (tableExport.isEmpty()) return {};
+
+    const QJsonObject rows = tableExport.value(QLatin1String("Rows")).toObject();
+    QJsonArray data;
+    for (auto it = rows.begin(); it != rows.end(); ++it) {
+        data.append(QJsonObject{
+            {QStringLiteral("Name"), it.key()},
+            {QStringLiteral("Value"), cue4Props(it.value().toObject())},
+        });
+    }
+    return QJsonObject{{QStringLiteral("Exports"), QJsonArray{QJsonObject{
+        {QStringLiteral("$type"), QStringLiteral("UAssetAPI.ExportTypes.DataTableExport, UAssetAPI")},
+        {QStringLiteral("Table"), QJsonObject{{QStringLiteral("Data"), data}}},
+    }}}};
+}
+
+// ---- Normalización a forma canónica limpia ----
+
+// ¿Es un objeto-propiedad de UAssetGUI? (tiene "Name" y "Value" + metadata)
+static bool isUAssetProp(const QJsonObject &o) {
+    return o.contains(QLatin1String("Name")) && o.contains(QLatin1String("Value"));
+}
+
+static QJsonValue cleanValue(const QJsonValue &v);
+
+// Limpia un array que representa las propiedades de una fila/struct: cada
+// elemento es {Name, Value, ...metadata} -> {Name, Value(limpio)}.
+static QJsonArray cleanPropArray(const QJsonArray &arr) {
+    QJsonArray out;
+    for (const QJsonValue &e : arr) {
+        if (e.isObject() && isUAssetProp(e.toObject())) {
+            const QJsonObject p = e.toObject();
+            out.append(QJsonObject{{QStringLiteral("Name"), p.value(QLatin1String("Name"))},
+                                   {QStringLiteral("Value"), cleanValue(p.value(QLatin1String("Value")))}});
+        } else {
+            out.append(cleanValue(e)); // array de escalares u otros
+        }
+    }
+    return out;
+}
+
+static QJsonValue cleanValue(const QJsonValue &v) {
+    if (v.isArray())
+        return cleanPropArray(v.toArray());
+    if (v.isObject()) {
+        // Objeto no-propiedad (ej. referencia): conservar solo pares simples.
+        const QJsonObject o = v.toObject();
+        QJsonObject out;
+        for (auto it = o.begin(); it != o.end(); ++it) {
+            const QString &k = it.key();
+            if (k == QLatin1String("$type") || k == QLatin1String("ArrayIndex")
+                || k == QLatin1String("PropertyGuid") || k == QLatin1String("IsZero")
+                || k == QLatin1String("DuplicationIndex") || k == QLatin1String("Name"))
+                continue;
+            out.insert(k, cleanValue(it.value()));
+        }
+        return out;
+    }
+    return v;
+}
+
+QJsonObject normalizeDataTableDoc(const QJsonObject &root) {
+    const QJsonArray rows = dataTableRows(root);
+    if (rows.isEmpty()) return root;
+    QJsonArray outRows;
+    for (const QJsonValue &r : rows) {
+        const QJsonObject ro = r.toObject();
+        outRows.append(QJsonObject{
+            {QStringLiteral("Name"), ro.value(QLatin1String("Name"))},
+            {QStringLiteral("Value"), cleanValue(ro.value(QLatin1String("Value")))},
+        });
+    }
+    return withDataTableRows(root, outRows);
+}
+
 bool jsonValueEquals(const QJsonValue &a, const QJsonValue &b) {
     if (a.isDouble() && b.isDouble()) {
         const double x = a.toDouble(), y = b.toDouble();

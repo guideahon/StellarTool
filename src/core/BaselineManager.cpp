@@ -1,5 +1,6 @@
 #include "BaselineManager.h"
 #include "UAssetService.h"
+#include "Cue4Service.h"
 
 #include <QDir>
 #include <QDirIterator>
@@ -10,8 +11,41 @@
 
 namespace st {
 
-BaselineManager::BaselineManager(UAssetService *uasset, QObject *parent)
-    : QObject(parent), m_uasset(uasset) {}
+BaselineManager::BaselineManager(UAssetService *uasset, Cue4Service *cue4, QObject *parent)
+    : QObject(parent), m_uasset(uasset), m_cue4(cue4) {}
+
+bool BaselineManager::buildFromGame(const QString &gamePaksDir, const QString &mappings,
+                                    QString *error, int *imported) {
+    if (imported) *imported = 0;
+    if (!m_cue4 || !m_cue4->available()) {
+        if (error) *error = tr("cue4parse.exe no disponible");
+        return false;
+    }
+    QDir().mkpath(baselineDir());
+    const QString tmp = baselineDir() + QStringLiteral("/_cue4_raw");
+    emit progress(tr("Leyendo tablas vanilla del juego (CUE4Parse)..."));
+    const auto tables = m_cue4->exportTables(gamePaksDir, tmp, mappings,
+                                             QStringLiteral("*Table*"), error);
+    int count = 0;
+    for (auto it = tables.begin(); it != tables.end(); ++it) {
+        QFile f(it.value());
+        if (!f.open(QIODevice::ReadOnly)) continue;
+        const QJsonObject doc = cue4ToDataTableDoc(f.readAll());
+        f.close();
+        if (!isDataTableJson(doc)) continue;
+        const QString dst = baselineDir() + QLatin1Char('/') + it.key().toLower() + QStringLiteral(".json");
+        QFile o(dst);
+        if (!o.open(QIODevice::WriteOnly)) continue;
+        o.write(QJsonDocument(doc).toJson(QJsonDocument::Compact));
+        o.close();
+        ++count;
+    }
+    QDir(tmp).removeRecursively();
+    if (imported) *imported = count;
+    if (count == 0 && error && error->isEmpty())
+        *error = tr("CUE4Parse no exportó tablas del juego");
+    return count > 0;
+}
 
 QString BaselineManager::baselineDir() const {
     return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
