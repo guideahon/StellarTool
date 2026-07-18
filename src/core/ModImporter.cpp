@@ -95,6 +95,7 @@ int ModImporter::importZenTables(const QString &utoc, const QString &modWorkDir,
         asset.gamePath = QStringLiteral("SB/Content/Local/Data/") + it.key() + QStringLiteral(".uasset");
         asset.jsonPath = convPath;
         asset.kind = ModAsset::DataTable;
+        asset.cleanJson = true;   // leído con CUE4Parse
         pkg.assets << asset;
         ++n;
     }

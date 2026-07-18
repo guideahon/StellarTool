@@ -25,7 +25,7 @@ set EXE=%SRC%\StellarTool.exe
 if not exist "%EXE%" ( echo [ERROR] falta %EXE% & goto :fail )
 
 REM Verificar que los externos requeridos quedaron junto al exe
-for %%F in (repak.exe retoc.exe UAssetGUI.exe) do (
+for %%F in (repak.exe retoc.exe UAssetGUI.exe cue4parse.exe) do (
     if not exist "%SRC%\tools\%%F" ( echo [ERROR] falta tools\%%F en el build & goto :fail )
 )
 if not exist "%SRC%\tools\StellarBlade.usmap" echo [WARN] falta StellarBlade.usmap; el zip funcionara pero sin nombres de propiedades.

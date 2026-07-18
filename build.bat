@@ -39,7 +39,7 @@ if errorlevel 1 ( echo === windeployqt FAILED === & goto :failed )
 REM Copiar externos junto al exe (los que existan). oo2core NO se copia (Oodle,
 REM propietaria; retoc no lo necesita para el flujo de esta tool).
 if not exist "%~dp0build\%CONFIG%\tools" mkdir "%~dp0build\%CONFIG%\tools"
-for %%F in (repak.exe retoc.exe UAssetGUI.exe StellarBlade.usmap) do (
+for %%F in (repak.exe retoc.exe UAssetGUI.exe cue4parse.exe StellarBlade.usmap) do (
     if exist "%~dp0tools\%%F" copy /Y "%~dp0tools\%%F" "%~dp0build\%CONFIG%\tools\" >nul
 )
 

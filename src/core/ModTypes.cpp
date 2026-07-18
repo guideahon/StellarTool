@@ -209,6 +209,13 @@ static QJsonArray cleanPropArray(const QJsonArray &arr) {
 }
 
 static QJsonValue cleanValue(const QJsonValue &v) {
+    // UAssetGUI serializa el float cero como "+0"/"-0" (string). Normalizar a 0
+    // para que compare igual contra el 0 numérico de CUE4Parse.
+    if (v.isString()) {
+        const QString s = v.toString();
+        if (s == QLatin1String("+0") || s == QLatin1String("-0"))
+            return QJsonValue(0);
+    }
     if (v.isArray())
         return cleanPropArray(v.toArray());
     if (v.isObject()) {

@@ -134,6 +134,25 @@ int PakService::toLegacy(const QString &utocPath, const QString &outDir, QString
     return n;
 }
 
+int PakService::toLegacyFiltered(const QString &inputDir, const QString &filter,
+                                 const QString &outDir, QString *error) {
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral("retoc.exe no encontrado en tools/.");
+        return 0;
+    }
+    QDir().mkpath(outDir);
+    if (!runProcess(retoc, {QStringLiteral("to-legacy"),
+                            QStringLiteral("-f"), filter,
+                            QStringLiteral("--version"), QStringLiteral("UE4_26"),
+                            inputDir, outDir}, error))
+        return 0;
+    int n = 0;
+    QDirIterator it(outDir, {QStringLiteral("*.uasset")}, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) { it.next(); ++n; }
+    return n;
+}
+
 QStringList PakService::listZenAssets(const QString &utocPath) {
     const QString retoc = retocPath();
     if (retoc.isEmpty()) return {};
