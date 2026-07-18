@@ -60,6 +60,7 @@ Item {
             TextField {
                 id: outDir
                 Layout.fillWidth: true
+                text: App.defaultOutDir()
                 placeholderText: I18n.s.merge_outdir_placeholder
                 color: Theme.text
                 background: Rectangle { color: Theme.panel; border.color: Theme.border; radius: Theme.radius }

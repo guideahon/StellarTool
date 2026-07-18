@@ -41,14 +41,19 @@ ApplicationWindow {
                 }
 
                 Repeater {
-                    model: [
-                        { key: "nav_easy", page: 0 },
-                        { key: "nav_mods", page: 1 },
-                        { key: "nav_changes", page: 2 },
-                        { key: "nav_conflicts", page: 3 },
-                        { key: "nav_merge", page: 4 },
-                        { key: "nav_settings", page: 5 },
-                    ]
+                    model: App.advancedMode
+                           ? [
+                               { key: "nav_easy", page: 0 },
+                               { key: "nav_mods", page: 1 },
+                               { key: "nav_changes", page: 2 },
+                               { key: "nav_conflicts", page: 3 },
+                               { key: "nav_merge", page: 4 },
+                               { key: "nav_settings", page: 5 },
+                             ]
+                           : [
+                               { key: "nav_easy", page: 0 },
+                               { key: "nav_settings", page: 5 },
+                             ]
                     delegate: Rectangle {
                         required property var modelData
                         Layout.fillWidth: true
@@ -98,14 +103,45 @@ ApplicationWindow {
                     wrapMode: Text.Wrap
                     font.pixelSize: 12
                 }
-                Label {
-                    visible: !App.hasBaseline
+
+                // Estado del entorno: chips clickeables (van a Ajustes).
+                Rectangle {
                     Layout.fillWidth: true
-                    text: I18n.s.no_baseline_warning
-                    color: Theme.warn
-                    wrapMode: Text.Wrap
-                    font.pixelSize: 12
+                    height: 26
+                    radius: 13
+                    color: "transparent"
+                    border.color: App.hasGamePath ? Theme.border : Theme.warn
+                    Label {
+                        anchors.centerIn: parent
+                        text: App.hasGamePath ? I18n.s.status_game_ok : I18n.s.status_game_missing
+                        color: App.hasGamePath ? Theme.ok : Theme.warn
+                        font.pixelSize: 12
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: win.currentPage = 5
+                    }
                 }
+                Rectangle {
+                    Layout.fillWidth: true
+                    height: 26
+                    radius: 13
+                    color: "transparent"
+                    border.color: App.hasBaseline ? Theme.border : Theme.warn
+                    Label {
+                        anchors.centerIn: parent
+                        text: App.hasBaseline ? I18n.s.status_baseline_ok : I18n.s.status_baseline_missing
+                        color: App.hasBaseline ? Theme.ok : Theme.warn
+                        font.pixelSize: 12
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: win.currentPage = 5
+                    }
+                }
+
                 Label {
                     Layout.fillWidth: true
                     text: App.statusText
@@ -119,6 +155,28 @@ ApplicationWindow {
                     Layout.alignment: Qt.AlignHCenter
                     implicitWidth: 32; implicitHeight: 32
                 }
+
+                Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
+                // Simple <-> Avanzado
+                Switch {
+                    id: modeSwitch
+                    checked: App.advancedMode
+                    onToggled: {
+                        App.advancedMode = checked
+                        if (!checked && win.currentPage !== 5) win.currentPage = 0
+                    }
+                    contentItem: Label {
+                        text: I18n.s.mode_advanced
+                        color: Theme.text
+                        font.pixelSize: 13
+                        leftPadding: modeSwitch.indicator.width + 8
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                    ToolTip.visible: hovered
+                    ToolTip.delay: 400
+                    ToolTip.text: I18n.s.mode_advanced_tip
+                }
             }
         }
 
@@ -129,7 +187,7 @@ ApplicationWindow {
             Layout.fillHeight: true
             currentIndex: win.currentPage
 
-            EasyMergePage {}
+            EasyMergePage { onOpenSettings: win.currentPage = 5 }
             HomePage {}
             ChangesPage {}
             ConflictsPage {}

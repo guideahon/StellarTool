@@ -17,6 +17,8 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QDateTime>
+#include <QDesktopServices>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
 
@@ -192,7 +194,19 @@ void AppController::runAnalysis() {
 void AppController::analyze() {
     if (m_busy || m_mods.isEmpty()) return;
     setBusy(true, t(QStringLiteral("core_analyzing")));
-    std::ignore = QtConcurrent::run([this] { runAnalysis(); });
+    // Si hay juego configurado pero aún no hay baseline, construirla primero
+    // (en el mismo worker) para que los diffs sean vanilla->mod y no "fila nueva".
+    const bool needBaseline = GamePaths::hasGame() && !m_baseline->hasBaseline();
+    const QString paks = GamePaths::paksDir();
+    const QString usmap = m_uasset->usmapPath();
+    std::ignore = QtConcurrent::run([this, needBaseline, paks, usmap] {
+        if (needBaseline) {
+            QString e; int n = 0;
+            m_baseline->buildFromGame(paks, usmap, &e, &n);
+            QMetaObject::invokeMethod(this, [this] { emit baselineChanged(); }, Qt::QueuedConnection);
+        }
+        runAnalysis();
+    });
 }
 
 void AppController::resolveConflict(int groupId, const QString &modId) {
@@ -496,6 +510,23 @@ void AppController::merge(const QUrl &outDirUrl) {
 QString AppController::gamePath() const { return GamePaths::gameRoot(); }
 bool AppController::hasGamePath() const { return GamePaths::hasGame(); }
 QString AppController::defaultOutDir() const { return GamePaths::modsDir(); }
+
+void AppController::openDir(const QString &path) {
+    if (!path.isEmpty() && QFileInfo::exists(path))
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+bool AppController::advancedMode() const {
+    QSettings s;
+    return s.value(QStringLiteral("advancedMode"), false).toBool();
+}
+
+void AppController::setAdvancedMode(bool v) {
+    QSettings s;
+    if (s.value(QStringLiteral("advancedMode"), false).toBool() == v) return;
+    s.setValue(QStringLiteral("advancedMode"), v);
+    emit advancedModeChanged();
+}
 
 void AppController::setGamePath(const QUrl &dirUrl) {
     const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
