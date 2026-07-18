@@ -19,6 +19,8 @@ struct ModAsset {
     QString jsonPath;      // ruta del JSON generado por UAssetGUI (si DataTable)
     Kind kind = Other;
     QString error;         // motivo si Unreadable
+    bool cleanJson = false; // jsonPath viene de CUE4Parse (valores "limpios", no
+                            // serializables a uasset para tipos complejos)
 
     // Clave case-insensitive para comparar rutas entre mods (Windows/UE).
     QString pathKey() const { return gamePath.toLower(); }
@@ -54,6 +56,7 @@ struct ChangeItem {
     QJsonValue newValue{QJsonValue::Undefined};  // fila completa para RowAdded; Undefined para RowRemoved
     Type type = Modified;
     bool selected = true;
+    bool clean = false;     // valor leído con CUE4Parse (write-back solo escalares)
     int conflictGroup = -1; // -1 = sin conflicto
 
     QString key() const;          // tablePath|rowName|propPath (case-insensitive en tablePath)

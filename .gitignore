@@ -8,6 +8,8 @@ out.txt
 # Binarios externos: se bajan con setup.bat (ver tools/VERSIONS.md)
 tools/*.exe
 tools/*.usmap
+tools/*.pdb
+tools/*.json
 headless_*.txt
 tools/*.dll
 hz.txt

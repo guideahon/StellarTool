@@ -91,5 +91,6 @@
   "err_unresolved": "There are %1 unresolved conflicts:\n%2",
   "merge_ok_zip": "OK: merged pak + installable zip generated and verified in %1.",
   "merge_ok": "OK: merged pak generated and verified in %1.",
-  "merge_err": "Error: %1"
+  "merge_err": "Error: %1",
+  "merge_skipped_note": "(%1 non-numeric changes from Zen mods —text/enums/arrays/objects— were skipped: only numeric values round-trip reliably to a Zen container.)"
 }

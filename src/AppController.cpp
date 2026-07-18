@@ -20,6 +20,25 @@
 #include <QStandardPaths>
 #include <QUrl>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
+namespace {
+// Enlaza src->dst con hardlink (instantáneo, mismo volumen); si falla
+// (ej. distinto volumen) copia. Windows: QFile::link crearía un .lnk, no sirve.
+bool linkOrCopy(const QString &src, const QString &dst) {
+    if (QFileInfo::exists(dst)) return true;
+#ifdef Q_OS_WIN
+    if (CreateHardLinkW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(dst).utf16()),
+                        reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(src).utf16()),
+                        nullptr))
+        return true;
+#endif
+    return QFile::copy(src, dst);
+}
+}
+
 namespace st {
 
 AppController::AppController(Translator *i18n, QObject *parent)
@@ -128,8 +147,11 @@ void AppController::runAnalysis() {
                     QJsonDocument::fromJson(f.readAll()).object());
                 QJsonObject baseRoot = m_baseline->tableFor(asset.gamePath);
                 if (!baseRoot.isEmpty()) baseRoot = normalizeDataTableDoc(baseRoot);
-                items << TableDiffEngine::diffTable(baseRoot, modRoot, asset.gamePath,
-                                                    mod.id, mod.name);
+                auto tableItems = TableDiffEngine::diffTable(baseRoot, modRoot, asset.gamePath,
+                                                            mod.id, mod.name);
+                if (asset.cleanJson)
+                    for (auto &c : tableItems) c.clean = true;
+                items << tableItems;
             } else if (asset.kind != ModAsset::DataTable) {
                 // Asset no tabular: check todo-o-nada por archivo.
                 ChangeItem c;
@@ -238,6 +260,7 @@ static bool copyAssetWithCompanions(const QString &srcRoot, const QString &gameP
 }
 
 QString AppController::runMerge(const QString &outDir) {
+    m_lastSkipped = 0;
     const QString mergeRoot = workRoot() + QStringLiteral("/merged");
     QDir(mergeRoot).removeRecursively();
     const QString contentDir = mergeRoot + QStringLiteral("/content");
@@ -271,14 +294,56 @@ QString AppController::runMerge(const QString &outDir) {
         tableGamePath[c.tablePath.toLower()] = c.tablePath;
     }
 
+    // Stage de contenedores raíz del juego para extraer tablas vanilla reales
+    // (UAssetGUI) que sirven de base de escritura (fromjson). Solo si hay juego.
+    QString vanillaStage;
+    if (GamePaths::hasGame()) {
+        vanillaStage = mergeRoot + QStringLiteral("/vanilla_stage");
+        QDir().mkpath(vanillaStage);
+        const QString paks = GamePaths::paksDir();
+        QDirIterator gi(paks, {QStringLiteral("global.*"), QStringLiteral("pakchunk*")},
+                        QDir::Files);
+        while (gi.hasNext()) {
+            gi.next();
+            linkOrCopy(gi.filePath(), vanillaStage + QLatin1Char('/') + gi.fileName());
+        }
+    }
+
+    // Devuelve el JSON UAssetGUI real de una tabla vanilla (base de escritura).
+    auto realVanilla = [&](const QString &tableBase, QString *err) -> QJsonObject {
+        if (vanillaStage.isEmpty()) return {};
+        const QString legDir = mergeRoot + QStringLiteral("/vanilla/") + tableBase;
+        QDir(legDir).removeRecursively();
+        if (m_pak->toLegacyFiltered(vanillaStage, tableBase, legDir, err) <= 0)
+            return {};
+        // Buscar el uasset exacto (el filtro puede traer nombres relacionados).
+        QString uasset;
+        QDirIterator li(legDir, {tableBase + QStringLiteral(".uasset")}, QDir::Files,
+                        QDirIterator::Subdirectories);
+        if (li.hasNext()) uasset = li.next();
+        if (uasset.isEmpty()) return {};
+        const QString vj = legDir + QStringLiteral("/vanilla.json");
+        if (!m_uasset->toJson(uasset, vj, err)) return {};
+        QFile f(vj);
+        if (!f.open(QIODevice::ReadOnly)) return {};
+        return QJsonDocument::fromJson(f.readAll()).object();
+    };
+
     for (auto it = byTable.begin(); it != byTable.end(); ++it) {
         const QString gamePath = tableGamePath.value(it.key());
-        // Base: baseline si existe; si no, tabla del mod de mayor prioridad que la tenga.
-        QJsonObject base = m_baseline->tableFor(gamePath);
+        const QString tableBase = QFileInfo(gamePath).completeBaseName();
+
+        // Base de ESCRITURA: UAssetGUI real (round-trippable). Prioridad:
+        //  a) tabla vanilla real del juego (retoc to-legacy + tojson)
+        //  b) JSON real de un mod legacy que traiga la tabla (no CUE4Parse)
+        //  c) baseline en cache (puede ser CUE4Parse -> solo si es fromjson-able)
+        QString verr;
+        QJsonObject base = realVanilla(tableBase, &verr);
         if (base.isEmpty()) {
             for (const ModPackage &mod : m_mods) {
                 for (const ModAsset &asset : mod.assets) {
-                    if (asset.kind == ModAsset::DataTable && asset.pathKey() == it.key()) {
+                    if (asset.kind == ModAsset::DataTable && asset.pathKey() == it.key()
+                        && !asset.localPath.isEmpty()) { // legacy: uasset real presente
                         QFile f(asset.jsonPath);
                         if (f.open(QIODevice::ReadOnly))
                             base = QJsonDocument::fromJson(f.readAll()).object();
@@ -289,10 +354,12 @@ QString AppController::runMerge(const QString &outDir) {
             }
         }
         if (base.isEmpty())
-            return tr("No hay JSON base para %1").arg(gamePath);
+            return tr("No hay base de escritura para %1. Configurá la carpeta del juego "
+                      "para poder mergear mods Zen.").arg(gamePath);
 
         const auto res = MergeEngine::applyToTable(base, it.value());
         if (!res.ok) return res.error;
+        m_lastSkipped += res.skipped;
 
         const QString mergedJson = jsonDir + QLatin1Char('/')
             + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
@@ -318,7 +385,10 @@ QString AppController::runMerge(const QString &outDir) {
         if (!vf.open(QIODevice::ReadOnly))
             return tr("Verificación: no se pudo leer %1").arg(verifyJson);
         const QJsonObject verifyRoot = QJsonDocument::fromJson(vf.readAll()).object();
-        if (!jsonValueEquals(dataTableRows(base), dataTableRows(verifyRoot)))
+        // Comparar por VALORES (normalizado): UAssetGUI puede reordenar/reformatear
+        // metadata de serialización sin cambiar el contenido real de la tabla.
+        if (!jsonValueEquals(dataTableRows(normalizeDataTableDoc(base)),
+                             dataTableRows(normalizeDataTableDoc(verifyRoot))))
             return tr("Verificación falló: %1 no round-tripea fiel. Tabla excluida del merge; "
                       "reportar el caso.").arg(gamePath);
     }
@@ -396,6 +466,8 @@ void AppController::merge(const QUrl &outDirUrl) {
                 m_lastMergeOk = true;
                 m_lastMergeResult = (m_exportZip ? t(QStringLiteral("merge_ok_zip"))
                                                  : t(QStringLiteral("merge_ok"))).arg(outDir);
+                if (m_lastSkipped > 0)
+                    m_lastMergeResult += QStringLiteral(" ") + t(QStringLiteral("merge_skipped_note")).arg(m_lastSkipped);
             } else {
                 m_lastMergeOk = false;
                 m_lastMergeResult = t(QStringLiteral("merge_err")).arg(error);

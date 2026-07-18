@@ -10,6 +10,8 @@ set UASSETGUI_URL=https://github.com/atenfyr/UAssetGUI/releases/download/experim
 set RETOC_URL=https://github.com/trumank/retoc/releases/download/v0.1.5/retoc_cli-x86_64-pc-windows-msvc.zip
 REM Mappings de Stellar Blade (comunidad; NO se versionan en el repo).
 set USMAP_URL=https://raw.githubusercontent.com/TheNaeem/Unreal-Mappings-Archive/main/Stellar%%20Blade/1.4.1/Mappings.usmap
+REM CUE4Parse CLI: lee contenedores Zen/IoStore (mods de Nexus) a JSON.
+set CUE4_URL=https://github.com/joric/CUE4Parse.CLI/releases/download/cli-0.1.8/CUE4Parse.CLI-0.1.8-Win64-bin.zip
 
 if not exist tools mkdir tools
 
@@ -29,6 +31,12 @@ if not exist tools\retoc.exe (
     echo [INFO] Descargando retoc v0.1.5...
     powershell -NoProfile -Command "Invoke-WebRequest '%RETOC_URL%' -OutFile '%TEMP%\retoc_st.zip'; Expand-Archive '%TEMP%\retoc_st.zip' '%TEMP%\retoc_st' -Force; Copy-Item (Get-ChildItem '%TEMP%\retoc_st' -Recurse -Filter retoc.exe)[0].FullName 'tools\retoc.exe' -Force"
     if not exist tools\retoc.exe ( echo [ERROR] No se pudo descargar retoc.exe & exit /b 1 )
+)
+
+if not exist tools\cue4parse.exe (
+    echo [INFO] Descargando CUE4Parse.CLI 0.1.8...
+    powershell -NoProfile -Command "Invoke-WebRequest '%CUE4_URL%' -OutFile '%TEMP%\cue4_st.zip'; Expand-Archive '%TEMP%\cue4_st.zip' '%TEMP%\cue4_st' -Force; Copy-Item (Get-ChildItem '%TEMP%\cue4_st' -Recurse -Filter cue4parse.exe)[0].FullName 'tools\cue4parse.exe' -Force"
+    if not exist tools\cue4parse.exe ( echo [WARN] No se pudo descargar cue4parse.exe; los mods Zen no se podran leer. )
 )
 
 echo [INFO] Verificando hash de repak...

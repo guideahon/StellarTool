@@ -108,6 +108,7 @@ private:
     bool m_lastMergeOk = false;
     QString m_statusText;
     QString m_lastMergeResult;
+    int m_lastSkipped = 0;
 };
 
 } // namespace st
