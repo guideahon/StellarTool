@@ -159,23 +159,32 @@ ApplicationWindow {
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
                 // Simple <-> Avanzado
-                Switch {
-                    id: modeSwitch
-                    checked: App.advancedMode
-                    onToggled: {
-                        App.advancedMode = checked
-                        if (!checked && win.currentPage !== 5) win.currentPage = 0
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
+                    Switch {
+                        id: modeSwitch
+                        checked: App.advancedMode
+                        onToggled: {
+                            App.advancedMode = checked
+                            if (!checked && win.currentPage !== 5) win.currentPage = 0
+                        }
+                        ToolTip.visible: hovered
+                        ToolTip.delay: 400
+                        ToolTip.text: I18n.s.mode_advanced_tip
                     }
-                    contentItem: Label {
+                    Label {
                         text: I18n.s.mode_advanced
                         color: Theme.text
                         font.pixelSize: 13
-                        leftPadding: modeSwitch.indicator.width + 8
-                        verticalAlignment: Text.AlignVCenter
+                        Layout.fillWidth: true
+                        elide: Text.ElideRight
+                        MouseArea {
+                            anchors.fill: parent
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: { modeSwitch.toggle(); modeSwitch.toggled() }
+                        }
                     }
-                    ToolTip.visible: hovered
-                    ToolTip.delay: 400
-                    ToolTip.text: I18n.s.mode_advanced_tip
                 }
             }
         }
