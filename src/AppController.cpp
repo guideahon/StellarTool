@@ -67,6 +67,9 @@ QString AppController::t(const QString &key) const {
 AppController::~AppController() = default;
 
 bool AppController::hasBaseline() const { return m_baseline->hasBaseline(); }
+bool AppController::baselineStale() const {
+    return GamePaths::hasGame() && m_baseline->isStale(GamePaths::paksDir());
+}
 bool AppController::toolsAvailable() const {
     return m_pak->available() && m_uasset->available();
 }
@@ -152,6 +155,40 @@ void AppController::clearMods() {
     emit analysisChanged();
 }
 
+QString AppController::ensureVanillaStage() {
+    if (!GamePaths::hasGame()) return {};
+    const QString stage = workRoot() + QStringLiteral("/vanilla_stage");
+    if (QFileInfo::exists(stage + QStringLiteral("/global.utoc"))) return stage;
+    QDir().mkpath(stage);
+    QDirIterator gi(GamePaths::paksDir(),
+                    {QStringLiteral("global.*"), QStringLiteral("pakchunk*")}, QDir::Files);
+    while (gi.hasNext()) {
+        gi.next();
+        linkOrCopy(gi.filePath(), stage + QLatin1Char('/') + gi.fileName());
+    }
+    return stage;
+}
+
+QString AppController::vanillaUAssetJsonPath(const QString &tableBase) {
+    const QString cacheDir = m_baseline->baselineDir() + QStringLiteral("/uasset_json");
+    const QString cached = cacheDir + QLatin1Char('/') + tableBase.toLower() + QStringLiteral(".json");
+    if (QFileInfo::exists(cached)) return cached;
+    const QString stage = ensureVanillaStage();
+    if (stage.isEmpty()) return {};
+    QDir().mkpath(cacheDir);
+    const QString legDir = workRoot() + QStringLiteral("/vanilla_extract/") + tableBase;
+    QDir(legDir).removeRecursively();
+    QString err;
+    if (m_pak->toLegacyFiltered(stage, tableBase, legDir, &err) <= 0) return {};
+    QString uasset;
+    QDirIterator li(legDir, {tableBase + QStringLiteral(".uasset")}, QDir::Files,
+                    QDirIterator::Subdirectories);
+    if (li.hasNext()) uasset = li.next();
+    if (uasset.isEmpty()) return {};
+    if (!m_uasset->toJson(uasset, cached, &err)) return {};
+    return cached;
+}
+
 void AppController::runAnalysis() {
     QList<ChangeItem> items;
     for (const ModPackage &mod : m_mods) {
@@ -159,10 +196,24 @@ void AppController::runAnalysis() {
             if (asset.kind == ModAsset::DataTable) {
                 QFile f(asset.jsonPath);
                 if (!f.open(QIODevice::ReadOnly)) continue;
-                const QJsonObject modRoot = normalizeDataTableDoc(
-                    QJsonDocument::fromJson(f.readAll()).object());
-                QJsonObject baseRoot = m_baseline->tableFor(asset.gamePath);
-                if (!baseRoot.isEmpty()) baseRoot = normalizeDataTableDoc(baseRoot);
+                // Cada representación diffea contra SU baseline para evitar ruido:
+                //  - mods Zen (CUE4Parse) vs baseline CUE4Parse (normalizados)
+                //  - mods legacy (UAssetGUI) vs tabla vanilla real UAssetGUI (crudos)
+                QJsonObject modRoot = QJsonDocument::fromJson(f.readAll()).object();
+                QJsonObject baseRoot;
+                if (asset.cleanJson) {
+                    modRoot = normalizeDataTableDoc(modRoot);
+                    baseRoot = m_baseline->tableFor(asset.gamePath);
+                    if (!baseRoot.isEmpty()) baseRoot = normalizeDataTableDoc(baseRoot);
+                } else {
+                    const QString vp = vanillaUAssetJsonPath(
+                        QFileInfo(asset.gamePath).completeBaseName());
+                    if (!vp.isEmpty()) {
+                        QFile vf(vp);
+                        if (vf.open(QIODevice::ReadOnly))
+                            baseRoot = QJsonDocument::fromJson(vf.readAll()).object();
+                    }
+                }
                 auto tableItems = TableDiffEngine::diffTable(baseRoot, modRoot, asset.gamePath,
                                                             mod.id, mod.name);
                 if (asset.cleanJson)
@@ -180,6 +231,8 @@ void AppController::runAnalysis() {
         }
     }
     QList<ConflictGroup> groups = TableDiffEngine::findConflicts(items);
+    for (auto &c : items)
+        c.summaryCache = c.summary();   // precalcular para listas grandes
     QMetaObject::invokeMethod(this, [this, items, groups] {
         m_items = items;
         m_groups = groups;
@@ -194,9 +247,10 @@ void AppController::runAnalysis() {
 void AppController::analyze() {
     if (m_busy || m_mods.isEmpty()) return;
     setBusy(true, t(QStringLiteral("core_analyzing")));
-    // Si hay juego configurado pero aún no hay baseline, construirla primero
-    // (en el mismo worker) para que los diffs sean vanilla->mod y no "fila nueva".
-    const bool needBaseline = GamePaths::hasGame() && !m_baseline->hasBaseline();
+    // Si hay juego configurado pero la baseline falta o quedó vieja (update del
+    // juego), (re)construirla primero para que los diffs sean vanilla->mod reales.
+    const bool needBaseline = GamePaths::hasGame()
+        && (!m_baseline->hasBaseline() || m_baseline->isStale(GamePaths::paksDir()));
     const QString paks = GamePaths::paksDir();
     const QString usmap = m_uasset->usmapPath();
     std::ignore = QtConcurrent::run([this, needBaseline, paks, usmap] {
@@ -289,6 +343,27 @@ static bool copyAssetWithCompanions(const QString &srcRoot, const QString &gameP
 
 QString AppController::runMerge(const QString &outDir) {
     m_lastSkipped = 0;
+    // Reporte legible del merge (se escribe junto al pak y dentro del zip).
+    QStringList report;
+    report << QStringLiteral("Stellar Tool merge report — %1")
+                  .arg(QDateTime::currentDateTime().toString(Qt::ISODate));
+    report << QString();
+    report << QStringLiteral("Mods (priority order, first wins):");
+    for (const auto &m : m_mods)
+        report << QStringLiteral("  %1. %2  [%3]").arg(m.loadOrder + 1).arg(m.name, m.sourcePath);
+    if (!m_groups.isEmpty()) {
+        report << QString() << QStringLiteral("Conflicts (%1):").arg(m_groups.size());
+        for (const auto &g : m_groups) {
+            QString winner, line;
+            for (int idx : g.itemIndexes)
+                if (m_items.at(idx).modId == g.resolvedModId) winner = m_items.at(idx).modName;
+            const auto &first = m_items.at(g.itemIndexes.first());
+            line = first.summaryCache.isEmpty() ? first.summary() : first.summaryCache;
+            report << QStringLiteral("  %1 -> %2").arg(line, winner);
+        }
+    }
+    report << QString() << QStringLiteral("Tables:");
+
     const QString mergeRoot = workRoot() + QStringLiteral("/merged");
     QDir(mergeRoot).removeRecursively();
     const QString contentDir = mergeRoot + QStringLiteral("/content");
@@ -322,37 +397,11 @@ QString AppController::runMerge(const QString &outDir) {
         tableGamePath[c.tablePath.toLower()] = c.tablePath;
     }
 
-    // Stage de contenedores raíz del juego para extraer tablas vanilla reales
-    // (UAssetGUI) que sirven de base de escritura (fromjson). Solo si hay juego.
-    QString vanillaStage;
-    if (GamePaths::hasGame()) {
-        vanillaStage = mergeRoot + QStringLiteral("/vanilla_stage");
-        QDir().mkpath(vanillaStage);
-        const QString paks = GamePaths::paksDir();
-        QDirIterator gi(paks, {QStringLiteral("global.*"), QStringLiteral("pakchunk*")},
-                        QDir::Files);
-        while (gi.hasNext()) {
-            gi.next();
-            linkOrCopy(gi.filePath(), vanillaStage + QLatin1Char('/') + gi.fileName());
-        }
-    }
-
-    // Devuelve el JSON UAssetGUI real de una tabla vanilla (base de escritura).
-    auto realVanilla = [&](const QString &tableBase, QString *err) -> QJsonObject {
-        if (vanillaStage.isEmpty()) return {};
-        const QString legDir = mergeRoot + QStringLiteral("/vanilla/") + tableBase;
-        QDir(legDir).removeRecursively();
-        if (m_pak->toLegacyFiltered(vanillaStage, tableBase, legDir, err) <= 0)
-            return {};
-        // Buscar el uasset exacto (el filtro puede traer nombres relacionados).
-        QString uasset;
-        QDirIterator li(legDir, {tableBase + QStringLiteral(".uasset")}, QDir::Files,
-                        QDirIterator::Subdirectories);
-        if (li.hasNext()) uasset = li.next();
-        if (uasset.isEmpty()) return {};
-        const QString vj = legDir + QStringLiteral("/vanilla.json");
-        if (!m_uasset->toJson(uasset, vj, err)) return {};
-        QFile f(vj);
+    // Base de escritura: JSON UAssetGUI real de la tabla vanilla (cacheado).
+    auto realVanilla = [&](const QString &tableBase, QString *) -> QJsonObject {
+        const QString vp = vanillaUAssetJsonPath(tableBase);
+        if (vp.isEmpty()) return {};
+        QFile f(vp);
         if (!f.open(QIODevice::ReadOnly)) return {};
         return QJsonDocument::fromJson(f.readAll()).object();
     };
@@ -388,6 +437,8 @@ QString AppController::runMerge(const QString &outDir) {
         const auto res = MergeEngine::applyToTable(base, it.value());
         if (!res.ok) return res.error;
         m_lastSkipped += res.skipped;
+        report << QStringLiteral("  %1: %2 applied, %3 skipped")
+                      .arg(tableBase).arg(res.applied).arg(res.skipped);
 
         const QString mergedJson = jsonDir + QLatin1Char('/')
             + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
@@ -437,6 +488,16 @@ QString AppController::runMerge(const QString &outDir) {
             return err;
     }
 
+    // Reporte legible junto al pak.
+    report << QString()
+           << QStringLiteral("Skipped = non-numeric changes from Zen-read mods (text/enums/arrays)")
+           << QStringLiteral("that don't round-trip reliably into a Zen container.");
+    {
+        QFile rf(outDir + QStringLiteral("/merge_report.txt"));
+        if (rf.open(QIODevice::WriteOnly))
+            rf.write(report.join(QLatin1Char('\n')).toUtf8());
+    }
+
     // 4) Zip instalable para mod managers (Vortex, etc.): Paks/<archivos> + readme.
     if (m_exportZip) {
         QMetaObject::invokeMethod(this, [this] { setStatus(t(QStringLiteral("core_making_zip"))); }, Qt::QueuedConnection);
@@ -451,6 +512,8 @@ QString AppController::runMerge(const QString &outDir) {
         for (const auto &m : m_mods) modNames << QStringLiteral("- %1").arg(m.name);
         int selectedCount = 0;
         for (const auto &c : m_items) if (c.selected) ++selectedCount;
+        QFile::copy(outDir + QStringLiteral("/merge_report.txt"),
+                    zipStage + QStringLiteral("/merge_report.txt"));
         QFile readme(zipStage + QStringLiteral("/README.txt"));
         if (readme.open(QIODevice::WriteOnly)) {
             readme.write(tr("Merge generado por Stellar Tool\n"
@@ -510,6 +573,58 @@ void AppController::merge(const QUrl &outDirUrl) {
 QString AppController::gamePath() const { return GamePaths::gameRoot(); }
 bool AppController::hasGamePath() const { return GamePaths::hasGame(); }
 QString AppController::defaultOutDir() const { return GamePaths::modsDir(); }
+
+// ¿El origen del mod vive dentro de ~mods del juego?
+static bool sourceInMods(const QString &sourcePath) {
+    const QString mods = GamePaths::modsDir();
+    if (mods.isEmpty()) return false;
+    const QString src = QDir::cleanPath(QFileInfo(sourcePath).absoluteFilePath()).toLower();
+    const QString base = QDir::cleanPath(mods).toLower() + QLatin1Char('/');
+    return src.startsWith(base) && !src.contains(QLatin1String("/disabled/"));
+}
+
+int AppController::disableableSourceCount() const {
+    int n = 0;
+    for (const auto &m : m_mods)
+        if (sourceInMods(m.sourcePath)) ++n;
+    return n;
+}
+
+int AppController::disableSourceMods() {
+    const QString disabledDir = GamePaths::modsDir() + QStringLiteral("/disabled");
+    QDir().mkpath(disabledDir);
+    int moved = 0;
+    for (const auto &m : m_mods) {
+        if (!sourceInMods(m.sourcePath)) continue;
+        const QFileInfo fi(m.sourcePath);
+        // Mover el archivo/carpeta y sus compañeros de contenedor (.ucas/.utoc/.sig).
+        QStringList toMove;
+        if (fi.isDir()) {
+            toMove << fi.absoluteFilePath();
+        } else {
+            toMove << fi.absoluteFilePath();
+            for (const QString &ext : {QStringLiteral("ucas"), QStringLiteral("utoc"), QStringLiteral("sig")}) {
+                const QString comp = fi.absolutePath() + QLatin1Char('/')
+                    + fi.completeBaseName() + QLatin1Char('.') + ext;
+                if (QFileInfo::exists(comp)) toMove << comp;
+            }
+        }
+        bool ok = true;
+        for (const QString &p : toMove) {
+            const QString dst = disabledDir + QLatin1Char('/') + QFileInfo(p).fileName();
+            QFile::remove(dst);
+            QDir dstDir(dst);
+            if (QFileInfo(p).isDir()) {
+                if (dstDir.exists()) dstDir.removeRecursively();
+                ok = QDir().rename(p, dst) && ok;
+            } else {
+                ok = QFile::rename(p, dst) && ok;
+            }
+        }
+        if (ok) ++moved;
+    }
+    return moved;
+}
 
 void AppController::openDir(const QString &path) {
     if (!path.isEmpty() && QFileInfo::exists(path))

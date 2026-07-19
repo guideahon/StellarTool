@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import ".."
+import "../components"
 
 Item {
     id: page
@@ -233,6 +234,11 @@ Item {
                 text: I18n.s.easy_open_folder
                 onClicked: App.openDir(page.resolvedOut())
             }
+            Button {
+                visible: App.lastMergeOk && App.disableableSourceCount() > 0
+                text: I18n.s.easy_disable_sources.replace("%1", App.disableableSourceCount())
+                onClicked: disableDialog.open()
+            }
         }
 
         // ---- Advanced: habilitar/deshabilitar cambios ----
@@ -318,12 +324,62 @@ Item {
                         onToggled: App.changeModel.setChecked(index, cb.checked)
                     }
                     Label { text: summary; color: Theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
+                    Button {
+                        text: "✎"
+                        flat: true
+                        visible: App.changeModel.canEdit(index)
+                        onClicked: editDialog.openFor(index, summary)
+                    }
                     Label { text: modName; color: Theme.textDim; font.pixelSize: 12 }
                 }
             }
         }
 
         Item { visible: !advToggle.checked; Layout.fillHeight: true }
+    }
+
+    EditValueDialog {
+        id: editDialog
+        anchors.centerIn: parent
+    }
+
+    Dialog {
+        id: disableDialog
+        modal: true
+        anchors.centerIn: parent
+        width: 480
+        background: Rectangle { color: Theme.panel; border.color: Theme.border; radius: Theme.radius }
+        contentItem: ColumnLayout {
+            spacing: 12
+            Label {
+                text: I18n.s.easy_disable_confirm.replace("%1", App.disableableSourceCount())
+                color: Theme.text
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            RowLayout {
+                Item { Layout.fillWidth: true }
+                Button { text: I18n.s.cancel; onClicked: disableDialog.close() }
+                Button {
+                    text: I18n.s.ok
+                    highlighted: true
+                    onClicked: {
+                        var n = App.disableSourceMods()
+                        disableDialog.close()
+                        disabledResult.text = I18n.s.easy_disabled_done.replace("%1", n)
+                        disabledResult.visible = true
+                    }
+                }
+            }
+        }
+    }
+    Label {
+        id: disabledResult
+        visible: false
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.margins: 18
+        color: Theme.ok
     }
 
     FileDialog {

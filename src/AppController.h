@@ -23,6 +23,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool busy READ busy NOTIFY busyChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
     Q_PROPERTY(bool hasBaseline READ hasBaseline NOTIFY baselineChanged)
+    Q_PROPERTY(bool baselineStale READ baselineStale NOTIFY baselineChanged)
     Q_PROPERTY(QString gamePath READ gamePath NOTIFY gamePathChanged)
     Q_PROPERTY(bool hasGamePath READ hasGamePath NOTIFY gamePathChanged)
     Q_PROPERTY(bool advancedMode READ advancedMode WRITE setAdvancedMode NOTIFY advancedModeChanged)
@@ -42,6 +43,7 @@ public:
     bool busy() const { return m_busy; }
     QString statusText() const { return m_statusText; }
     bool hasBaseline() const;
+    bool baselineStale() const;
     bool toolsAvailable() const;
     QString toolsError() const;
     bool analyzed() const { return m_analyzed; }
@@ -74,6 +76,10 @@ public:
     Q_INVOKABLE void setGamePath(const QUrl &dirUrl);
     Q_INVOKABLE QString defaultOutDir() const;   // <juego>/~mods si hay juego, si no vacío
     Q_INVOKABLE void openDir(const QString &path); // abre la carpeta en el Explorador
+    // Mods cargados cuyo origen vive dentro de ~mods (candidatos a desactivar).
+    Q_INVOKABLE int disableableSourceCount() const;
+    // Mueve esos orígenes a ~mods/disabled/. Devuelve cuántos movió.
+    Q_INVOKABLE int disableSourceMods();
     bool advancedMode() const;
     void setAdvancedMode(bool v);
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);
@@ -98,6 +104,10 @@ private:
     QString workRoot() const;
     void runAnalysis();                      // en worker thread
     QString runMerge(const QString &outDir); // en worker thread; devuelve error o vacío
+    // Stage con los contenedores raíz del juego (hardlinks); cachea por proceso.
+    QString ensureVanillaStage();
+    // JSON UAssetGUI real de la tabla vanilla (cacheado en disco); vacío si no hay juego.
+    QString vanillaUAssetJsonPath(const QString &tableBase);
 
     Translator *m_i18n;
     PakService *m_pak;

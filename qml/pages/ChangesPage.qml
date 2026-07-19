@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import ".."
+import "../components"
 
 Item {
     ColumnLayout {
@@ -113,6 +114,12 @@ Item {
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
+                    Button {
+                        text: "✎"
+                        flat: true
+                        visible: App.changeModel.canEdit(index)
+                        onClicked: editDialog.openFor(index, summary)
+                    }
                     Rectangle {
                         visible: conflictId >= 0
                         width: confLabel.width + 14; height: 20; radius: 10
@@ -133,5 +140,10 @@ Item {
                 }
             }
         }
+    }
+
+    EditValueDialog {
+        id: editDialog
+        anchors.centerIn: parent
     }
 }

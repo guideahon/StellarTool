@@ -89,7 +89,13 @@
   "status_game_missing": "Game: not set",
   "status_baseline_ok": "Vanilla baseline ✓",
   "status_baseline_missing": "Baseline: pending",
+  "status_baseline_stale": "Baseline: outdated (game updated)",
   "conflicts_hint": "Load mods and analyze to see conflicts here.",
+  "edit_value_title": "Edit final value",
+  "edit_value_invalid": "Invalid value for this property's type.",
+  "easy_disable_sources": "Disable source mods (%1)",
+  "easy_disable_confirm": "Move %1 source mod(s) from ~mods to ~mods\\disabled\\? Nothing is deleted; you can move them back anytime.",
+  "easy_disabled_done": "%1 source mod(s) moved to disabled\\.",
 
   "core_importing": "Importing %1...",
   "core_unpacking": "Unpacking %1...",
