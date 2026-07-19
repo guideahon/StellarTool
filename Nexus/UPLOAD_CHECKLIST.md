@@ -14,12 +14,12 @@ Antes de cada release en Nexus Mods:
 3. **Short description**: `upload_texts/00_short_description.txt` (límite 250 chars).
 4. **Description**: pegar `Nexus_Description_BBCode.txt`.
 5. **File description**: `upload_texts/file_1_Stellar_Tool.txt`.
-6. **Media**: usar `Media/generated/` (regenerable con `python Media/generate_media.py`):
-   - Portada: `stellartool_cover_1280x720`
-   - Header: `stellartool_header_1300x372`
-   - Galería: `stellartool_gallery_1920x1080`
-   Sumar capturas reales de la app (EasyMerge con 2+ mods, Cambios con diffs
-   vanilla→mod, Conflictos lado a lado, Merge OK) y, si se puede, un GIF del flujo.
+6. **Media**:
+   - Header `stellartool_header_1300x372` y galería `stellartool_gallery_1920x1080`
+     (gráficos, regenerables con `python Media/generate_media.py`).
+   - **Portada y demás imágenes = capturas REALES de la app** (nunca mocks).
+     Ya está `stellartool_screenshot_easymerge.png`; sumar Cambios con diffs
+     vanilla→mod, Conflictos lado a lado, Merge OK, e idealmente un GIF del flujo.
 7. **Permissions**: open source MIT, enlazar el repo. Permitir uso libre con crédito.
 8. **Changelog**: sincronizar con los tags/commits del repo.
 9. Actualizar `Nexus_Description*.md/txt` en el repo si la descripción cambia.
