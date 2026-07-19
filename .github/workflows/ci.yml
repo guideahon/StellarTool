@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 
 jobs:
@@ -42,3 +43,55 @@ jobs:
 
       - name: Build app
         run: cmake --build build --target StellarTool
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: win64_msvc2022_64
+
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Download external tools
+        run: cmd /c setup.bat
+
+      - name: Build Release
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target StellarTool
+
+      - name: Deploy Qt runtime and tools
+        run: |
+          New-Item -ItemType Directory -Force dist_stage | Out-Null
+          Copy-Item build\StellarTool.exe dist_stage\
+          & "$env:QT_ROOT_DIR\bin\windeployqt.exe" --release --qmldir qml --no-translations --compiler-runtime dist_stage\StellarTool.exe
+          New-Item -ItemType Directory -Force dist_stage\tools | Out-Null
+          foreach ($f in "repak.exe","retoc.exe","UAssetGUI.exe","cue4parse.exe","StellarBlade.usmap") {
+            if (Test-Path "tools\$f") { Copy-Item "tools\$f" dist_stage\tools\ }
+          }
+          Remove-Item dist_stage\tools\oo2core_9_win64.dll -ErrorAction SilentlyContinue
+
+      - name: Zip
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          tar -a -c -f "StellarTool-$v.zip" -C dist_stage (Get-ChildItem dist_stage -Name)
+          Get-Item "StellarTool-$v.zip"
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          gh release create "${{ github.ref_name }}" "StellarTool-$v.zip" --draft --title "Stellar Tool $v" --generate-notes
