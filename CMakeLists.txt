@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(StellarTool VERSION 0.1.0 LANGUAGES CXX)
+project(StellarTool VERSION 0.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -54,6 +54,9 @@ qt_add_executable(StellarTool
     ${CORE_SOURCES}
     ${CORE_HEADERS}
 )
+if (WIN32)
+    target_sources(StellarTool PRIVATE app_icon.rc)
+endif()
 
 file(GLOB_RECURSE QML_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} qml/*.qml)
 qt_add_resources(StellarTool "qml"
@@ -64,6 +67,10 @@ file(GLOB I18N_FILES RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} i18n/*.json)
 qt_add_resources(StellarTool "i18n"
     PREFIX "/"
     FILES ${I18N_FILES}
+)
+qt_add_resources(StellarTool "appicons"
+    PREFIX "/"
+    FILES assets/app_icon.png
 )
 
 target_include_directories(StellarTool PRIVATE src)

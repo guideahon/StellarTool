@@ -9,6 +9,7 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQmlError>
+#include <QIcon>
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -85,6 +86,7 @@ int main(int argc, char *argv[]) {
     QGuiApplication app(argc, argv);
     app.setOrganizationName(QStringLiteral("StellarTool"));
     app.setApplicationName(QStringLiteral("StellarTool"));
+    app.setWindowIcon(QIcon(QStringLiteral(":/assets/app_icon.png")));
 
     st::Translator translator;
     st::AppController controller(&translator);
