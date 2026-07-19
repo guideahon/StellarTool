@@ -57,7 +57,11 @@ struct ChangeItem {
     Type type = Modified;
     bool selected = true;
     bool clean = false;     // valor leído con CUE4Parse (write-back solo escalares)
+    bool edited = false;    // valor modificado a mano por el usuario
+    bool dup = false;       // duplicado exacto de otro mod (oculto; no se aplica)
+    int dupCount = 0;       // en el representante: cuántos mods más coinciden
     int conflictGroup = -1; // -1 = sin conflicto
+    QString summaryCache;   // resumen precalculado (perf en listas grandes)
 
     QString key() const;          // tablePath|rowName|propPath (case-insensitive en tablePath)
     QString displayPath() const;  // "Stats.MaxHP" legible

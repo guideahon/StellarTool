@@ -43,6 +43,11 @@ public:
     Q_INVOKABLE void setTableChecked(const QString &tableName, bool checked);
     Q_INVOKABLE void setChecked(int visibleRow, bool checked);
 
+    // Edición manual del valor final (solo cambios Modified con valor escalar).
+    Q_INVOKABLE bool canEdit(int visibleRow) const;
+    Q_INVOKABLE QString valueText(int visibleRow) const;
+    Q_INVOKABLE bool setEditedValue(int visibleRow, const QString &text);
+
 signals:
     void filterChanged();
     void itemsChanged();

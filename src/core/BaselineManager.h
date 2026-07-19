@@ -17,6 +17,9 @@ public:
 
     QString baselineDir() const;
     bool hasBaseline() const;
+    // true si el juego se actualizó después de construir la baseline
+    // (compara tamaño+fecha de pakchunk0 contra el stamp guardado).
+    bool isStale(const QString &gamePaksDir) const;
 
     // JSON de la tabla vanilla para un gamePath; objeto vacío si no está.
     QJsonObject tableFor(const QString &gamePath) const;

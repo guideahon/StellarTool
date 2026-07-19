@@ -171,7 +171,17 @@ QList<ConflictGroup> TableDiffEngine::findConflicts(QList<ChangeItem> &items) {
                 || items.at(idx.first()).type != items.at(i).type)
                 differs = true;
         }
-        if (mods.size() < 2 || !differs) continue;
+        if (mods.size() < 2) continue;
+        if (!differs) {
+            // Cambio coincidente: varios mods hacen exactamente lo mismo.
+            // Colapsar en el primero; los demás se ocultan y no se aplican.
+            items[idx.first()].dupCount = mods.size() - 1;
+            for (int j = 1; j < idx.size(); ++j) {
+                items[idx.at(j)].dup = true;
+                items[idx.at(j)].selected = false;
+            }
+            continue;
+        }
         ConflictGroup g;
         g.id = groups.size();
         g.key = it.key();

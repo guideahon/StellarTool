@@ -23,6 +23,24 @@ static bool sameLeafType(const QJsonValue &a, const QJsonValue &b) {
 bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth,
                             const QJsonValue &newValue, bool allowCreate) {
     if (depth == path.size()) {
+        // "" normalizado equivale a null/None del JSON real: no tocar.
+        if (newValue.isString() && newValue.toString().isEmpty()
+            && (node.isNull() || (node.isString()
+                && (node.toString().isEmpty() || node.toString() == QLatin1String("None")))))
+            return true;
+        // Elemento de array del JSON real: wrapper {Name,Value}. El diff opera
+        // sobre la forma normalizada (valor pelado): actualizar solo Value.
+        if (node.isObject() && !newValue.isObject()) {
+            QJsonObject wrap = node.toObject();
+            if (wrap.contains(QLatin1String("Name")) && wrap.contains(QLatin1String("Value"))) {
+                const QJsonValue inner = wrap.value(QLatin1String("Value"));
+                if (!allowCreate && !inner.isUndefined() && !sameLeafType(inner, newValue))
+                    return false;
+                wrap.insert(QLatin1String("Value"), newValue);
+                node = wrap;
+                return true;
+            }
+        }
         // Para valores "clean" (CUE4Parse), solo reemplazar si el tipo coincide
         // con el valor real de UAssetGUI: evita meter un string/num donde el
         // uasset espera otro tipo, lo que rompería fromjson silenciosamente.

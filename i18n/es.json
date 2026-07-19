@@ -89,7 +89,13 @@
   "status_game_missing": "Juego: sin configurar",
   "status_baseline_ok": "Baseline vanilla ✓",
   "status_baseline_missing": "Baseline: pendiente",
+  "status_baseline_stale": "Baseline: desactualizada (juego actualizado)",
   "conflicts_hint": "Cargá mods y analizá para ver conflictos acá.",
+  "edit_value_title": "Editar valor final",
+  "edit_value_invalid": "Valor inválido para el tipo de esta propiedad.",
+  "easy_disable_sources": "Desactivar mods de origen (%1)",
+  "easy_disable_confirm": "¿Mover %1 mod(s) de origen de ~mods a ~mods\\disabled\\? No se borra nada; podés volverlos cuando quieras.",
+  "easy_disabled_done": "%1 mod(s) de origen movidos a disabled\\.",
 
   "core_importing": "Importando %1...",
   "core_unpacking": "Desempaquetando %1...",

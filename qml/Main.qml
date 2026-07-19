@@ -137,16 +137,21 @@ ApplicationWindow {
                     }
                 }
                 Rectangle {
+                    property bool blOk: App.hasBaseline && !App.baselineStale
                     Layout.fillWidth: true
                     height: 26
                     radius: 13
                     color: "transparent"
-                    border.color: App.hasBaseline ? Theme.border : Theme.warn
+                    border.color: blOk ? Theme.border : Theme.warn
                     Label {
                         anchors.centerIn: parent
-                        text: App.hasBaseline ? I18n.s.status_baseline_ok : I18n.s.status_baseline_missing
-                        color: App.hasBaseline ? Theme.ok : Theme.warn
+                        text: parent.blOk ? I18n.s.status_baseline_ok
+                              : (App.baselineStale ? I18n.s.status_baseline_stale
+                                                   : I18n.s.status_baseline_missing)
+                        color: parent.blOk ? Theme.ok : Theme.warn
                         font.pixelSize: 12
+                        elide: Text.ElideRight
+                        width: Math.min(implicitWidth, parent.width - 8)
                     }
                     MouseArea {
                         anchors.fill: parent

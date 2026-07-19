@@ -16,11 +16,17 @@ QVariant ChangeListModel::data(const QModelIndex &index, int role) const {
     if (!m_items || !index.isValid() || index.row() >= m_visible.size()) return {};
     const ChangeItem &c = m_items->at(m_visible.at(index.row()));
     switch (role) {
-    case SummaryRole: return c.summary();
+    case SummaryRole: {
+        QString s = c.summaryCache.isEmpty() ? c.summary() : c.summaryCache;
+        if (c.edited) s += QStringLiteral(" ✏");
+        return s;
+    }
     case CheckedRole: return c.selected;
     case ConflictRole: return c.conflictGroup;
     case TableNameRole: return tableNameOf(c);
-    case ModNameRole: return c.modName;
+    case ModNameRole:
+        return c.dupCount > 0 ? c.modName + QStringLiteral(" +%1").arg(c.dupCount)
+                              : c.modName;
     case RowNameRole: return c.rowName;
     case TypeRole: return int(c.type);
     case GlobalIndexRole: return m_visible.at(index.row());
@@ -81,10 +87,12 @@ void ChangeListModel::rebuildVisible() {
     if (!m_items) return;
     for (int i = 0; i < m_items->size(); ++i) {
         const ChangeItem &c = m_items->at(i);
+        if (c.dup) continue; // coincidencias colapsadas en su representante
         if (m_onlyConflicts && c.conflictGroup < 0) continue;
-        if (!m_filterText.isEmpty()
-            && !c.summary().contains(m_filterText, Qt::CaseInsensitive))
-            continue;
+        if (!m_filterText.isEmpty()) {
+            const QString &s = c.summaryCache.isEmpty() ? c.summary() : c.summaryCache;
+            if (!s.contains(m_filterText, Qt::CaseInsensitive)) continue;
+        }
         m_visible << i;
     }
     // Orden estable: por tabla, luego fila.
@@ -98,6 +106,49 @@ void ChangeListModel::rebuildVisible() {
 
 void ChangeListModel::setChecked(int visibleRow, bool checked) {
     setData(index(visibleRow, 0), checked, CheckedRole);
+}
+
+bool ChangeListModel::canEdit(int visibleRow) const {
+    if (!m_items || visibleRow < 0 || visibleRow >= m_visible.size()) return false;
+    const ChangeItem &c = m_items->at(m_visible.at(visibleRow));
+    if (c.type != ChangeItem::Modified) return false;
+    const QJsonValue &v = c.newValue;
+    return v.isDouble() || v.isBool() || v.isString();
+}
+
+QString ChangeListModel::valueText(int visibleRow) const {
+    if (!canEdit(visibleRow)) return {};
+    const QJsonValue &v = m_items->at(m_visible.at(visibleRow)).newValue;
+    if (v.isBool()) return v.toBool() ? QStringLiteral("true") : QStringLiteral("false");
+    if (v.isDouble()) return QString::number(v.toDouble(), 'g', 10);
+    return v.toString();
+}
+
+bool ChangeListModel::setEditedValue(int visibleRow, const QString &text) {
+    if (!canEdit(visibleRow)) return false;
+    ChangeItem &c = (*m_items)[m_visible.at(visibleRow)];
+    const QJsonValue &old = c.newValue;
+    QJsonValue nv;
+    if (old.isBool()) {
+        const QString t = text.trimmed().toLower();
+        if (t != QLatin1String("true") && t != QLatin1String("false")) return false;
+        nv = (t == QLatin1String("true"));
+    } else if (old.isDouble()) {
+        bool ok = false;
+        const double d = text.trimmed().toDouble(&ok);
+        if (!ok) return false;
+        nv = d;
+    } else {
+        nv = text;
+    }
+    c.newValue = nv;
+    c.edited = true;
+    c.selected = true;
+    c.summaryCache = c.summary();
+    const QModelIndex mi = index(visibleRow, 0);
+    emit dataChanged(mi, mi, {SummaryRole, CheckedRole});
+    emit selectionChanged();
+    return true;
 }
 
 void ChangeListModel::setTableChecked(const QString &tableName, bool checked) {

@@ -199,8 +199,17 @@ static QJsonArray cleanPropArray(const QJsonArray &arr) {
     for (const QJsonValue &e : arr) {
         if (e.isObject() && isUAssetProp(e.toObject())) {
             const QJsonObject p = e.toObject();
-            out.append(QJsonObject{{QStringLiteral("Name"), p.value(QLatin1String("Name"))},
-                                   {QStringLiteral("Value"), cleanValue(p.value(QLatin1String("Value")))}});
+            const QString name = p.value(QLatin1String("Name")).toString();
+            bool numeric = !name.isEmpty();
+            for (const QChar ch : name) if (!ch.isDigit()) { numeric = false; break; }
+            if (numeric) {
+                // Elemento de array (Name = índice "0","1",...): UAssetGUI lo
+                // envuelve, CUE4Parse no. Canonizar al valor pelado.
+                out.append(cleanValue(p.value(QLatin1String("Value"))));
+            } else {
+                out.append(QJsonObject{{QStringLiteral("Name"), name},
+                                       {QStringLiteral("Value"), cleanValue(p.value(QLatin1String("Value")))}});
+            }
         } else {
             out.append(cleanValue(e)); // array de escalares u otros
         }
@@ -209,12 +218,21 @@ static QJsonArray cleanPropArray(const QJsonArray &arr) {
 }
 
 static QJsonValue cleanValue(const QJsonValue &v) {
-    // UAssetGUI serializa el float cero como "+0"/"-0" (string). Normalizar a 0
-    // para que compare igual contra el 0 numérico de CUE4Parse.
+    // Reconciliar representaciones UAssetGUI <-> CUE4Parse:
+    //  - float cero: UAssetGUI lo serializa "+0"/"-0" (string) -> 0
+    //  - enums: CUE4Parse los prefija "ESBTipo::Valor" -> "Valor" (forma UAssetGUI)
+    //  - "vacío": FName None es null en UAssetGUI y "None" en CUE4Parse; los Str
+    //    vacíos son "" en UAssetGUI y null en CUE4Parse. Canonizar {null,"None",""} -> ""
+    if (v.isNull())
+        return QJsonValue(QStringLiteral(""));
     if (v.isString()) {
-        const QString s = v.toString();
+        QString s = v.toString();
         if (s == QLatin1String("+0") || s == QLatin1String("-0"))
             return QJsonValue(0);
+        const int sep = s.lastIndexOf(QLatin1String("::"));
+        if (sep >= 0) s = s.mid(sep + 2);
+        if (s == QLatin1String("None")) s.clear();
+        return s;
     }
     if (v.isArray())
         return cleanPropArray(v.toArray());
