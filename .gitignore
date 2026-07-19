@@ -18,3 +18,5 @@ qmlout.txt
 shot_*.png
 dist/
 Media/generated/
+!Media/screenshots/
+!Media/screenshots/*.png
