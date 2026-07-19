@@ -200,5 +200,6 @@ def make_cover():
 if __name__ == "__main__":
     make_header()
     make_gallery()
-    make_cover()
+    # NOTA: la portada/capturas deben ser reales (screenshots de la app),
+    # no mocks. make_cover() quedó deshabilitado a propósito.
     print(f"Generated media in {OUT}")
