@@ -1,0 +1,39 @@
+Stellar Tool is a mod merger for Stellar Blade, built to solve the classic problem: two mods edit the same table file (SkillTable, CharacterTable, EffectTable...), the game only loads one of them, and you silently lose half of what you installed.
+
+Instead of merging blind, Stellar Tool decodes the DataTables inside each mod and shows you every single change as a readable line:
+
+EffectTable · Item_HP_RPotion · CalculationValue: 60 -> 30 (-50%)
+SkillTable · M_DroidTurret_Laser · AttackDamageRate: 1.5 -> 4.5 (+200%)
+
+You check the changes you want, and when two mods touch the same value with different numbers, the tool flags it as a conflict and lets you pick the winner side by side. Then it rebuilds the tables and packs everything into a single verified container.
+
+MAIN FEATURES
+- Load any number of mods: legacy .pak, zips, loose .uasset folders, and Zen/IoStore mods (the usual Nexus format, .ucas/.utoc) via CUE4Parse.
+- Per-change checkboxes: every modified row/property is one line you can keep or drop. Whole tables toggle at once.
+- Real before/after values against a vanilla baseline, with percentages.
+- Conflict detection at value level, resolved side by side or "prefer this mod for everything".
+- Edit the final value by hand (Advanced).
+- Duplicate changes across mods are auto-collapsed.
+- Output is the game's native Zen/IoStore container, verified after packing, plus an optional installable .zip and a merge_report.txt.
+- Two modes: Simple (drop mods, one click) and Advanced (full merge-mod workbench). 10 languages.
+- Your source mods are never modified.
+
+READING ZEN/IOSTORE MODS
+Most Stellar Blade mods ship as Zen/IoStore containers. Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (Settings; it auto-detects Steam). Numeric changes (HP, damage, shields, multipliers...) are written back and verified; non-numeric changes (text, enums, arrays, object references) are shown in the diff but skipped on write, and the tool reports exactly how many.
+
+INSTALL
+1. Download and extract anywhere. Run StellarTool.exe.
+2. Drag your mods in, review, and Merge everything.
+3. Copy the generated files to StellarBlade\SB\Content\Paks\~mods, or install the generated zip with your mod manager.
+4. Disable/remove the source mods you merged (the tool offers a one-click button for this).
+
+REQUIREMENTS AND CONFLICTS
+- Windows 10/11. No game file is ever touched.
+- The merged pak conflicts, by definition, with the mods you merged into it - disable them.
+- Open source (MIT): https://github.com/guideahon/StellarTool
+
+SHOUT OUTS
+- trumank, for repak and retoc.
+- atenfyr, for UAssetGUI / UAssetAPI.
+- FabianFG and the FModel team, for CUE4Parse (reads Zen mods).
+- The Stellar Blade modding community for the mappings (.usmap) groundwork.
