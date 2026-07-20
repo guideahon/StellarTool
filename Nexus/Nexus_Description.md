@@ -1,64 +1,68 @@
-Stellar Tool (Mod Merger)
+Stellar Tool — mod merger for Stellar Blade
 
 Short description:
-Merge Stellar Blade table mods without losing anything: see every value each mod changes (vanilla → modded), pick the changes you want with checkboxes, resolve conflicts line by line, and export one verified merged pak — plus an installable zip for your mod manager. GUI + command line.
+Merge Stellar Blade table mods (SkillTable, CharacterTable, EffectTable...) without losing anything. Reads Zen/IoStore mods too. See every change, resolve conflicts, edit values, and export one verified merged pak + installable zip. Simple one-click mode and an advanced workbench. GUI and CLI. Open source.
 
 Description
 
-Stellar Tool is a mod merger for Stellar Blade, built to solve the classic problem: two mods edit the same table file (SkillTable, CharacterTable, EffectTable...), the game only loads one of them, and you silently lose half of what you installed.
+Two mods edit the same table, the game loads only one, and you silently lose half of what you installed. Stellar Tool fixes that: it reads the DataTables inside your mods, shows you every change, lets you resolve conflicts, and builds one merged pak that keeps them all.
 
-Instead of merging blind, Stellar Tool decodes the DataTables inside each mod and shows you every single change as a readable line:
+Two ways to use it
 
-EffectTable · Item_HP_RPotion · CalculationValue: 60 → 30 (-50%)
-SkillTable · M_DroidTurret_Laser · AttackDamageRate: 1.5 → 4.5 (+200%)
+- Simple: drop all your mods, click "Merge everything", done. Conflicts are auto-resolved by order (first mod wins), the result installs straight to your ~mods, and a button offers to disable the original mods so they don't override the merge.
+- Advanced: a full workbench to build a merge-mod — mod priority, every change as a checkbox, side-by-side conflict resolution, manual value editing, and savable projects.
 
-You check the changes you want, and when two mods touch the same value with different numbers, the tool flags it as a conflict and lets you pick the winner side by side. Then it rebuilds the tables and packs everything into a single verified container.
+It shows you exactly what each mod does
 
-Main features
+Instead of merging blind, every modified value is one readable line, compared against vanilla:
 
-- Load any number of mods: legacy .pak files, zips, loose .uasset folders, AND Zen/IoStore mods (the usual Nexus format, .ucas/.utoc) via CUE4Parse.
-- Per-change checkboxes: every modified row/property is one line you can keep or drop. Whole tables can be toggled at once.
-- Real before/after values against a vanilla baseline, with percentages, so you know exactly what each mod does.
-- Conflict detection at value level (same table + same row + same property with different values). Side-by-side resolution, per conflict or "prefer this mod for everything".
-- Non-table assets (meshes, textures) are handled as whole-file replacements with the same check/conflict logic.
-- Output is the game's native Zen/IoStore container (zzz_StellarTool_Merged_P.pak/.ucas/.utoc), verified after packing. The zzz prefix guarantees load priority.
-- Optional installable .zip (Paks\ + readme) ready to drop into Vortex or any mod manager.
-- Every merged table is round-trip verified (re-decoded and re-compared against your selection) before packing — if something does not survive intact, the merge fails loudly instead of corrupting your game.
-- Projects (.stproj): save your mod list, selections and conflict resolutions, reopen later.
-- Headless mode for scripts/automation:
-  StellarTool --headless merge --mod "<A>" --mod "<B>" --out <dir> [--prefer <mod>]
-- Your source mods are never modified. The tool only writes the merged output.
+CharacterTable · ATL_M_Maelstrom_01 · MaxHP: 100000 -> 300000 (+200%)
+EffectTable · Item_HP_RPotion · CalculationValue: 60 -> 30 (-50%)
+SkillTable · M_DroidTurret_Laser · AttackDamageRate: 1.5 -> 4.5 (+200%)
+
+Tick the changes you want. When two mods set the same value differently, that's a conflict - pick the winner side by side, or "prefer this mod for everything". Identical changes from different mods are collapsed into one line automatically.
 
 Reading Zen/IoStore mods
 
-Most Stellar Blade mods ship as Zen/IoStore containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse — point it at your Stellar Blade folder once (Settings; it auto-detects Steam) and it can analyze and diff Zen mods against vanilla.
+Most Stellar Blade mods ship as Zen containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (it auto-detects Steam) and it can analyze and diff Zen mods against vanilla. Legacy .pak, .zip and loose .uasset folders work too.
 
-When merging Zen mods, numeric changes (HP, damage, shields, multipliers…) are written back and verified. Non-numeric changes (text, enums, arrays of effects, object references) are shown in the diff but skipped on write — they don't round-trip reliably into a Zen container yet. The tool counts and reports exactly how many were skipped, so nothing is silent.
+When merging Zen mods, numeric changes (HP, damage, shields, multipliers...) are written back and verified. Non-numeric changes (text, enums, arrays, object references) are shown in the diff but skipped on write - they don't round-trip reliably into a Zen container yet - and the tool reports exactly how many were skipped. Nothing is silent.
 
-What it does NOT do
+Main features
 
-- It does not edit values by hand (yet) — it merges what your mods already change.
-- Non-numeric changes from Zen mods aren't written back (see above).
+- Load any number of mods: Zen/IoStore (.ucas/.utoc), legacy .pak, .zip, or loose .uasset folders.
+- Real vanilla -> modded values with percentages, per row and property.
+- Per-change checkboxes; toggle whole tables at once; edit the final value by hand.
+- Value-level conflict detection and side-by-side resolution.
+- Output is the game's native Zen container (zzz_StellarTool_Merged_P), round-trip verified after packing - if a table wouldn't survive intact, the merge fails loudly instead of corrupting your game.
+- Optional installable .zip (Paks\ + readme) for Vortex or any mod manager, plus a merge_report.txt.
+- Projects (.stproj): save your mod list, selections and resolutions; reopen later.
+- Vanilla baseline built from your own game copy in one click; auto-rebuilds if the game updates.
+- Headless CLI for scripts/automation. 10 interface languages.
+- Your source mods are never modified.
 
 Install
 
-1. Download and extract anywhere.
-2. Run StellarTool.exe.
-3. Drag your mods in, press Analyze, review changes and conflicts, merge.
-4. Copy the generated files to StellarBlade\SB\Content\Paks\~mods (or install the generated zip with your mod manager).
-5. IMPORTANT: disable/remove the source mods you merged, so they do not override the merged pak.
-
-Optional but recommended: a vanilla baseline (so you get "vanilla → modded" values instead of raw mod values). The readme on GitHub explains how to extract it from your own game copy in one command.
+1. Download and extract anywhere. Self-contained; no installer, no game files touched.
+2. Run StellarTool.exe. In Settings, confirm your Stellar Blade folder (auto-detected).
+3. Drop your mods in, review, and Merge everything.
+4. Install the result to StellarBlade\SB\Content\Paks\~mods (or the generated .zip via your mod manager).
+5. Disable the source mods you merged so they don't override the merged pak (one-click button).
 
 Requirements and conflicts
 
-- Windows 10/11. No game file is ever touched; the tool only reads mods and writes to the output folder you choose.
-- The merged pak conflicts, by definition, with the mods you merged into it — disable them.
-- Open source (MIT): https://github.com/guideahon/StellarTool — code, build instructions and issue tracker there. Bug reports with the mods involved are welcome.
+- Windows 10/11. No game file is ever touched.
+- The merged pak conflicts, by definition, with the mods you merged into it - disable them.
+- Open source (MIT): https://github.com/guideahon/StellarTool - code, build instructions and issue tracker. You can compile it yourself.
+
+What's bundled
+
+StellarTool.exe plus open-source community CLI tools it drives, unmodified: repak and retoc (trumank), UAssetGUI (atenfyr), cue4parse (CUE4Parse CLI). All auditable from the repo.
 
 Shout outs
 
-- trumank, for repak and retoc — the pak/IoStore tooling this relies on.
-- atenfyr, for UAssetGUI / UAssetAPI — the uasset decoding that makes value-level merging possible.
-- The Stellar Blade modding community for the mappings (.usmap) groundwork.
-- Raxdiam, whose "we're modifying the same file and clashing" description of gameplay mods inspired this tool.
+- trumank - repak and retoc.
+- atenfyr - UAssetGUI / UAssetAPI.
+- FabianFG and the FModel team - CUE4Parse, which lets Stellar Tool read Zen mods.
+- The Stellar Blade modding community - the mappings (.usmap) groundwork.
+- Raxdiam, whose "we're all modifying the same file and clashing" description inspired this tool.
