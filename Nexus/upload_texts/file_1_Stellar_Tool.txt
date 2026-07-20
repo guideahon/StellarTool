@@ -1,3 +1,1 @@
-Main file - Stellar Tool
-
-The full tool (GUI + headless CLI), self-contained: Qt runtime plus the open-source community CLI binaries it drives, unmodified — repak and retoc (trumank), UAssetGUI (atenfyr) and cue4parse (CUE4Parse CLI, reads Zen mods). Extract anywhere and run StellarTool.exe. No installer, nothing written to the game folder; the merged output goes wherever you choose. Full source and build instructions: github.com/guideahon/StellarTool — you can compile it yourself instead.
+Self-contained tool (GUI + CLI). Bundles the open-source CLIs it drives: repak, retoc (trumank), UAssetGUI (atenfyr), cue4parse (FModel). Extract and run StellarTool.exe. No installer, no game files touched. Source: github.com/guideahon/StellarTool
