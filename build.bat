@@ -43,6 +43,17 @@ for %%F in (repak.exe retoc.exe UAssetGUI.exe cue4parse.exe StellarBlade.usmap) 
     if exist "%~dp0tools\%%F" copy /Y "%~dp0tools\%%F" "%~dp0build\%CONFIG%\tools\" >nul
 )
 
+REM Runtime de VC++ junto al exe (por si el equipo del usuario no lo tiene).
+REM windeployqt --compiler-runtime solo lo copia con VCINSTALLDIR seteado (dev
+REM prompt de VS); lo tomamos de tools\ para no depender de eso.
+if exist "%~dp0tools\vc_redist.x64.exe" copy /Y "%~dp0tools\vc_redist.x64.exe" "%~dp0build\%CONFIG%\" >nul
+
+REM DXC (compilador de shaders D3D12 de Qt). windeployqt a veces no lo encuentra;
+REM lo copiamos de la instalacion de Qt si falta.
+for %%F in (dxcompiler.dll dxil.dll) do (
+    if not exist "%~dp0build\%CONFIG%\%%F" if exist "%QT_DIR%\bin\%%F" copy /Y "%QT_DIR%\bin\%%F" "%~dp0build\%CONFIG%\" >nul
+)
+
 echo.
 echo === Build complete ===
 echo %CONFIG%: build\%CONFIG%\StellarTool.exe

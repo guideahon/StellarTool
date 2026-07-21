@@ -29,6 +29,7 @@ for %%F in (repak.exe retoc.exe UAssetGUI.exe cue4parse.exe) do (
     if not exist "%SRC%\tools\%%F" ( echo [ERROR] falta tools\%%F en el build & goto :fail )
 )
 if not exist "%SRC%\tools\StellarBlade.usmap" echo [WARN] falta StellarBlade.usmap; el zip funcionara pero sin nombres de propiedades.
+if not exist "%SRC%\vc_redist.x64.exe" echo [WARN] falta vc_redist.x64.exe; usuarios sin el runtime de VC++ no podran arrancar la app. Corre setup.bat.
 
 REM Nunca empaquetar la DLL propietaria de Oodle
 if exist "%SRC%\tools\oo2core_9_win64.dll" del /f /q "%SRC%\tools\oo2core_9_win64.dll" >nul 2>&1

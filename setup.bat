@@ -12,6 +12,9 @@ REM Mappings de Stellar Blade (comunidad; NO se versionan en el repo).
 set USMAP_URL=https://raw.githubusercontent.com/TheNaeem/Unreal-Mappings-Archive/main/Stellar%%20Blade/1.4.1/Mappings.usmap
 REM CUE4Parse CLI: lee contenedores Zen/IoStore (mods de Nexus) a JSON.
 set CUE4_URL=https://github.com/joric/CUE4Parse.CLI/releases/download/cli-0.1.8/CUE4Parse.CLI-0.1.8-Win64-bin.zip
+REM Runtime de Visual C++ (VS 2015-2022 x64). Se empaqueta en el zip para que
+REM el .exe arranque en equipos sin el runtime instalado (VCRUNTIME140.dll).
+set VCREDIST_URL=https://aka.ms/vs/17/release/vc_redist.x64.exe
 
 if not exist tools mkdir tools
 
@@ -37,6 +40,12 @@ if not exist tools\cue4parse.exe (
     echo [INFO] Descargando CUE4Parse.CLI 0.1.8...
     powershell -NoProfile -Command "Invoke-WebRequest '%CUE4_URL%' -OutFile '%TEMP%\cue4_st.zip'; Expand-Archive '%TEMP%\cue4_st.zip' '%TEMP%\cue4_st' -Force; Copy-Item (Get-ChildItem '%TEMP%\cue4_st' -Recurse -Filter cue4parse.exe)[0].FullName 'tools\cue4parse.exe' -Force"
     if not exist tools\cue4parse.exe ( echo [WARN] No se pudo descargar cue4parse.exe; los mods Zen no se podran leer. )
+)
+
+if not exist tools\vc_redist.x64.exe (
+    echo [INFO] Descargando runtime de Visual C++ x64...
+    powershell -NoProfile -Command "try { Invoke-WebRequest '%VCREDIST_URL%' -OutFile 'tools\vc_redist.x64.exe' } catch { }"
+    if not exist tools\vc_redist.x64.exe ( echo [WARN] No se pudo descargar vc_redist.x64.exe; el zip no incluira el runtime de VC++. )
 )
 
 echo [INFO] Verificando hash de repak...
