@@ -5,6 +5,8 @@
 
 namespace st {
 
+class Translator;
+
 // Un item por ConflictGroup; candidatos expuestos como lista de variantes.
 class ConflictModel : public QAbstractListModel {
     Q_OBJECT
@@ -20,6 +22,8 @@ public:
 
     explicit ConflictModel(QObject *parent = nullptr);
 
+    void setTranslator(const Translator *tr) { m_i18n = tr; }
+
     int rowCount(const QModelIndex &parent = {}) const override;
     QVariant data(const QModelIndex &index, int role) const override;
     QHash<int, QByteArray> roleNames() const override;
@@ -34,6 +38,7 @@ signals:
 private:
     QList<ChangeItem> *m_items = nullptr;
     QList<ConflictGroup> *m_groups = nullptr;
+    const Translator *m_i18n = nullptr;
 };
 
 } // namespace st

@@ -1,4 +1,5 @@
 #include "ConflictModel.h"
+#include "../Translator.h"
 
 #include <QJsonDocument>
 
@@ -10,9 +11,12 @@ int ConflictModel::rowCount(const QModelIndex &parent) const {
     return parent.isValid() || !m_groups ? 0 : m_groups->size();
 }
 
-static QString valueText(const QJsonValue &v, ChangeItem::Type type) {
-    if (type == ChangeItem::RowAdded)   return QObject::tr("fila completa (nueva/reemplazada)");
-    if (type == ChangeItem::RowRemoved) return QObject::tr("fila eliminada");
+static QString valueText(const QJsonValue &v, ChangeItem::Type type, const Translator *tr) {
+    auto L = [tr](const char *key, const char *en) {
+        return tr ? tr->t(QString::fromLatin1(key)) : QString::fromLatin1(en);
+    };
+    if (type == ChangeItem::RowAdded)   return L("conflict_row_full", "full row (new/replaced)");
+    if (type == ChangeItem::RowRemoved) return L("change_row_removed", "row removed");
     if (v.isUndefined()) return QStringLiteral("—");
     if (v.isDouble()) {
         const double d = v.toDouble();
@@ -47,7 +51,7 @@ QVariant ConflictModel::data(const QModelIndex &index, int role) const {
             out << QVariantMap{
                 {QStringLiteral("modId"), c.modId},
                 {QStringLiteral("modName"), c.modName},
-                {QStringLiteral("valueText"), valueText(c.newValue, c.type)},
+                {QStringLiteral("valueText"), valueText(c.newValue, c.type, m_i18n)},
                 {QStringLiteral("chosen"), g.resolvedModId == c.modId},
             };
         }
@@ -55,7 +59,7 @@ QVariant ConflictModel::data(const QModelIndex &index, int role) const {
     }
     case ResolvedModRole: return g.resolvedModId;
     case GroupIdRole: return g.id;
-    case BaseTextRole: return valueText(first.baseValue, ChangeItem::Modified);
+    case BaseTextRole: return valueText(first.baseValue, ChangeItem::Modified, m_i18n);
     }
     return {};
 }

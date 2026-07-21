@@ -215,7 +215,7 @@ ApplicationWindow {
             currentIndex: win.currentPage
 
             EasyMergePage { onOpenSettings: win.currentPage = 5 }
-            HomePage {}
+            HomePage { onOpenSettings: win.currentPage = 5 }
             ChangesPage {}
             ConflictsPage {}
             MergePage {}

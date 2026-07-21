@@ -1,4 +1,5 @@
 #include "ModTypes.h"
+#include "../Translator.h"
 
 #include <QCryptographicHash>
 #include <cmath>
@@ -66,15 +67,19 @@ static QString valueToText(const QJsonValue &v) {
     return QString::fromUtf8(b);
 }
 
-QString ChangeItem::summary() const {
+QString ChangeItem::summary(const Translator *tr) const {
     const QString table = tablePath.section(QLatin1Char('/'), -1).section(QLatin1Char('.'), 0, 0);
+    auto L = [tr](const char *key, const char *en) {
+        return tr ? tr->t(QString::fromLatin1(key)) : QString::fromLatin1(en);
+    };
     switch (type) {
     case RowAdded:
-        return QStringLiteral("%1 · %2 · fila nueva").arg(table, rowName);
+        return QStringLiteral("%1 · %2 · %3").arg(table, rowName, L("change_row_new", "new row"));
     case RowRemoved:
-        return QStringLiteral("%1 · %2 · fila eliminada").arg(table, rowName);
+        return QStringLiteral("%1 · %2 · %3").arg(table, rowName, L("change_row_removed", "row removed"));
     case AssetReplaced:
-        return QStringLiteral("%1 · asset reemplazado").arg(tablePath.section(QLatin1Char('/'), -1));
+        return QStringLiteral("%1 · %2").arg(tablePath.section(QLatin1Char('/'), -1),
+                                             L("change_asset_replaced", "asset replaced"));
     case Modified:
     default: {
         QString s = QStringLiteral("%1 · %2 · %3: ").arg(table, rowName, displayPath());

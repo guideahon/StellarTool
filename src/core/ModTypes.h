@@ -11,6 +11,8 @@
 
 namespace st {
 
+class Translator;
+
 // Un asset dentro de un mod (ruta relativa dentro del pak = identidad in-game).
 struct ModAsset {
     enum Kind { DataTable, Other, Unreadable };
@@ -65,7 +67,9 @@ struct ChangeItem {
 
     QString key() const;          // tablePath|rowName|propPath (case-insensitive en tablePath)
     QString displayPath() const;  // "Stats.MaxHP" legible
-    QString summary() const;      // resumen humano
+    // Resumen humano. Con Translator, las etiquetas de tipo (fila nueva, etc.)
+    // salen en el idioma activo; sin él, en inglés (fallback headless/tests).
+    QString summary(const Translator *tr = nullptr) const;
 };
 
 struct ConflictGroup {

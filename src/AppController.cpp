@@ -56,6 +56,7 @@ AppController::AppController(Translator *i18n, QObject *parent)
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     connect(m_baseline, &BaselineManager::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
+    m_conflictModel.setTranslator(i18n);
     m_changeModel.setItems(&m_items);
     m_conflictModel.setSource(&m_items, &m_groups);
 }
@@ -232,7 +233,7 @@ void AppController::runAnalysis() {
     }
     QList<ConflictGroup> groups = TableDiffEngine::findConflicts(items);
     for (auto &c : items)
-        c.summaryCache = c.summary();   // precalcular para listas grandes
+        c.summaryCache = c.summary(m_i18n);   // precalcular para listas grandes
     QMetaObject::invokeMethod(this, [this, items, groups] {
         m_items = items;
         m_groups = groups;
