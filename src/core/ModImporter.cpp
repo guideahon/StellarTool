@@ -101,8 +101,12 @@ int ModImporter::importZenTables(const QString &utoc, const QString &modWorkDir,
     }
     emit progress(t(QStringLiteral("core_reading_zen")).arg(QFileInfo(utoc).completeBaseName()));
     const QString jsonDir = modWorkDir + QStringLiteral("/cue4json");
+    // Exporta todos los assets del mod (suelen ser pocos) y filtra por
+    // isDataTableJson abajo. No limitamos a "*Table*": muchas DataTables de SB
+    // no llevan "Table" en el nombre (p. ej. las de SB/Content/Local/Data),
+    // y ese wildcard las descartaba silenciosamente.
     const auto tables = m_cue4->exportTables(stage, jsonDir, m_uasset->usmapPath(),
-                                             QStringLiteral("*Table*"), error);
+                                             QStringLiteral("*"), error);
     QDir(stage).removeRecursively();
     if (tables.isEmpty())
         return 0;
