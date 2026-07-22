@@ -5,6 +5,7 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QSettings>
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcUasset, "st.uasset")
@@ -32,11 +33,34 @@ QString UAssetService::mappingName() { return QStringLiteral("StellarBlade"); }
 QString UAssetService::usmapPath() {
     const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("ST_USMAP"));
     if (!env.isEmpty() && QFileInfo::exists(env)) return env;
+    // Override del usuario (UI): usmap actualizado tras un parche del juego,
+    // sin necesidad de reemplazar el bundled ni una nueva release.
+    const QString custom = customUsmapPath();
+    if (!custom.isEmpty() && QFileInfo::exists(custom)) return custom;
     const QString bundled = QCoreApplication::applicationDirPath() + QStringLiteral("/tools/StellarBlade.usmap");
     if (QFileInfo::exists(bundled)) return bundled;
     const QString dev = QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools/StellarBlade.usmap");
     if (QFileInfo::exists(dev)) return QFileInfo(dev).absoluteFilePath();
     return {};
+}
+
+QString UAssetService::customUsmapPath() {
+    QSettings s;
+    return s.value(QStringLiteral("usmapOverride")).toString();
+}
+
+void UAssetService::setCustomUsmapPath(const QString &path) {
+    QSettings s;
+    if (path.isEmpty())
+        s.remove(QStringLiteral("usmapOverride"));
+    else
+        s.setValue(QStringLiteral("usmapOverride"), path);
+    // Invalidar el mapping ya copiado a %APPDATA% para que se regenere
+    // desde el nuevo usmap en el próximo fromjson.
+    const QString dst = QDir::homePath()
+        + QStringLiteral("/AppData/Roaming/UAssetGUI/Mappings/")
+        + mappingName() + QStringLiteral(".usmap");
+    QFile::remove(dst);
 }
 
 void UAssetService::ensureMappingInstalled() {
@@ -49,7 +73,7 @@ void UAssetService::ensureMappingInstalled() {
     QFile::copy(usmap, dst);
 }
 
-bool UAssetService::run(const QStringList &args, QString *error) {
+bool UAssetService::run(const QStringList &args, QString *error, QString *output) {
     const QString exe = uassetGuiPath();
     if (exe.isEmpty()) {
         if (error) *error = QStringLiteral("UAssetGUI.exe no encontrado en tools/. Ver tools/VERSIONS.md.");
@@ -69,6 +93,7 @@ bool UAssetService::run(const QStringList &args, QString *error) {
         return false;
     }
     const QString out = QString::fromLocal8Bit(p.readAll());
+    if (output) *output = out;
     if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
         qCWarning(lcUasset) << "fail:" << p.exitCode() << out;
         if (error) *error = QStringLiteral("UAssetGUI falló (código %1): %2").arg(p.exitCode()).arg(out.right(500));
@@ -83,10 +108,13 @@ bool UAssetService::toJson(const QString &uassetPath, const QString &jsonPath, Q
                      QDir::toNativeSeparators(jsonPath), engineVersion()};
     if (!usmapPath().isEmpty())
         args << QDir::toNativeSeparators(usmapPath());
-    if (!run(args, error))
+    QString out;
+    if (!run(args, error, &out))
         return false;
     if (!QFileInfo::exists(jsonPath)) {
-        if (error) *error = QStringLiteral("UAssetGUI no produjo el JSON esperado");
+        if (error) *error = QStringLiteral("UAssetGUI no produjo el JSON esperado "
+                                           "(mapping/versión desactualizados tras parche del juego). %1")
+                                .arg(out.trimmed().right(500));
         return false;
     }
     return true;
@@ -100,10 +128,13 @@ bool UAssetService::fromJson(const QString &jsonPath, const QString &uassetPath,
         ensureMappingInstalled();
         args << mappingName();
     }
-    if (!run(args, error))
+    QString out;
+    if (!run(args, error, &out))
         return false;
     if (!QFileInfo::exists(uassetPath)) {
-        if (error) *error = QStringLiteral("UAssetGUI no produjo el uasset esperado");
+        if (error) *error = QStringLiteral("UAssetGUI no produjo el uasset esperado "
+                                           "(mapping/versión desactualizados tras parche del juego). %1")
+                                .arg(out.trimmed().right(500));
         return false;
     }
     return true;

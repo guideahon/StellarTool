@@ -61,6 +61,12 @@
   "settings_build_baseline": "Construir baseline desde el juego",
   "settings_baseline_ok": "Baseline lista ✓",
   "settings_baseline_none": "Sin baseline (los cambios se muestran sin antes→después).",
+  "settings_mappings": "Mappings (.usmap)",
+  "settings_mappings_desc": "Se usan para leer/escribir assets del juego. Vienen incluidos. Si el juego se actualizó y ves errores \"no produjo\" / \"no exportó\", cargá acá un StellarBlade.usmap actualizado.",
+  "settings_mappings_bundled": "Usando los mappings incluidos.",
+  "settings_mappings_custom": "Usando mappings personalizados ✓",
+  "settings_mappings_choose": "Cargar .usmap...",
+  "settings_mappings_reset": "Usar los incluidos",
   "err_game_not_found": "Esa carpeta no parece una instalación de Stellar Blade (no se encontró SB/Content/Paks/global.utoc).",
 
   "lang_popup_title": "Elegí tu idioma",

@@ -32,7 +32,7 @@ signals:
     void progress(const QString &message);
 
 private:
-    bool run(const QStringList &args, QString *error, int timeoutMs);
+    bool run(const QStringList &args, QString *error, int timeoutMs, QString *output = nullptr);
 };
 
 } // namespace st

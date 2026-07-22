@@ -14,8 +14,12 @@ public:
     static QString uassetGuiPath();   // tools/UAssetGUI.exe (o env ST_UASSETGUI)
     // Mappings (.usmap) para juegos con nombres mapeados (Stellar Blade los requiere
     // para obtener JSON con nombres de propiedades reales).
-    static QString usmapPath();       // tools/StellarBlade.usmap (o env ST_USMAP)
+    static QString usmapPath();       // override usuario > ST_USMAP > tools/StellarBlade.usmap
     static QString mappingName();     // "StellarBlade"
+    // Override del usuario (QSettings "usmapOverride"): usmap actualizado tras
+    // un parche del juego, sin reemplazar el bundled. Vacío = usar bundled.
+    static QString customUsmapPath();
+    static void setCustomUsmapPath(const QString &path);
     bool available() const;
     // Copia el usmap a %APPDATA%/UAssetGUI/Mappings para que fromjson resuelva
     // el mapping por nombre. Idempotente.
@@ -27,7 +31,7 @@ public:
     static QString engineVersion();   // "VER_UE4_26"
 
 private:
-    bool run(const QStringList &args, QString *error);
+    bool run(const QStringList &args, QString *error, QString *output = nullptr);
 };
 
 } // namespace st

@@ -26,6 +26,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool baselineStale READ baselineStale NOTIFY baselineChanged)
     Q_PROPERTY(QString gamePath READ gamePath NOTIFY gamePathChanged)
     Q_PROPERTY(bool hasGamePath READ hasGamePath NOTIFY gamePathChanged)
+    Q_PROPERTY(QString usmapPath READ usmapPath NOTIFY usmapChanged)
+    Q_PROPERTY(bool usmapIsCustom READ usmapIsCustom NOTIFY usmapChanged)
     Q_PROPERTY(bool advancedMode READ advancedMode WRITE setAdvancedMode NOTIFY advancedModeChanged)
     Q_PROPERTY(bool toolsAvailable READ toolsAvailable CONSTANT)
     Q_PROPERTY(QString toolsError READ toolsError CONSTANT)
@@ -74,6 +76,12 @@ public:
     QString gamePath() const;
     bool hasGamePath() const;
     Q_INVOKABLE void setGamePath(const QUrl &dirUrl);
+    // Override del usmap (mappings). Vacío = usar el bundled. Para actualizar
+    // mappings tras un parche del juego sin esperar una nueva release.
+    QString usmapPath() const;
+    bool usmapIsCustom() const;
+    Q_INVOKABLE void setUsmapPath(const QUrl &fileUrl);
+    Q_INVOKABLE void clearUsmapPath();
     Q_INVOKABLE QString defaultOutDir() const;   // <juego>/~mods si hay juego, si no vacío
     Q_INVOKABLE void openDir(const QString &path); // abre la carpeta en el Explorador
     // Mods cargados cuyo origen vive dentro de ~mods (candidatos a desactivar).
@@ -91,6 +99,7 @@ signals:
     void statusChanged();
     void baselineChanged();
     void gamePathChanged();
+    void usmapChanged();
     void advancedModeChanged();
     void analysisChanged();
     void mergeFinished();

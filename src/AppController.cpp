@@ -652,6 +652,23 @@ void AppController::setGamePath(const QUrl &dirUrl) {
         emit errorOccurred(t(QStringLiteral("err_game_not_found")));
 }
 
+QString AppController::usmapPath() const { return UAssetService::usmapPath(); }
+
+bool AppController::usmapIsCustom() const {
+    return !UAssetService::customUsmapPath().isEmpty();
+}
+
+void AppController::setUsmapPath(const QUrl &fileUrl) {
+    const QString f = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    UAssetService::setCustomUsmapPath(f);
+    emit usmapChanged();
+}
+
+void AppController::clearUsmapPath() {
+    UAssetService::setCustomUsmapPath(QString());
+    emit usmapChanged();
+}
+
 void AppController::buildBaselineFromGame() {
     if (m_busy) return;
     if (!GamePaths::hasGame()) {

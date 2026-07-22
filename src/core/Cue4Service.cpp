@@ -28,7 +28,7 @@ QString Cue4Service::cue4Path() {
 
 bool Cue4Service::available() const { return !cue4Path().isEmpty(); }
 
-bool Cue4Service::run(const QStringList &args, QString *error, int timeoutMs) {
+bool Cue4Service::run(const QStringList &args, QString *error, int timeoutMs, QString *output) {
     const QString exe = cue4Path();
     if (exe.isEmpty()) {
         if (error) *error = QStringLiteral("cue4parse.exe no encontrado en tools/.");
@@ -48,6 +48,7 @@ bool Cue4Service::run(const QStringList &args, QString *error, int timeoutMs) {
         return false;
     }
     const QString out = QString::fromLocal8Bit(p.readAll());
+    if (output) *output = out;
     // cue4parse puede terminar con excepción de escritura por race y aún así
     // haber producido los JSON; no tratamos exitCode!=0 como fatal si hay salida.
     if (out.contains(QLatin1String("Could not load standard asset"))) {
@@ -76,8 +77,8 @@ QMap<QString, QString> Cue4Service::exportTables(const QString &inputDir,
         args << QStringLiteral("-m") << QDir::toNativeSeparators(mappings);
 
     emit progress(tr("Leyendo tablas con CUE4Parse..."));
-    QString runErr;
-    run(args, &runErr, 600000); // no fatal salvo "could not load"
+    QString runErr, runOut;
+    run(args, &runErr, 600000, &runOut); // no fatal salvo "could not load"
 
     QMap<QString, QString> result;
     QDirIterator it(outDir, {QStringLiteral("*.json")}, QDir::Files, QDirIterator::Subdirectories);
@@ -85,8 +86,14 @@ QMap<QString, QString> Cue4Service::exportTables(const QString &inputDir,
         it.next();
         result.insert(it.fileInfo().completeBaseName(), it.filePath());
     }
-    if (result.isEmpty() && error)
-        *error = runErr.isEmpty() ? tr("CUE4Parse no exportó ninguna tabla") : runErr;
+    if (result.isEmpty() && error) {
+        if (!runErr.isEmpty())
+            *error = runErr;
+        else
+            *error = tr("CUE4Parse no exportó ninguna tabla (el mod no contiene DataTables "
+                        "'%1', o el mapping/versión están desactualizados tras un parche del juego). %2")
+                         .arg(packageWildcard, runOut.trimmed().right(500));
+    }
     return result;
 }
 

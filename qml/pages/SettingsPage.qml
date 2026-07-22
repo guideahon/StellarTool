@@ -73,6 +73,51 @@ Item {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
+        // ---- Mappings (.usmap) override ----
+        Label {
+            text: I18n.s.settings_mappings
+            color: Theme.text
+            font.pixelSize: 16
+            font.bold: true
+        }
+        Label {
+            text: I18n.s.settings_mappings_desc
+            color: Theme.textDim
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+                Layout.fillWidth: true
+                height: 34
+                radius: Theme.radius
+                color: Theme.panel
+                border.color: Theme.border
+                Label {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    verticalAlignment: Text.AlignVCenter
+                    text: App.usmapIsCustom ? App.usmapPath : I18n.s.settings_mappings_bundled
+                    color: App.usmapIsCustom ? Theme.ok : Theme.textDim
+                    elide: Text.ElideMiddle
+                }
+            }
+            Button {
+                text: I18n.s.settings_mappings_choose
+                enabled: !App.busy
+                onClicked: usmapDialog.open()
+            }
+            Button {
+                text: I18n.s.settings_mappings_reset
+                enabled: !App.busy && App.usmapIsCustom
+                onClicked: App.clearUsmapPath()
+            }
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
         Label {
             text: I18n.s.settings_language
             color: Theme.text
@@ -135,5 +180,11 @@ Item {
     FolderDialog {
         id: gameDialog
         onAccepted: App.setGamePath(selectedFolder)
+    }
+
+    FileDialog {
+        id: usmapDialog
+        nameFilters: ["Unreal mappings (*.usmap)"]
+        onAccepted: App.setUsmapPath(selectedFile)
     }
 }
