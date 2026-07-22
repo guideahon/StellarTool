@@ -7,11 +7,32 @@
 
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QLoggingCategory>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 Q_LOGGING_CATEGORY(lcImport, "st.import")
+
+namespace {
+// Hardlink src->dst (instantáneo, sin ocupar disco extra; requiere mismo
+// volumen). Si falla (distinto volumen), copia. Evita duplicar el global.ucas
+// del juego (varios GB) en la unidad del AppData al leer mods Zen.
+bool linkOrCopy(const QString &src, const QString &dst) {
+    if (QFileInfo::exists(dst)) return true;
+#ifdef Q_OS_WIN
+    if (CreateHardLinkW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(dst).utf16()),
+                        reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(src).utf16()),
+                        nullptr))
+        return true;
+#endif
+    return QFile::copy(src, dst);
+}
+}
 
 namespace st {
 
@@ -33,16 +54,27 @@ static QStringList findPaks(const QString &dir) {
 // Desempaqueta un .pak en extractDir. Detecta contenedores Zen/IoStore
 // (sibling .utoc): intenta revertir a legacy con retoc; si no se puede
 // (limitación conocida en mods ya empaquetados), da un error accionable.
-// Copia los contenedores global del juego + el mod a un stage temporal para
+// Reúne los contenedores global del juego + el mod en un stage temporal para
 // que CUE4Parse resuelva los tipos. Devuelve el dir de stage, o vacío.
+// El stage se ubica en el volumen del juego (junto a los Paks) para poder
+// hardlinkear el global (varios GB): no ocupa disco extra. Si esa carpeta no
+// es escribible, cae al workDir del mod (con hardlink si es el mismo volumen,
+// o copia si no). Los contenedores del mod son chicos: se copian siempre.
 static QString stageForCue4(const QString &modUtoc, const QString &modWorkDir) {
     const QStringList globals = GamePaths::globalContainerFiles();
     if (globals.isEmpty()) return {};
-    const QString stage = modWorkDir + QStringLiteral("/cue4stage");
+
+    // Preferir un stage en la unidad del juego para que el global se hardlinkee.
+    QString stage = GamePaths::paksDir() + QStringLiteral("/~st_cue4stage");
     QDir(stage).removeRecursively();
-    QDir().mkpath(stage);
+    if (!QDir().mkpath(stage)) {
+        stage = modWorkDir + QStringLiteral("/cue4stage");
+        QDir(stage).removeRecursively();
+        if (!QDir().mkpath(stage)) return {};
+    }
+
     for (const QString &g : globals)
-        QFile::copy(g, stage + QLatin1Char('/') + QFileInfo(g).fileName());
+        linkOrCopy(g, stage + QLatin1Char('/') + QFileInfo(g).fileName());
     const QFileInfo mi(modUtoc);
     for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"), QStringLiteral("pak")}) {
         const QString f = mi.absolutePath() + QLatin1Char('/') + mi.completeBaseName() + QLatin1Char('.') + ext;
