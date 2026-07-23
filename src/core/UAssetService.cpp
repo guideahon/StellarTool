@@ -2,13 +2,43 @@
 
 #include <QCoreApplication>
 #include <QDir>
+#include <QFile>
 #include <QFileInfo>
+#include <QTextStream>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QSettings>
+#include <QStandardPaths>
+#include <QDateTime>
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcUasset, "st.uasset")
+
+namespace {
+// Escribe un log de diagnóstico de una corrida de UAssetGUI (exe, args, código
+// de salida y salida de consola) y devuelve su ruta. UAssetGUI es una app GUI:
+// a veces sale con código 0 sin escribir el archivo ni imprimir nada, así que
+// dejamos rastro en disco para poder diagnosticar reportes de usuarios.
+QString writeUassetDiag(const QStringList &args, int exitCode, const QString &out) {
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                        + QStringLiteral("/logs");
+    QDir().mkpath(dir);
+    const QString path = dir + QStringLiteral("/uassetgui_")
+        + QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss_zzz"))
+        + QStringLiteral(".log");
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) return {};
+    QTextStream ts(&f);
+    ts << "UAssetGUI diagnostic\n"
+       << "when: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n"
+       << "args: " << args.join(QLatin1Char(' ')) << "\n"
+       << "exitCode: " << exitCode << "\n"
+       << "----- output -----\n"
+       << (out.isEmpty() ? QStringLiteral("(no console output captured)") : out) << "\n";
+    f.close();
+    return path;
+}
+}
 
 namespace st {
 
@@ -96,7 +126,9 @@ bool UAssetService::run(const QStringList &args, QString *error, QString *output
     if (output) *output = out;
     if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
         qCWarning(lcUasset) << "fail:" << p.exitCode() << out;
-        if (error) *error = QStringLiteral("UAssetGUI falló (código %1): %2").arg(p.exitCode()).arg(out.right(500));
+        const QString log = writeUassetDiag(args, p.exitCode(), out);
+        if (error) *error = QStringLiteral("UAssetGUI falló (código %1): %2\nLog: %3")
+                                .arg(p.exitCode()).arg(out.right(500), log);
         return false;
     }
     return true;
@@ -112,9 +144,10 @@ bool UAssetService::toJson(const QString &uassetPath, const QString &jsonPath, Q
     if (!run(args, error, &out))
         return false;
     if (!QFileInfo::exists(jsonPath)) {
+        const QString log = writeUassetDiag(args, 0, out);
         if (error) *error = QStringLiteral("UAssetGUI no produjo el JSON esperado "
-                                           "(mapping/versión desactualizados tras parche del juego). %1")
-                                .arg(out.trimmed().right(500));
+                                           "(mapping/versión desactualizados tras parche del juego). %1\nLog: %2")
+                                .arg(out.trimmed().right(500), log);
         return false;
     }
     return true;
@@ -132,9 +165,14 @@ bool UAssetService::fromJson(const QString &jsonPath, const QString &uassetPath,
     if (!run(args, error, &out))
         return false;
     if (!QFileInfo::exists(uassetPath)) {
+        const QString log = writeUassetDiag(args, 0, out);
+        // Preservar el JSON de entrada (temporal, se limpia luego) junto al log
+        // para poder inspeccionar la conversión Zen→UAssetGUI que falló.
+        if (!log.isEmpty())
+            QFile::copy(jsonPath, log + QStringLiteral(".input.json"));
         if (error) *error = QStringLiteral("UAssetGUI no produjo el uasset esperado "
-                                           "(mapping/versión desactualizados tras parche del juego). %1")
-                                .arg(out.trimmed().right(500));
+                                           "(mapping/versión desactualizados tras parche del juego). %1\nLog: %2")
+                                .arg(out.trimmed().right(500), log);
         return false;
     }
     return true;
