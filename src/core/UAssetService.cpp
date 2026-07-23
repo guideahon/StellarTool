@@ -157,10 +157,14 @@ bool UAssetService::fromJson(const QString &jsonPath, const QString &uassetPath,
     QDir().mkpath(QFileInfo(uassetPath).absolutePath());
     QStringList args{QStringLiteral("fromjson"), QDir::toNativeSeparators(jsonPath),
                      QDir::toNativeSeparators(uassetPath)};
-    if (!usmapPath().isEmpty()) {
-        ensureMappingInstalled();
-        args << mappingName();
-    }
+    // Pasar la RUTA del usmap, no el nombre. UAssetGUI resuelve el nombre
+    // escaneando %LOCALAPPDATA%/UAssetGUI/Mappings; si el usmap no está ahí
+    // (o está en otra carpeta), el nombre no matchea, las mappings quedan en
+    // null, la DataTable no se puede reserializar y no se escribe el .uasset
+    // ("no produjo el uasset esperado"). Con la ruta, UAssetGUI la carga
+    // directo, sin depender de esa carpeta. (tojson ya usa la ruta.)
+    if (!usmapPath().isEmpty())
+        args << QDir::toNativeSeparators(usmapPath());
     QString out;
     if (!run(args, error, &out))
         return false;
