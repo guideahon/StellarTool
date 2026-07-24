@@ -153,7 +153,7 @@
   "merge_ok_zip": "OK: merged pak + installable zip generated and verified in %1.",
   "merge_ok": "OK: merged pak generated and verified in %1.",
   "merge_err": "Error: %1",
-  "merge_skipped_note": "(%1 non-numeric changes from Zen mods —text/enums/arrays/objects— were skipped: only numeric values round-trip reliably to a Zen container.)",
+  "merge_skipped_note": "(%1 array/object changes from Zen mods were skipped: those don't round-trip reliably yet. Numbers, text and enums are merged.)",
   "nav_builder": "Build mod",
   "builder_title": "Build your mod",
   "builder_q_combat": "Combat profile",

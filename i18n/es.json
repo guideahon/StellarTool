@@ -153,7 +153,7 @@
   "merge_ok_zip": "OK: pak mergeado + zip instalable generados y verificados en %1.",
   "merge_ok": "OK: pak mergeado generado y verificado en %1.",
   "merge_err": "Error: %1",
-  "merge_skipped_note": "(%1 cambios no numéricos de mods Zen —texto/enums/arrays/objetos— se saltearon: solo los valores numéricos round-tripean confiable a un contenedor Zen.)",
+  "merge_skipped_note": "(%1 cambios de array/objeto de mods Zen se saltearon: esos aún no round-tripean confiable. Números, texto y enums se mergean.)",
   "nav_builder": "Crear mod",
   "builder_title": "Crea tu mod",
   "builder_q_combat": "Perfil de combate",

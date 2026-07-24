@@ -510,8 +510,8 @@ QString AppController::runMerge(const QString &outDir) {
 
     // Reporte legible junto al pak.
     report << QString()
-           << QStringLiteral("Skipped = non-numeric changes from Zen-read mods (text/enums/arrays)")
-           << QStringLiteral("that don't round-trip reliably into a Zen container.");
+           << QStringLiteral("Skipped = array/object changes from Zen-read mods that don't")
+           << QStringLiteral("round-trip reliably. Numbers, text and enums are merged.");
     {
         QFile rf(outDir + QStringLiteral("/merge_report.txt"));
         if (rf.open(QIODevice::WriteOnly))
