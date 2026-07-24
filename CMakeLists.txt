@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(StellarTool VERSION 0.2.5 LANGUAGES CXX)
+project(StellarTool VERSION 0.2.6 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,7 +8,7 @@ set(CMAKE_AUTORCC ON)
 
 option(BUILD_TESTS "Build unit tests (StellarToolTests)" OFF)
 
-find_package(Qt6 6.4 REQUIRED COMPONENTS Core Quick Concurrent Widgets Test)
+find_package(Qt6 6.4 REQUIRED COMPONENTS Core Quick Concurrent Widgets Test Multimedia Network)
 
 qt_standard_project_setup(REQUIRES 6.4)
 
@@ -18,6 +18,7 @@ set(CORE_SOURCES
     src/core/UAssetService.cpp
     src/core/Cue4Service.cpp
     src/core/GamePaths.cpp
+    src/core/UsmapService.cpp
     src/core/BaselineManager.cpp
     src/core/ModImporter.cpp
     src/core/TableDiffEngine.cpp
@@ -36,6 +37,7 @@ set(CORE_HEADERS
     src/core/UAssetService.h
     src/core/Cue4Service.h
     src/core/GamePaths.h
+    src/core/UsmapService.h
     src/core/BaselineManager.h
     src/core/ModImporter.h
     src/core/TableDiffEngine.h
@@ -73,8 +75,13 @@ qt_add_resources(StellarTool "appicons"
     FILES assets/app_icon.png
 )
 
+qt_add_resources(StellarTool "audio"
+    PREFIX "/"
+    FILES assets/audio/keygen.wav
+)
+
 target_include_directories(StellarTool PRIVATE src)
-target_link_libraries(StellarTool PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets)
+target_link_libraries(StellarTool PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Multimedia Qt6::Network)
 set_target_properties(StellarTool PROPERTIES WIN32_EXECUTABLE TRUE)
 
 if (BUILD_TESTS)

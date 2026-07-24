@@ -115,6 +115,48 @@ Item {
                 onClicked: App.clearUsmapPath()
             }
         }
+        // Auto-descarga del usmap por versión de juego (archivo de la comunidad).
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+                Layout.preferredWidth: 130
+                height: 34
+                radius: Theme.radius
+                color: Theme.panelAlt
+                border.color: Theme.border
+                TextField {
+                    id: usmapVersionField
+                    anchors.fill: parent
+                    anchors.leftMargin: 8
+                    verticalAlignment: Text.AlignVCenter
+                    color: Theme.text
+                    background: null
+                    text: App.detectedGameVersion
+                    placeholderText: "1.4.1"
+                }
+            }
+            Button {
+                text: App.downloadingUsmap ? I18n.s.settings_mappings_downloading
+                                           : I18n.s.settings_mappings_download
+                enabled: !App.busy && !App.downloadingUsmap
+                onClicked: App.downloadUsmap(usmapVersionField.text)
+            }
+            Label {
+                id: usmapDlStatus
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                color: Theme.textDim
+                text: ""
+            }
+        }
+        Connections {
+            target: App
+            function onUsmapDownloadDone(ok, message) {
+                usmapDlStatus.text = message
+                usmapDlStatus.color = ok ? Theme.ok : Theme.danger
+            }
+        }
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
@@ -171,6 +213,57 @@ Item {
                         onClicked: I18n.language = modelData.code
                     }
                 }
+            }
+        }
+
+        // ---- Apariencia (claro / oscuro) ----
+        Label {
+            text: I18n.s.settings_appearance || "Appearance"
+            color: Theme.text; font.pixelSize: 16; font.bold: true
+        }
+        RowLayout {
+            spacing: 8
+            Repeater {
+                model: [
+                    { key: "settings_dark", dark: true },
+                    { key: "settings_light", dark: false }
+                ]
+                delegate: Rectangle {
+                    Layout.preferredWidth: 160; height: 40; radius: Theme.radius
+                    color: Theme.dark === modelData.dark ? Theme.accent : Theme.panel
+                    border.color: Theme.border
+                    Label {
+                        anchors.centerIn: parent
+                        text: (modelData.dark ? "🌙 " : "☀ ") + (I18n.s[modelData.key] || (modelData.dark ? "Dark" : "Light"))
+                        color: Theme.dark === modelData.dark ? "#ffffff" : Theme.text
+                        font.pixelSize: 14; font.bold: true
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: Theme.dark = modelData.dark
+                    }
+                }
+            }
+        }
+
+        // ---- Shoutouts / creditos ----
+        Label {
+            text: I18n.s.settings_shoutouts || "Shoutouts"
+            color: Theme.text; font.pixelSize: 16; font.bold: true
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            radius: Theme.radius; color: Theme.panelAlt; border.color: Theme.border
+            implicitHeight: soCol.implicitHeight + 20
+            ColumnLayout {
+                id: soCol
+                anchors.fill: parent; anchors.margins: 10; spacing: 4
+                Label { text: "• repak, retoc (trumank), UAssetGUI, CUE4Parse — toolchain"; color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                Label { text: "• UE4SS + CNS — outfit helper runtime"; color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                Label { text: "• \"Keygen Vibes\" chiptune — generado proceduralmente para este tool, dominio publico (CC0)"; color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                Label { text: "• automod (jpabscale) — inspiracion: patches declarativos TOML de propiedades .uasset y auto-merge (nexusmods.com/stellarblade/mods/987)"; color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                Label { text: "• Comunidad Nexus Mods de Stellar Blade — feedback y pruebas (FengYeLy, yadilloH y otros)"; color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
             }
         }
 

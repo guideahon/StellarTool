@@ -4,6 +4,7 @@
 #include "core/UAssetService.h"
 #include "core/Cue4Service.h"
 #include "core/GamePaths.h"
+#include "core/UsmapService.h"
 #include "core/ModImporter.h"
 #include "core/BaselineManager.h"
 #include "core/ProjectStore.h"
@@ -12,6 +13,8 @@
 #include "Translator.h"
 
 #include <QtConcurrent>
+#include <QProcess>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -48,6 +51,7 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_i18n(i18n),
       m_pak(new PakService(this)),
       m_uasset(new UAssetService(this)),
+      m_usmap(new UsmapService(this)),
       m_cue4(new Cue4Service(this)),
       m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
@@ -56,6 +60,19 @@ AppController::AppController(Translator *i18n, QObject *parent)
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     connect(m_baseline, &BaselineManager::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
+    connect(m_usmap, &UsmapService::progress, this,
+            [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
+    connect(m_usmap, &UsmapService::finished, this,
+            [this](bool ok, const QString &msg, const QString &path) {
+        m_downloadingUsmap = false;
+        emit usmapDownloadChanged();
+        if (ok && !path.isEmpty()) {
+            UAssetService::setCustomUsmapPath(path);
+            emit usmapChanged();
+            setStatus(msg);
+        }
+        emit usmapDownloadDone(ok, msg);
+    }, Qt::QueuedConnection);
     m_conflictModel.setTranslator(i18n);
     m_changeModel.setItems(&m_items);
     m_conflictModel.setSource(&m_items, &m_groups);
@@ -669,6 +686,19 @@ void AppController::clearUsmapPath() {
     emit usmapChanged();
 }
 
+QString AppController::detectedGameVersion() const {
+    return UsmapService::detectGameVersion();
+}
+
+void AppController::downloadUsmap(const QString &version) {
+    if (m_downloadingUsmap) return;
+    QString ver = version.trimmed();
+    if (ver.isEmpty()) ver = UsmapService::detectGameVersion();
+    m_downloadingUsmap = true;
+    emit usmapDownloadChanged();
+    m_usmap->downloadForVersion(ver);
+}
+
 void AppController::buildBaselineFromGame() {
     if (m_busy) return;
     if (!GamePaths::hasGame()) {
@@ -713,6 +743,154 @@ void AppController::importBaseline(const QUrl &dirUrl) {
             } else {
                 emit errorOccurred(error);
             }
+            setBusy(false);
+        }, Qt::QueuedConnection);
+    });
+}
+
+static QString builderScript() {
+    // El Builder vive dentro de Stellar Tool (junto al exe: <appDir>/Builder, o
+    // en el repo). Override por env STELLAR_SOULS_BUILDER.
+    QString dir = qEnvironmentVariable("STELLAR_SOULS_BUILDER");
+    if (dir.isEmpty()) {
+        const QString appDir = QCoreApplication::applicationDirPath();
+        for (const QString &cand : {appDir + QStringLiteral("/Builder"),
+                                    appDir + QStringLiteral("/../Builder"),
+                                    QStringLiteral("C:/Users/cristian/Documents/Stellar Tool/Builder")}) {
+            if (QFileInfo::exists(cand + QStringLiteral("/compiler/build_custom.py"))) { dir = cand; break; }
+        }
+        if (dir.isEmpty()) dir = QStringLiteral("C:/Users/cristian/Documents/Stellar Tool/Builder");
+    }
+    return dir + QStringLiteral("/compiler/build_custom.py");
+}
+
+// Interprete Python: el embebido junto al Builder si existe, si no el del sistema.
+static QString pythonExe() {
+    const QString builderDir = QFileInfo(builderScript()).absolutePath() + QStringLiteral("/..");
+    const QString embed = QDir(builderDir).filePath(QStringLiteral("pyembed/python.exe"));
+    return QFileInfo::exists(embed) ? embed : QStringLiteral("python");
+}
+
+// Corre python build_custom.py con args de forma sincrona; devuelve stdout.
+static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = nullptr) {
+    QProcess proc;
+    proc.setProgram(pythonExe());
+    proc.setArguments(QStringList{builderScript()} + extraArgs);
+    proc.start();
+    proc.waitForFinished(600000);
+    if (exitCode) *exitCode = proc.exitCode();
+    return QString::fromUtf8(proc.readAllStandardOutput());
+}
+
+void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl,
+                              bool installPaks, bool installHelper, const QString &gameDir) {
+    if (m_busy) return;
+    const QString outDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile() : outDirUrl.toString();
+    const QString script = builderScript();
+    setBusy(true, t(QStringLiteral("builder_compiling")));
+    std::ignore = QtConcurrent::run([this, answersJson, outDir, script, installPaks, installHelper, gameDir] {
+        QString answersPath = QDir(QDir::tempPath()).filePath(QStringLiteral("ss_builder_answers.json"));
+        { QFile f(answersPath); if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) f.write(answersJson.toUtf8()); }
+        QStringList args{script, QStringLiteral("--out"), outDir,
+                         QStringLiteral("--answers"), QStringLiteral("@") + answersPath};
+        if (installPaks) args << QStringLiteral("--install-paks");
+        if (installHelper) args << QStringLiteral("--install-helper");
+        if (!gameDir.isEmpty()) args << QStringLiteral("--game") << gameDir;
+        QProcess proc;
+        proc.setProgram(pythonExe());
+        proc.setArguments(args);
+        proc.start();
+        proc.waitForFinished(600000);
+        const QString out = QString::fromUtf8(proc.readAllStandardOutput());
+        const QString err = QString::fromUtf8(proc.readAllStandardError());
+        QString zip;
+        for (const QString &line : out.split(QLatin1Char('\n')))
+            if (line.startsWith(QStringLiteral("OK -> "))) zip = line.mid(6).trimmed();
+        const bool ok = proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0 && !zip.isEmpty();
+        QMetaObject::invokeMethod(this, [this, ok, zip, err] {
+            if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
+            else emit errorOccurred(err.isEmpty() ? QStringLiteral("build_custom failed") : err);
+            setBusy(false);
+        }, Qt::QueuedConnection);
+    });
+}
+
+QString AppController::detectStellarBlade() {
+    QProcess proc;
+    proc.setProgram(pythonExe());
+    const QString gp = QFileInfo(builderScript()).absolutePath() + QStringLiteral("/gamepaths.py");
+    proc.setArguments({gp});
+    proc.start();
+    proc.waitForFinished(30000);
+    const QString out = QString::fromUtf8(proc.readAllStandardOutput());
+    const QString first = out.split(QLatin1Char('\n')).value(0).trimmed();
+    return first == QStringLiteral("NO ENCONTRADO") ? QString() : first;
+}
+
+QString AppController::builderHistory() {
+    const QString gp = QFileInfo(builderScript()).absolutePath() + QStringLiteral("/history.py");
+    QProcess proc;
+    proc.setProgram(pythonExe());
+    proc.setArguments({QStringLiteral("-c"),
+        QStringLiteral("import sys,json;sys.path.insert(0,r'%1');import history;print(json.dumps(history.list_records()))")
+            .arg(QFileInfo(builderScript()).absolutePath())});
+    proc.start();
+    proc.waitForFinished(30000);
+    return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+}
+
+QString AppController::builderTemplate(const QString &id) {
+    QProcess proc;
+    proc.setProgram(pythonExe());
+    proc.setArguments({QStringLiteral("-c"),
+        QStringLiteral("import sys,json;sys.path.insert(0,r'%1');import history;print(json.dumps(history.as_template('%2') or {}))")
+            .arg(QFileInfo(builderScript()).absolutePath(), id)});
+    proc.start();
+    proc.waitForFinished(30000);
+    return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
+}
+
+QString AppController::installedStatus() {
+    return runBuilderSync({QStringLiteral("--installed-status")}).trimmed();
+}
+
+void AppController::uninstallMod() {
+    if (m_busy) return;
+    setBusy(true, t(QStringLiteral("builder_uninstalling")));
+    std::ignore = QtConcurrent::run([this] {
+        int code = 0;
+        runBuilderSync({QStringLiteral("--uninstall-paks")}, &code);
+        QMetaObject::invokeMethod(this, [this] {
+            setStatus(t(QStringLiteral("builder_uninstalled"))); emit uninstalled(); setBusy(false);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::uninstallHelper() {
+    if (m_busy) return;
+    setBusy(true, t(QStringLiteral("builder_uninstalling")));
+    std::ignore = QtConcurrent::run([this] {
+        int code = 0;
+        runBuilderSync({QStringLiteral("--uninstall-helper")}, &code);
+        QMetaObject::invokeMethod(this, [this] {
+            setStatus(t(QStringLiteral("builder_uninstalled"))); emit uninstalled(); setBusy(false);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::reexportBuild(const QString &id, const QUrl &outDirUrl) {
+    if (m_busy) return;
+    const QString outDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile() : outDirUrl.toString();
+    setBusy(true, t(QStringLiteral("builder_compiling")));
+    std::ignore = QtConcurrent::run([this, id, outDir] {
+        int code = 0;
+        const QString out = runBuilderSync({QStringLiteral("--reexport"), id, QStringLiteral("--out"), outDir}, &code);
+        QString zip;
+        for (const QString &line : out.split(QLatin1Char('\n')))
+            if (line.startsWith(QStringLiteral("OK -> "))) zip = line.mid(6).trimmed();
+        QMetaObject::invokeMethod(this, [this, zip] {
+            if (!zip.isEmpty()) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
+            else emit errorOccurred(QStringLiteral("reexport failed"));
             setBusy(false);
         }, Qt::QueuedConnection);
     });

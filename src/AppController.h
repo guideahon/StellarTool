@@ -12,6 +12,7 @@ namespace st {
 
 class PakService;
 class UAssetService;
+class UsmapService;
 class Cue4Service;
 class ModImporter;
 class BaselineManager;
@@ -28,6 +29,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool hasGamePath READ hasGamePath NOTIFY gamePathChanged)
     Q_PROPERTY(QString usmapPath READ usmapPath NOTIFY usmapChanged)
     Q_PROPERTY(bool usmapIsCustom READ usmapIsCustom NOTIFY usmapChanged)
+    Q_PROPERTY(QString detectedGameVersion READ detectedGameVersion NOTIFY gamePathChanged)
+    Q_PROPERTY(bool downloadingUsmap READ downloadingUsmap NOTIFY usmapDownloadChanged)
     Q_PROPERTY(bool advancedMode READ advancedMode WRITE setAdvancedMode NOTIFY advancedModeChanged)
     Q_PROPERTY(bool toolsAvailable READ toolsAvailable CONSTANT)
     Q_PROPERTY(QString toolsError READ toolsError CONSTANT)
@@ -72,6 +75,26 @@ public:
     const QList<ConflictGroup> &groups() const { return m_groups; }
     Q_INVOKABLE void merge(const QUrl &outDirUrl);
     Q_INVOKABLE void importBaseline(const QUrl &dirUrl);
+    // Stellar Souls Builder: compila un mod personalizado desde respuestas del
+    // cuestionario (JSON). QProcess -> python Builder/compiler/build_custom.py.
+    // installPaks/installHelper = instalar directo en el juego (aprobado por el
+    // usuario en la UI). gameDir vacio = autodeteccion.
+    Q_INVOKABLE void runBuilder(const QString &answersJson, const QUrl &outDirUrl,
+                                bool installPaks = false, bool installHelper = false,
+                                const QString &gameDir = {});
+    // Autodeteccion de la instalacion de Stellar Blade (vacio si no se encuentra).
+    Q_INVOKABLE QString detectStellarBlade();
+    // Historial de configs: JSON array [{id,label,timestamp,zip,answers}].
+    Q_INVOKABLE QString builderHistory();
+    // Respuestas (JSON) de una config previa, para usar como plantilla.
+    Q_INVOKABLE QString builderTemplate(const QString &id);
+    // Re-exporta el zip de una config previa a outDir (copia o recompila).
+    Q_INVOKABLE void reexportBuild(const QString &id, const QUrl &outDirUrl);
+    // Estado de lo instalado por la tool: JSON {game, paks:[...], helper:bool}.
+    Q_INVOKABLE QString installedStatus();
+    // Desinstala (aprobado por el usuario) SOLO lo que la tool instalo.
+    Q_INVOKABLE void uninstallMod();
+    Q_INVOKABLE void uninstallHelper();
     Q_INVOKABLE void buildBaselineFromGame();
     QString gamePath() const;
     bool hasGamePath() const;
@@ -82,6 +105,11 @@ public:
     bool usmapIsCustom() const;
     Q_INVOKABLE void setUsmapPath(const QUrl &fileUrl);
     Q_INVOKABLE void clearUsmapPath();
+    // Auto-descarga del usmap para una versión del juego desde el archivo de la
+    // comunidad. Vacío = usar detectedGameVersion. Async: emite usmapDownloadDone.
+    QString detectedGameVersion() const;
+    bool downloadingUsmap() const { return m_downloadingUsmap; }
+    Q_INVOKABLE void downloadUsmap(const QString &version);
     Q_INVOKABLE QString defaultOutDir() const;   // <juego>/~mods si hay juego, si no vacío
     Q_INVOKABLE void openDir(const QString &path); // abre la carpeta en el Explorador
     // Mods cargados cuyo origen vive dentro de ~mods (candidatos a desactivar).
@@ -100,9 +128,13 @@ signals:
     void baselineChanged();
     void gamePathChanged();
     void usmapChanged();
+    void usmapDownloadChanged();
+    void usmapDownloadDone(bool ok, const QString &message);
     void advancedModeChanged();
     void analysisChanged();
     void mergeFinished();
+    void builderFinished(const QString &zipPath);
+    void uninstalled();
     void exportZipChanged();
     void errorOccurred(const QString &message);
 
@@ -121,6 +153,7 @@ private:
     Translator *m_i18n;
     PakService *m_pak;
     UAssetService *m_uasset;
+    UsmapService *m_usmap;
     Cue4Service *m_cue4;
     ModImporter *m_importer;
     BaselineManager *m_baseline;
@@ -138,6 +171,7 @@ private:
     bool m_analyzed = false;
     bool m_exportZip = true;
     bool m_lastMergeOk = false;
+    bool m_downloadingUsmap = false;
     QString m_statusText;
     QString m_lastMergeResult;
     int m_lastSkipped = 0;
