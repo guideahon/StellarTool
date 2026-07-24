@@ -20,6 +20,30 @@ static bool sameLeafType(const QJsonValue &a, const QJsonValue &b) {
     return a.isNull() && b.isNull();
 }
 
+// ¿Se puede escribir 'nv' (valor clean normalizado) sobre el leaf real 'base'
+// de UAssetGUI? Igual tipo, o un string sobre un FName None (null en UAssetGUI):
+// ej. NextStepAlias null -> "P_Eve_...". base Undefined = sin base (no chequear).
+static bool writableLeaf(const QJsonValue &base, const QJsonValue &nv) {
+    return base.isUndefined() || sameLeafType(base, nv)
+        || (base.isNull() && nv.isString());
+}
+
+// Reconciliar un string clean (normalizado por el diff) a la forma real de
+// UAssetGUI del leaf base, para escribirlo sin corromperlo:
+//  - Enums: el diff quita el namespace ("ESBTipo::Valor" -> "Valor"). Si la base
+//    lo tenía, re-prefijarlo ("Valor" -> "ESBTipo::Valor") con el nuevo valor.
+// Números/bool y strings ya en forma UAssetGUI pasan sin cambios.
+static QJsonValue reconcileLeaf(const QJsonValue &base, const QJsonValue &nv) {
+    if (nv.isString() && base.isString()) {
+        const QString b = base.toString();
+        const int sep = b.lastIndexOf(QLatin1String("::"));
+        const QString s = nv.toString();
+        if (sep >= 0 && !s.contains(QLatin1String("::")))
+            return QJsonValue(b.left(sep + 2) + s);
+    }
+    return nv;
+}
+
 bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth,
                             const QJsonValue &newValue, bool allowCreate) {
     if (depth == path.size()) {
@@ -34,19 +58,20 @@ bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth
             QJsonObject wrap = node.toObject();
             if (wrap.contains(QLatin1String("Name")) && wrap.contains(QLatin1String("Value"))) {
                 const QJsonValue inner = wrap.value(QLatin1String("Value"));
-                if (!allowCreate && !inner.isUndefined() && !sameLeafType(inner, newValue))
+                if (!allowCreate && !inner.isUndefined() && !writableLeaf(inner, newValue))
                     return false;
-                wrap.insert(QLatin1String("Value"), newValue);
+                wrap.insert(QLatin1String("Value"), reconcileLeaf(inner, newValue));
                 node = wrap;
                 return true;
             }
         }
-        // Para valores "clean" (CUE4Parse), solo reemplazar si el tipo coincide
-        // con el valor real de UAssetGUI: evita meter un string/num donde el
-        // uasset espera otro tipo, lo que rompería fromjson silenciosamente.
-        if (!allowCreate && !node.isUndefined() && !sameLeafType(node, newValue))
+        // Para valores "clean" (CUE4Parse), solo reemplazar si es escribible
+        // sobre el valor real de UAssetGUI (mismo tipo, o string sobre None):
+        // evita meter un valor donde el uasset espera otro tipo, lo que rompería
+        // fromjson silenciosamente. reconcileLeaf ajusta la forma (enum namespace).
+        if (!allowCreate && !node.isUndefined() && !writableLeaf(node, newValue))
             return false;
-        node = newValue;
+        node = reconcileLeaf(node, newValue);
         return true;
     }
     const QString &seg = path.at(depth);
@@ -127,10 +152,12 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
     auto writableClean = [](const ChangeItem &c) {
         if (!c.clean) return true;
         if (c.type != ChangeItem::Modified) return false; // RowAdded/Removed clean: no
-        // Solo numéricos/bool: strings (Name/Enum/Str) y arrays/objetos de
-        // CUE4Parse no round-tripean fiel a uasset vía UAssetGUI.
+        // Escalares: numéricos, bool y strings (Name/Enum/Str). Los strings se
+        // reconcilian contra el leaf real de UAssetGUI en applyPath (enum
+        // namespace, None) + el verify round-trip descarta la tabla si no cuadra.
+        // Arrays/objetos clean siguen sin soportarse (representación distinta).
         const QJsonValue &v = c.newValue;
-        return v.isBool() || v.isDouble();
+        return v.isBool() || v.isDouble() || v.isString();
     };
 
     for (const ChangeItem &item : items) {

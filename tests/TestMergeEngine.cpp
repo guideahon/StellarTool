@@ -13,6 +13,7 @@ private slots:
     void skipUnselected();
     void rowAddRemove();
     void roundTripDiffMergeVerify();
+    void cleanStringEnumMerge();
 };
 
 static QJsonObject baseTable() {
@@ -102,6 +103,51 @@ void TestMergeEngine::roundTripDiffMergeVerify() {
             if (c.key() == v.key() && jsonValueEquals(c.newValue, v.newValue)) { found = true; break; }
         QVERIFY2(found, qPrintable(v.summary()));
     }
+}
+
+static QString leafString(const QJsonObject &root, const QString &rowName, const QString &propName) {
+    for (const QJsonValue &r : dataTableRows(root)) {
+        const QJsonObject ro = r.toObject();
+        if (ro.value(QLatin1String("Name")).toString() != rowName) continue;
+        for (const QJsonValue &p : ro.value(QLatin1String("Value")).toArray())
+            if (p.toObject().value(QLatin1String("Name")).toString() == propName)
+                return p.toObject().value(QLatin1String("Value")).toString();
+    }
+    return QStringLiteral("<none>");
+}
+
+// Fase 1: mods Zen (clean=true) escriben strings/enums, reconciliando contra el
+// leaf real de UAssetGUI (namespace de enum, None -> nombre).
+void TestMergeEngine::cleanStringEnumMerge() {
+    // Base cruda UAssetGUI: enum con namespace, y un FName None (null).
+    const QJsonObject base = table({
+        row(QStringLiteral("Skill1"), {
+            prop(QStringLiteral("NextStep"), QStringLiteral("ESBType::Old"), QStringLiteral("EnumPropertyData")),
+            prop(QStringLiteral("Alias"), QJsonValue(QJsonValue::Null), QStringLiteral("NamePropertyData")),
+        }),
+    });
+    // Mod normalizado (como lo entrega CUE4Parse tras normalizeDataTableDoc):
+    // enum sin namespace, y el None ahora es un nombre real.
+    const QJsonObject mod = table({
+        row(QStringLiteral("Skill1"), {
+            prop(QStringLiteral("NextStep"), QStringLiteral("New"), QStringLiteral("EnumPropertyData")),
+            prop(QStringLiteral("Alias"), QStringLiteral("P_Eve_X"), QStringLiteral("NamePropertyData")),
+        }),
+    });
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true; // simular lectura CUE4Parse
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 2);
+    QCOMPARE(res.skipped, 0);
+    // Enum: se re-prefija el namespace de la base.
+    QCOMPARE(leafString(out, QStringLiteral("Skill1"), QStringLiteral("NextStep")),
+             QStringLiteral("ESBType::New"));
+    // None -> nombre real.
+    QCOMPARE(leafString(out, QStringLiteral("Skill1"), QStringLiteral("Alias")),
+             QStringLiteral("P_Eve_X"));
 }
 
 #include "TestMergeEngine.moc"
