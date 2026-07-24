@@ -23,6 +23,7 @@ set(CORE_SOURCES
     src/core/ModImporter.cpp
     src/core/TableDiffEngine.cpp
     src/core/MergeEngine.cpp
+    src/core/TomlPatch.cpp
     src/core/ProjectStore.cpp
     src/models/ModListModel.cpp
     src/models/ChangeListModel.cpp
@@ -42,6 +43,7 @@ set(CORE_HEADERS
     src/core/ModImporter.h
     src/core/TableDiffEngine.h
     src/core/MergeEngine.h
+    src/core/TomlPatch.h
     src/core/ProjectStore.h
     src/models/ModListModel.h
     src/models/ChangeListModel.h

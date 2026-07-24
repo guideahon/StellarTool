@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Dialogs
 import ".."
 import "../components"
 
@@ -44,6 +45,16 @@ Item {
                 text: I18n.s.bulk_title
                 enabled: App.analyzed
                 onClicked: bulkDialog.open()
+            }
+            Button {
+                text: I18n.s.toml_import
+                enabled: !App.busy
+                onClicked: tomlImportDialog.open()
+            }
+            Button {
+                text: I18n.s.toml_export
+                enabled: App.analyzed
+                onClicked: tomlExportDialog.open()
             }
         }
 
@@ -155,5 +166,15 @@ Item {
     BulkTransformDialog {
         id: bulkDialog
         anchors.centerIn: parent
+    }
+
+    FileDialog {
+        id: tomlImportDialog
+        nameFilters: ["TOML patch (*.toml)"]
+        onAccepted: App.importTomlPatch(selectedFile)
+    }
+    FolderDialog {
+        id: tomlExportDialog
+        onAccepted: App.exportTomlPatches(selectedFolder)
     }
 }

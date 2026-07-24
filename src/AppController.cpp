@@ -10,6 +10,7 @@
 #include "core/ProjectStore.h"
 #include "core/TableDiffEngine.h"
 #include "core/MergeEngine.h"
+#include "core/TomlPatch.h"
 #include "Translator.h"
 
 #include <QtConcurrent>
@@ -19,6 +20,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QTextStream>
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QSettings>
@@ -909,6 +911,108 @@ void AppController::saveProject(const QUrl &fileUrl) {
         emit errorOccurred(error);
     else
         setStatus(t(QStringLiteral("core_project_saved")));
+}
+
+static QString tableBaseOf(const QString &tablePath) {
+    return tablePath.section(QLatin1Char('/'), -1).section(QLatin1Char('.'), 0, 0);
+}
+
+void AppController::exportTomlPatches(const QUrl &dirUrl) {
+    const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
+    if (dir.isEmpty()) return;
+    QDir().mkpath(dir);
+
+    // Agrupar cambios seleccionados escalares por tabla -> fila -> líneas.
+    QMap<QString, QMap<QString, QStringList>> byTable;
+    int count = 0;
+    for (const ChangeItem &c : m_items) {
+        if (!c.selected || c.dup) continue;
+        if (c.type != ChangeItem::Modified) continue;
+        const QJsonValue &v = c.newValue;
+        if (!(v.isDouble() || v.isBool() || v.isString())) continue;
+        QString line = c.displayPath() + QStringLiteral(" = ") + TomlPatch::valueLiteral(v);
+        if (c.baseValue.isDouble() || c.baseValue.isBool() || c.baseValue.isString())
+            line += QStringLiteral("    # ") + TomlPatch::valueLiteral(c.baseValue);
+        byTable[tableBaseOf(c.tablePath)][c.rowName] << line;
+        ++count;
+    }
+    if (byTable.isEmpty()) {
+        emit errorOccurred(t(QStringLiteral("toml_export_empty")));
+        return;
+    }
+    for (auto t1 = byTable.constBegin(); t1 != byTable.constEnd(); ++t1) {
+        QFile f(dir + QLatin1Char('/') + t1.key() + QStringLiteral(".toml"));
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) continue;
+        QTextStream ts(&f);
+        ts << "# " << t1.key() << " - Stellar Tool patch export\n\n";
+        for (auto r = t1.value().constBegin(); r != t1.value().constEnd(); ++r) {
+            ts << '[' << r.key() << "]\n";
+            for (const QString &l : r.value()) ts << l << '\n';
+            ts << '\n';
+        }
+        f.close();
+    }
+    setStatus(t(QStringLiteral("toml_export_done")).arg(count).arg(byTable.size()));
+    openDir(dir);
+}
+
+void AppController::importTomlPatch(const QUrl &fileUrl) {
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        emit errorOccurred(t(QStringLiteral("toml_import_read_fail")));
+        return;
+    }
+    const QString text = QString::fromUtf8(f.readAll());
+    f.close();
+    const auto rows = TomlPatch::parse(text);
+    if (rows.isEmpty()) {
+        emit errorOccurred(t(QStringLiteral("toml_import_empty")));
+        return;
+    }
+    const QFileInfo fi(path);
+    const QString tableBase = fi.completeBaseName();
+    // Ruta canónica de las DataTables de SB (igual que el import de mods Zen).
+    const QString tablePath = QStringLiteral("SB/Content/Local/Data/") + tableBase
+                              + QStringLiteral(".uasset");
+    const QString modName = fi.fileName();
+    const QString modId = shortHash(path);
+
+    int added = 0;
+    for (auto r = rows.constBegin(); r != rows.constEnd(); ++r) {
+        for (auto p = r.value().constBegin(); p != r.value().constEnd(); ++p) {
+            ChangeItem c;
+            c.modId = modId;
+            c.modName = modName;
+            c.tablePath = tablePath;
+            c.rowName = r.key();
+            c.type = ChangeItem::Modified;
+            // Clave con puntos -> segmentos K: (path anidado).
+            for (const QString &seg : p.key().split(QLatin1Char('.'), Qt::SkipEmptyParts))
+                c.propPath << (QStringLiteral("K:") + seg);
+            c.newValue = p.value();
+            c.clean = false;      // literal: se escribe tal cual (incluye strings)
+            c.selected = true;
+            c.summaryCache = c.summary(m_i18n);
+            m_items << c;
+            ++added;
+        }
+    }
+    // Registrar un "mod" liviano para que aparezca en la lista y el merge lo use.
+    ModPackage pkg;
+    pkg.id = modId;
+    pkg.name = modName;
+    pkg.sourcePath = path;
+    pkg.loadOrder = m_mods.size();
+    m_mods << pkg;
+
+    m_groups = TableDiffEngine::findConflicts(m_items);
+    m_analyzed = true;
+    m_modModel.setMods(m_mods);
+    m_changeModel.refresh();
+    m_conflictModel.refresh();
+    emit analysisChanged();
+    setStatus(t(QStringLiteral("toml_import_done")).arg(added, 0, 10).arg(tableBase));
 }
 
 void AppController::loadProject(const QUrl &fileUrl) {
