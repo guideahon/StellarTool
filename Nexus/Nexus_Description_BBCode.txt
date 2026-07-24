@@ -23,7 +23,9 @@ Tick the changes you want. When two mods set the same value differently, that's 
 
 Most Stellar Blade mods ship as Zen containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse — point it at your Stellar Blade folder once (it auto-detects Steam) and it can analyze and diff Zen mods against vanilla. Legacy .pak, .zip and loose .uasset folders work too.
 
-When merging Zen mods, [b]numeric[/b] changes (HP, damage, shields, multipliers…) are written back and verified. [b]Non-numeric[/b] changes (text, enums, arrays, object references) are shown in the diff but skipped on write — they don't round-trip reliably into a Zen container yet — and the tool reports exactly how many were skipped. Nothing is silent.
+When merging Zen mods, [b]numbers, text and enums[/b] (HP, damage, shields, multipliers, skill aliases, actor states…) are written back and verified. Only [b]arrays and object references[/b] are shown in the diff but skipped on write for now — they don't round-trip reliably into a Zen container yet — and the tool reports exactly how many were skipped. Nothing is silent.
+
+If a game update makes the bundled mappings stale (errors reading/writing assets), [b]Settings → Mappings[/b] can download the matching [b].usmap[/b] for your game version in one click, or load your own — no need to wait for a new release.
 
 [b]Main features[/b]
 
@@ -31,6 +33,8 @@ When merging Zen mods, [b]numeric[/b] changes (HP, damage, shields, multipliers�
 [*]Load any number of mods: Zen/IoStore (.ucas/.utoc), legacy .pak, .zip, or loose .uasset folders.
 [*]Real vanilla → modded values with percentages, per row and property.
 [*]Per-change checkboxes; toggle whole tables at once; edit the final value by hand.
+[*]Bulk edit: apply an operation (×N, +, −, clamp, set…) to many numeric values at once, filtered by a row-name regex — e.g. "×3 all enemy HP" without editing each row.
+[*]Readable TOML patches: export the selected changes as [b].toml[/b] files (row/property = value) for review or sharing, and import a literal .toml patch back as changes.
 [*]Value-level conflict detection and side-by-side resolution.
 [*]Output is the game's native Zen container ([b]zzz_StellarTool_Merged_P[/b]), round-trip verified after packing — if a table wouldn't survive intact, the merge fails loudly instead of corrupting your game.
 [*]Optional installable .zip (Paks\ + readme) for Vortex or any mod manager, plus a [b]merge_report.txt[/b] listing what was applied, skipped, and how each conflict was resolved.
@@ -39,6 +43,22 @@ When merging Zen mods, [b]numeric[/b] changes (HP, damage, shields, multipliers�
 [*]Headless CLI for scripts/automation. 10 interface languages.
 [*]Your source mods are never modified — only the merged output is written.
 [/list]
+
+[b]Build mod — make your own Stellar Souls mod[/b]
+
+Beyond merging, a "Build mod" tab COMPILES a custom Stellar Souls mod + CNS helper from a questionnaire — the exact pak you want, byte-for-byte matching the released files, with an install guide in your language.
+
+[list]
+[*]Combat / Outfit / Combat+Outfit, Full or First Run.
+[*]Mini-bosses + NG+ gear drops: all regions or Great Desert, adjustable density, progressive difficulty, anti-farm fix. [b](BETA)[/b]
+[*]Gameplay extras [b](BETA)[/b]: Player QoL, HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, enemy variety.
+[*]Custom TOML patches: drop your own <Table>.toml row/property patches on top. [b](BETA)[/b]
+[*]CNS helper compiled to your choice: restore last outfit / random / random + periodic.
+[*]Auto-detects your game and, with approval, installs mod + helper (and uninstalls exactly what it installed). History of builds — reuse as templates or re-export.
+[*]10 languages, light/dark theme, optional old-school keygen chiptune.
+[/list]
+
+Ships an embedded Python (nothing to install) and reads Oodle from your own game to pack. The Build mod tab needs Stellar Blade installed; the merger doesn't.
 
 [b]Install[/b]
 
@@ -60,7 +80,7 @@ When merging Zen mods, [b]numeric[/b] changes (HP, damage, shields, multipliers�
 
 [b]What's bundled[/b]
 
-The download includes StellarTool.exe plus these open-source community CLI tools it drives, unmodified: [b]repak[/b] and [b]retoc[/b] (trumank), [b]UAssetGUI[/b] (atenfyr), [b]cue4parse[/b] (CUE4Parse CLI). Everything is auditable from the repo.
+The download includes StellarTool.exe plus these open-source community CLI tools it drives, unmodified: [b]repak[/b] and [b]retoc[/b] (trumank), [b]UAssetGUI[/b] (atenfyr), [b]cue4parse[/b] (CUE4Parse CLI). The Build mod tab also bundles an embedded Python and the base tables it compiles from; Oodle (oo2core) is never bundled — it is read from your own game. Everything is auditable from the repo.
 
 [b]Shout outs[/b]
 
@@ -68,6 +88,8 @@ The download includes StellarTool.exe plus these open-source community CLI tools
 [*]trumank — repak and retoc, the pak/IoStore tooling this relies on.
 [*]atenfyr — UAssetGUI / UAssetAPI, the uasset ↔ JSON decoding that makes value-level merging possible.
 [*]FabianFG and the FModel team — CUE4Parse, which lets Stellar Tool read Zen mods.
-[*]The Stellar Blade modding community — the mappings (.usmap) groundwork.
+[*]jpabscale — automod, whose declarative TOML property-patches, regex row selection and versioned mappings inspired the TOML patch support, bulk edit and the .usmap downloader.
+[*]TheNaeem — the Unreal Mappings Archive, which the in-app .usmap downloader pulls from.
+[*]The Stellar Blade modding community — the mappings (.usmap) groundwork, plus FengYeLy and yadilloH for testing and feedback (yadilloH's UAssetGUI report pinpointed the mappings bug behind the merge failures).
 [*]Raxdiam, whose "we're all modifying the same file and clashing" description of gameplay mods inspired this tool.
 [/list]
