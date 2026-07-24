@@ -48,6 +48,13 @@ public:
     Q_INVOKABLE QString valueText(int visibleRow) const;
     Q_INVOKABLE bool setEditedValue(int visibleRow, const QString &text);
 
+    // Transformación masiva sobre los cambios visibles numéricos cuyo rowName
+    // matchee 'rowRegex' (vacío = todos los visibles). op: mul|add|sub|div|set|
+    // clamp|min|max. a,b = operandos (clamp usa a=min,b=max). Devuelve cuántos
+    // aplicó. Habilita "hard mode ×N", "×2 drop rates", etc. sin editar 1x1.
+    Q_INVOKABLE int applyTransform(const QString &op, double a, double b,
+                                   const QString &rowRegex);
+
 signals:
     void filterChanged();
     void itemsChanged();

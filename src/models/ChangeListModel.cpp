@@ -1,5 +1,8 @@
 #include "ChangeListModel.h"
 
+#include <QRegularExpression>
+#include <algorithm>
+
 namespace st {
 
 ChangeListModel::ChangeListModel(QObject *parent) : QAbstractListModel(parent) {}
@@ -149,6 +152,45 @@ bool ChangeListModel::setEditedValue(int visibleRow, const QString &text) {
     emit dataChanged(mi, mi, {SummaryRole, CheckedRole});
     emit selectionChanged();
     return true;
+}
+
+int ChangeListModel::applyTransform(const QString &op, double a, double b,
+                                    const QString &rowRegex) {
+    if (!m_items || m_visible.isEmpty()) return 0;
+    QRegularExpression re;
+    if (!rowRegex.isEmpty()) {
+        re = QRegularExpression(rowRegex, QRegularExpression::CaseInsensitiveOption);
+        if (!re.isValid()) return -1; // regex inválido
+    }
+    int n = 0;
+    for (int vr = 0; vr < m_visible.size(); ++vr) {
+        if (!canEdit(vr)) continue;
+        ChangeItem &c = (*m_items)[m_visible.at(vr)];
+        if (!c.newValue.isDouble()) continue;
+        if (!rowRegex.isEmpty() && !re.match(c.rowName).hasMatch()) continue;
+        const double x = c.newValue.toDouble();
+        double y = x;
+        if (op == QLatin1String("mul")) y = x * a;
+        else if (op == QLatin1String("add")) y = x + a;
+        else if (op == QLatin1String("sub")) y = x - a;
+        else if (op == QLatin1String("div")) { if (a == 0.0) continue; y = x / a; }
+        else if (op == QLatin1String("set")) y = a;
+        else if (op == QLatin1String("min")) y = std::min(x, a);
+        else if (op == QLatin1String("max")) y = std::max(x, a);
+        else if (op == QLatin1String("clamp")) y = std::min(std::max(x, a), b);
+        else continue;
+        c.newValue = QJsonValue(y);
+        c.edited = true;
+        c.selected = true;
+        c.summaryCache = c.summary();
+        ++n;
+    }
+    if (n > 0) {
+        emit dataChanged(index(0, 0), index(m_visible.size() - 1, 0),
+                         {SummaryRole, CheckedRole});
+        emit selectionChanged();
+    }
+    return n;
 }
 
 void ChangeListModel::setTableChecked(const QString &tableName, bool checked) {

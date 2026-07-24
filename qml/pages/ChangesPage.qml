@@ -40,6 +40,11 @@ Item {
                     color: Theme.panel; border.color: Theme.border; radius: Theme.radius
                 }
             }
+            Button {
+                text: I18n.s.bulk_title
+                enabled: App.analyzed
+                onClicked: bulkDialog.open()
+            }
         }
 
         Label {
@@ -144,6 +149,11 @@ Item {
 
     EditValueDialog {
         id: editDialog
+        anchors.centerIn: parent
+    }
+
+    BulkTransformDialog {
+        id: bulkDialog
         anchors.centerIn: parent
     }
 }

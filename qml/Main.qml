@@ -48,10 +48,12 @@ ApplicationWindow {
                                { key: "nav_changes", icon: "📝", page: 2 },
                                { key: "nav_conflicts", icon: "⚔️", page: 3 },
                                { key: "nav_merge", icon: "🔀", page: 4 },
+                               { key: "nav_builder", icon: "🛠️", page: 6 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                            : [
                                { key: "nav_easy", icon: "⚡", page: 0 },
+                               { key: "nav_builder", icon: "🛠️", page: 6 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                     delegate: Rectangle {
@@ -220,6 +222,7 @@ ApplicationWindow {
             ConflictsPage {}
             MergePage {}
             SettingsPage {}
+            BuilderPage {}
         }
     }
 
