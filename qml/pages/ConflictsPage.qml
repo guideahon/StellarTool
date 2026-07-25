@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import ".."
+import "../components"
 
 Item {
     ColumnLayout {
@@ -81,6 +82,7 @@ Item {
             model: App.conflictModel
             clip: true
             spacing: 8
+            ScrollBar.vertical: ThemedScrollBar {}
 
             delegate: Rectangle {
                 required property string title

@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import ".."
+import "../components"
 
 Item {
     id: page
@@ -116,6 +117,7 @@ Item {
             model: App.modModel
             spacing: 6
             clip: true
+            ScrollBar.vertical: ThemedScrollBar {}
             delegate: Rectangle {
                 required property string name
                 required property string source

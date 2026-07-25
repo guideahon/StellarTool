@@ -40,6 +40,13 @@ Item {
         exQol.checked = ex.indexOf("playerQol") >= 0
         exTachy.checked = ex.indexOf("longerTachy") >= 0
         exDrain.checked = ex.indexOf("hpDrain") >= 0
+        exFall.checked = ex.indexOf("noFallDamage") >= 0
+        exEnv.checked = ex.indexOf("noEnvDeath") >= 0
+        exTachyR.checked = ex.indexOf("tachyReduce") >= 0
+        exGear.checked = ex.indexOf("strongerGear") >= 0
+        exGauge.checked = ex.indexOf("autoGaugeRecovery") >= 0
+        exJust.checked = ex.indexOf("forgivingJust") >= 0
+        exAirDodge.checked = ex.indexOf("extraAirDodge") >= 0
         exHarder.checked = ex.indexOf("harderEnemies") >= 0
         if (a.harderEnemiesMult) harderMult.currentIndex = harderMult.indexOfValue(a.harderEnemiesMult)
         tomlField.text = a.customPatchesDir || ""
@@ -236,6 +243,11 @@ Item {
                                            color: "#1b2028"; font.pixelSize: 10; font.bold: true }
                                 }
                             }
+                        }
+
+                        // Extras y patches TOML: NO dependen de mini-boss.
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 6
 
                             // Extras de gameplay (BETA)
                             RowLayout {
@@ -255,6 +267,34 @@ Item {
                             RowLayout { spacing: 10
                                 CheckBox { id: exDrain }
                                 Text { text: I18n.s.builder_ex_drain || "HP Drain (curás al pegar)"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exFall }
+                                Text { text: I18n.s.builder_ex_fall || "Sin daño de caída"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exEnv }
+                                Text { text: I18n.s.builder_ex_env || "Sin muerte por agua/arena"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exTachyR }
+                                Text { text: I18n.s.builder_ex_tachyr || "Menos consumo de Tachy"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exGear }
+                                Text { text: I18n.s.builder_ex_gear || "Engranajes más fuertes (x2)"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exGauge }
+                                Text { text: I18n.s.builder_ex_gauge || "Beta al parry perfecto / Burst al dodge perfecto (sin skill tree)"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exJust }
+                                Text { text: I18n.s.builder_ex_just || "Ventana de parry/dodge perfecto más amplia (x1.5)"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exAirDodge }
+                                Text { text: I18n.s.builder_ex_airdodge || "Doble esquive aéreo"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
                             RowLayout { spacing: 10
                                 CheckBox { id: exHarder }
@@ -384,6 +424,13 @@ Item {
                                 exQol.checked ? "playerQol" : "",
                                 exTachy.checked ? "longerTachy" : "",
                                 exDrain.checked ? "hpDrain" : "",
+                                exFall.checked ? "noFallDamage" : "",
+                                exEnv.checked ? "noEnvDeath" : "",
+                                exTachyR.checked ? "tachyReduce" : "",
+                                exGear.checked ? "strongerGear" : "",
+                                exGauge.checked ? "autoGaugeRecovery" : "",
+                                exJust.checked ? "forgivingJust" : "",
+                                exAirDodge.checked ? "extraAirDodge" : "",
                                 exHarder.checked ? "harderEnemies" : ""
                             ].filter(function(x){ return x.length > 0 }),
                             harderEnemiesMult: harderMult.currentValue || 2,

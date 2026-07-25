@@ -84,6 +84,7 @@ Item {
             model: App.changeModel
             clip: true
             spacing: 2
+            ScrollBar.vertical: ThemedScrollBar {}
 
             section.property: "tableName"
             section.criteria: ViewSection.FullString

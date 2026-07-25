@@ -155,6 +155,7 @@ Item {
             model: App.modModel
             clip: true
             spacing: 4
+            ScrollBar.vertical: ThemedScrollBar {}
             delegate: Rectangle {
                 required property string name
                 required property int tableCount
@@ -286,6 +287,7 @@ Item {
             model: App.changeModel
             clip: true
             spacing: 2
+            ScrollBar.vertical: ThemedScrollBar {}
             section.property: "tableName"
             section.criteria: ViewSection.FullString
             section.delegate: Rectangle {
