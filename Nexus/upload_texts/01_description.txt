@@ -29,7 +29,7 @@ Beyond merging, a "Build mod" tab compiles a custom Stellar Souls mod + CNS help
 - Ships embedded Python (nothing to install); reads Oodle from your own game to pack. Needs Stellar Blade installed for this tab.
 
 READING ZEN/IOSTORE MODS
-Most Stellar Blade mods ship as Zen/IoStore containers. Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (Settings; it auto-detects Steam). Numbers, text and enums (HP, damage, shields, multipliers, skill aliases, actor states...) are written back and verified; only arrays and object references are shown in the diff but skipped on write for now, and the tool reports exactly how many. If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version, or load your own.
+Most Stellar Blade mods ship as Zen/IoStore containers. Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (Settings; it auto-detects Steam). Numbers, text and enums (HP, damage, shields, multipliers, skill aliases, actor states...) are written back and verified; only arrays and object references are shown in the diff but skipped on write for now, and the tool reports exactly how many. If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version, or load your own. If something fails, the real reason is recovered and written to a diagnostic log in %LOCALAPPDATA%\StellarTool\logs\ - attach the newest one when reporting an issue.
 
 INSTALL
 1. Download and extract anywhere. Run StellarTool.exe.

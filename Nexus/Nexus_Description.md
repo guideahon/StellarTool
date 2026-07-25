@@ -30,6 +30,8 @@ When merging Zen mods, numbers, text and enums (HP, damage, shields, multipliers
 
 If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version in one click, or load your own - no need to wait for a new release.
 
+When something does go wrong, it says why: the underlying tools can fail without printing anything, so Stellar Tool recovers the real error and writes a diagnostic log to %LOCALAPPDATA%\StellarTool\logs\. Attach the newest one when reporting an issue.
+
 Main features
 
 - Load any number of mods: Zen/IoStore (.ucas/.utoc), legacy .pak, .zip, or loose .uasset folders.
