@@ -134,5 +134,9 @@
   "bulk_max": "max",
   "bulk_applied": "Appliqué à %1 valeur(s).",
   "bulk_bad_number": "Saisis un nombre valide.",
-  "bulk_bad_regex": "Regex invalide."
+  "bulk_bad_regex": "Regex invalide.",
+  "builder_ex_gauge": "Beta au parry parfait / Burst a l'esquive parfaite",
+  "builder_ex_just": "Fenetre de parry/esquive parfaite elargie (x1.5)",
+  "builder_ex_airdodge": "Double esquive aerienne",
+  "needs_analyze": "%1 mod(s) chargé(s) mais pas encore analysé(s) — lance l'analyse pour les voir ici."
 }

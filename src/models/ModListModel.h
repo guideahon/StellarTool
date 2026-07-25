@@ -7,6 +7,9 @@ namespace st {
 
 class ModListModel : public QAbstractListModel {
     Q_OBJECT
+    // rowCount() es un método: usado en un binding QML no se reevalúa cuando
+    // cambia la lista. 'count' sí notifica, así que la UI se actualiza sola.
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
 public:
     enum Roles {
         NameRole = Qt::UserRole + 1,
@@ -25,6 +28,10 @@ public:
 
     void setMods(const QList<ModPackage> &mods);
     const QList<ModPackage> &mods() const { return m_mods; }
+    int count() const { return m_mods.size(); }
+
+signals:
+    void countChanged();
 
 private:
     QList<ModPackage> m_mods;

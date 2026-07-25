@@ -134,5 +134,9 @@
   "bulk_max": "최대",
   "bulk_applied": "값 %1개에 적용했습니다.",
   "bulk_bad_number": "올바른 숫자를 입력하세요.",
-  "bulk_bad_regex": "잘못된 정규식입니다."
+  "bulk_bad_regex": "잘못된 정규식입니다.",
+  "builder_ex_gauge": "퍼펙트 패링 시 베타 / 퍼펙트 회피 시 버스트",
+  "builder_ex_just": "퍼펙트 판정 여유 확대 (x1.5)",
+  "builder_ex_airdodge": "공중 회피 2회",
+  "needs_analyze": "MOD %1개가 로드되었지만 아직 분석하지 않았습니다 — 분석을 실행하면 여기에 표시됩니다."
 }

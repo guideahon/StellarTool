@@ -132,8 +132,8 @@ Item {
                     Layout.alignment: Qt.AlignHCenter
                 }
                 Button {
+                    // Habilitado durante una importación: se encolan.
                     text: I18n.s.easy_add
-                    enabled: !App.busy
                     Layout.alignment: Qt.AlignHCenter
                     onClicked: addDialog.open()
                 }

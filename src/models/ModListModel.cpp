@@ -34,9 +34,11 @@ QHash<int, QByteArray> ModListModel::roleNames() const {
 }
 
 void ModListModel::setMods(const QList<ModPackage> &mods) {
+    const int before = m_mods.size();
     beginResetModel();
     m_mods = mods;
     endResetModel();
+    if (before != m_mods.size()) emit countChanged();
 }
 
 } // namespace st

@@ -134,5 +134,9 @@
   "bulk_max": "最大",
   "bulk_applied": "已应用于 %1 个值。",
   "bulk_bad_number": "请输入有效的数字。",
-  "bulk_bad_regex": "正则表达式无效。"
+  "bulk_bad_regex": "正则表达式无效。",
+  "builder_ex_gauge": "完美格挡得Beta／完美闪避得Burst",
+  "builder_ex_just": "完美格挡/闪避判定更宽松（x1.5）",
+  "builder_ex_airdodge": "二段空中闪避",
+  "needs_analyze": "已加载 %1 个模组，但尚未分析 — 运行分析后即可在此查看。"
 }

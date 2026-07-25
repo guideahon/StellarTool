@@ -207,5 +207,13 @@
   "builder_ex_harder": "Harder enemies",
   "builder_ex_drain": "HP Drain (heal on hit)",
   "builder_toml": "Custom TOML patches (folder of <Table>.toml)",
-  "builder_toml_ph": "(optional) folder with TOML patches"
+  "builder_toml_ph": "(optional) folder with TOML patches",
+  "builder_ex_fall": "No fall damage",
+  "builder_ex_env": "No water/sand death",
+  "builder_ex_tachyr": "Less Tachy drain",
+  "builder_ex_gear": "Stronger gear (x2)",
+  "builder_ex_gauge": "Beta on perfect parry / Burst on perfect dodge (no skill tree)",
+  "builder_ex_just": "Wider perfect parry/dodge window (x1.5)",
+  "builder_ex_airdodge": "Double air dodge",
+  "needs_analyze": "%1 mod(s) loaded but not analyzed yet — run the analysis to see them here."
 }

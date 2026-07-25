@@ -62,14 +62,17 @@ Item {
             visible: !App.analyzed
             spacing: 10
             Label {
-                text: I18n.s.changes_hint
-                color: Theme.textDim
+                text: App.modModel.count > 0
+                      ? I18n.s.needs_analyze.arg(App.modModel.count)
+                      : I18n.s.changes_hint
+                color: App.modModel.count > 0 ? Theme.warn : Theme.textDim
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
             Button {
                 text: I18n.s.home_analyze
-                enabled: !App.busy && App.modModel.rowCount() > 0
+                visible: App.modModel.count > 0
+                enabled: !App.busy && App.toolsAvailable
                 highlighted: true
                 onClicked: App.analyze()
             }

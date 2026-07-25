@@ -134,5 +134,9 @@
   "bulk_max": "最大",
   "bulk_applied": "%1 件の値に適用しました。",
   "bulk_bad_number": "有効な数値を入力してください。",
-  "bulk_bad_regex": "正規表現が無効です。"
+  "bulk_bad_regex": "正規表現が無効です。",
+  "builder_ex_gauge": "パーフェクトパリィでBeta／パーフェクト回避でBurst",
+  "builder_ex_just": "パーフェクト判定の猶予拡大（x1.5）",
+  "builder_ex_airdodge": "空中回避2回",
+  "needs_analyze": "%1 個の MOD が読み込まれていますが、まだ解析されていません — 解析を実行するとここに表示されます。"
 }

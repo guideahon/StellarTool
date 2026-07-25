@@ -83,14 +83,14 @@ Item {
 
         RowLayout {
             spacing: 8
+            // Agregar sigue habilitado durante una importación: los mods nuevos
+            // se encolan (igual que al arrastrarlos), no se pierden.
             Button {
                 text: I18n.s.home_add_file
-                enabled: !App.busy
                 onClicked: fileDialog.open()
             }
             Button {
                 text: I18n.s.home_add_folder
-                enabled: !App.busy
                 onClicked: folderDialog.open()
             }
             Item { Layout.fillWidth: true }

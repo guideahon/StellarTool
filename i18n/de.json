@@ -134,5 +134,9 @@
   "bulk_max": "Max",
   "bulk_applied": "Auf %1 Wert(e) angewendet.",
   "bulk_bad_number": "Gib eine gültige Zahl ein.",
-  "bulk_bad_regex": "Ungültiger Regex."
+  "bulk_bad_regex": "Ungültiger Regex.",
+  "builder_ex_gauge": "Beta bei perfekter Parade / Burst bei perfektem Ausweichen",
+  "builder_ex_just": "Groesseres Perfekt-Parade/Ausweichen-Fenster (x1.5)",
+  "builder_ex_airdodge": "Doppeltes Luftausweichen",
+  "needs_analyze": "%1 Mod(s) geladen, aber noch nicht analysiert — führe die Analyse aus, um sie hier zu sehen."
 }

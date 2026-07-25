@@ -37,18 +37,23 @@ Item {
         }
         // Sin analizar no hay conflictos que mostrar: ofrecer la acción acá
         // mismo en vez de mandar al usuario a buscarla a la página de Mods.
+        // Con mods cargados pero sin analizar, pedirlo explícitamente y ofrecer
+        // la acción acá; sin mods, solo el texto de ayuda.
         RowLayout {
             visible: !App.analyzed
             spacing: 10
             Label {
-                text: I18n.s.conflicts_hint
-                color: Theme.textDim
+                text: App.modModel.count > 0
+                      ? I18n.s.needs_analyze.arg(App.modModel.count)
+                      : I18n.s.conflicts_hint
+                color: App.modModel.count > 0 ? Theme.warn : Theme.textDim
                 wrapMode: Text.Wrap
                 Layout.fillWidth: true
             }
             Button {
                 text: I18n.s.home_analyze
-                enabled: !App.busy && App.modModel.rowCount() > 0
+                visible: App.modModel.count > 0
+                enabled: !App.busy && App.toolsAvailable
                 highlighted: true
                 onClicked: App.analyze()
             }

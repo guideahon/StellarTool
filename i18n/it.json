@@ -134,5 +134,9 @@
   "bulk_max": "max",
   "bulk_applied": "Applicato a %1 valori.",
   "bulk_bad_number": "Inserisci un numero valido.",
-  "bulk_bad_regex": "Regex non valida."
+  "bulk_bad_regex": "Regex non valida.",
+  "builder_ex_gauge": "Beta al parry perfetto / Burst alla schivata perfetta",
+  "builder_ex_just": "Finestra parry/schivata perfetta piu ampia (x1.5)",
+  "builder_ex_airdodge": "Doppia schivata aerea",
+  "needs_analyze": "%1 mod caricati ma non ancora analizzati — esegui l'analisi per vederli qui."
 }
