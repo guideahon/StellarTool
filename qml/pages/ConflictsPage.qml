@@ -35,10 +35,23 @@ Item {
             text: I18n.s.conflicts_none
             color: Theme.ok
         }
-        Label {
+        // Sin analizar no hay conflictos que mostrar: ofrecer la acción acá
+        // mismo en vez de mandar al usuario a buscarla a la página de Mods.
+        RowLayout {
             visible: !App.analyzed
-            text: I18n.s.conflicts_hint
-            color: Theme.textDim
+            spacing: 10
+            Label {
+                text: I18n.s.conflicts_hint
+                color: Theme.textDim
+                wrapMode: Text.Wrap
+                Layout.fillWidth: true
+            }
+            Button {
+                text: I18n.s.home_analyze
+                enabled: !App.busy && App.modModel.rowCount() > 0
+                highlighted: true
+                onClicked: App.analyze()
+            }
         }
 
         // Resolución masiva por mod

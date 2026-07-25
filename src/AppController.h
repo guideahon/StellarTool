@@ -148,6 +148,7 @@ private:
     void setStatus(const QString &s);
     QString t(const QString &key) const;   // traducción vía Translator
     QString workRoot() const;
+    void importNextMod();                    // drena m_pendingMods de a uno
     void runAnalysis();                      // en worker thread
     QString runMerge(const QString &outDir); // en worker thread; devuelve error o vacío
     // Stage con los contenedores raíz del juego (hardlinks); cachea por proceso.
@@ -164,6 +165,7 @@ private:
     BaselineManager *m_baseline;
     ProjectStore *m_store;
 
+    QStringList m_pendingMods;   // cola de imports (drag&drop / multi-selección)
     QList<ModPackage> m_mods;
     QList<ChangeItem> m_items;
     QList<ConflictGroup> m_groups;

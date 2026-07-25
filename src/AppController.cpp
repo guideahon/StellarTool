@@ -119,15 +119,34 @@ QString AppController::workRoot() const {
 }
 
 void AppController::addMod(const QUrl &url) {
-    if (m_busy) return;
     const QString path = url.isLocalFile() ? url.toLocalFile() : url.toString();
+    // Se encola: arrastrar/elegir varios mods llama addMod en ráfaga y una
+    // importación tarda, así que descartar los que llegan mientras hay otra en
+    // curso perdía mods en silencio (solo entraba el primero).
     for (const auto &m : m_mods) {
         if (QFileInfo(m.sourcePath) == QFileInfo(path)) {
             emit errorOccurred(t(QStringLiteral("err_mod_exists")));
             return;
         }
     }
-    setBusy(true, t(QStringLiteral("core_importing")).arg(QFileInfo(path).fileName()));
+    for (const QString &q : m_pendingMods)
+        if (QFileInfo(q) == QFileInfo(path)) return;   // ya está en la cola
+    m_pendingMods << path;
+    if (!m_busy) importNextMod();
+}
+
+// Importa el siguiente mod de la cola; se re-llama al terminar cada uno. Mantiene
+// busy hasta drenar la cola, para que la UI no parezca lista a medio camino.
+void AppController::importNextMod() {
+    if (m_pendingMods.isEmpty()) {
+        setBusy(false);
+        return;
+    }
+    const QString path = m_pendingMods.takeFirst();
+    const int queued = m_pendingMods.size();
+    QString status = t(QStringLiteral("core_importing")).arg(QFileInfo(path).fileName());
+    if (queued > 0) status += QStringLiteral(" (+%1)").arg(queued);
+    setBusy(true, status);
     std::ignore = QtConcurrent::run([this, path] {
         QString error;
         ModPackage pkg = m_importer->import(path, workRoot(), &error);
@@ -142,7 +161,7 @@ void AppController::addMod(const QUrl &url) {
                 m_analyzed = false;
                 emit analysisChanged();
             }
-            setBusy(false);
+            importNextMod();   // seguir con la cola (o marcar no-busy si terminó)
         }, Qt::QueuedConnection);
     });
 }

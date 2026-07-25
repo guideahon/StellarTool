@@ -168,7 +168,8 @@ Item {
     FileDialog {
         id: fileDialog
         nameFilters: ["Mods (*.pak *.zip)"]
-        onAccepted: App.addMod(selectedFile)
+        fileMode: FileDialog.OpenFiles   // varios de una (se encolan)
+        onAccepted: { for (let i = 0; i < selectedFiles.length; ++i) App.addMod(selectedFiles[i]) }
     }
     FolderDialog {
         id: folderDialog
