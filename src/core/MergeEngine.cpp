@@ -1,5 +1,7 @@
 #include "MergeEngine.h"
 
+#include <QSet>
+
 namespace st {
 
 static QString segName(const QString &seg, int *occurrence) {
@@ -42,6 +44,53 @@ static QJsonValue reconcileLeaf(const QJsonValue &base, const QJsonValue &nv) {
             return QJsonValue(b.left(sep + 2) + s);
     }
     return nv;
+}
+
+// Recolecta recursivamente los FName usados por 'v': el Value (string) de las
+// propiedades Name/Enum del JSON de UAssetGUI.
+static void collectFNames(const QJsonValue &v, QStringList &out) {
+    if (v.isObject()) {
+        const QJsonObject o = v.toObject();
+        const QString type = o.value(QLatin1String("$type")).toString();
+        const QJsonValue val = o.value(QLatin1String("Value"));
+        if (val.isString()
+            && (type.contains(QLatin1String("NameProperty"))
+                || type.contains(QLatin1String("EnumProperty"))))
+            out << val.toString();
+        for (auto it = o.begin(); it != o.end(); ++it) collectFNames(it.value(), out);
+        return;
+    }
+    if (v.isArray())
+        for (const QJsonValue &e : v.toArray()) collectFNames(e, out);
+}
+
+// Agrega al NameMap del asset los FName de las filas tocadas que aún no estén.
+// Sin esto UAssetAPI los trata como "dummy FName" y al escribir tira
+// DummyFNameSerializationException: UAssetGUI muere sin generar el uasset y sin
+// imprimir nada (su error va al portapapeles), lo que se veía como el error
+// "UAssetGUI no produjo el uasset esperado". Agregar nombres de más es inocuo:
+// UAssetGUI recalcula NamesReferencedFromExportDataCount al escribir.
+static void registerFNames(QJsonObject &root, const QJsonArray &rows,
+                           const QSet<QString> &touchedRows) {
+    if (touchedRows.isEmpty()) return;
+    QStringList used;
+    for (const QJsonValue &r : rows) {
+        if (touchedRows.contains(r.toObject().value(QLatin1String("Name")).toString()))
+            collectFNames(r, used);
+    }
+    if (used.isEmpty()) return;
+    QJsonArray nameMap = root.value(QLatin1String("NameMap")).toArray();
+    QSet<QString> have;
+    have.reserve(nameMap.size());
+    for (const QJsonValue &n : nameMap) have.insert(n.toString());
+    bool added = false;
+    for (const QString &n : used) {
+        if (n.isEmpty() || have.contains(n)) continue;
+        nameMap.append(n);
+        have.insert(n);
+        added = true;
+    }
+    if (added) root.insert(QLatin1String("NameMap"), nameMap);
 }
 
 bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth,
@@ -160,9 +209,11 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
         return v.isBool() || v.isDouble() || v.isString();
     };
 
+    QSet<QString> touchedRows;
     for (const ChangeItem &item : items) {
         if (!item.selected) continue;
         if (!writableClean(item)) { ++res.skipped; continue; }
+        touchedRows.insert(item.rowName);
         switch (item.type) {
         case ChangeItem::RowAdded: {
             const int at = findRow(item.rowName);
@@ -200,6 +251,8 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
             break;
         }
     }
+    // Registrar los FName nuevos ANTES de escribir el JSON (ver registerFNames).
+    registerFNames(root, rows, touchedRows);
     root = withDataTableRows(root, rows);
     res.ok = true;
     return res;

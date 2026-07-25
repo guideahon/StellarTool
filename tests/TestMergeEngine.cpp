@@ -14,6 +14,7 @@ private slots:
     void rowAddRemove();
     void roundTripDiffMergeVerify();
     void cleanStringEnumMerge();
+    void newFNamesRegisteredInNameMap();
 };
 
 static QJsonObject baseTable() {
@@ -148,6 +149,39 @@ void TestMergeEngine::cleanStringEnumMerge() {
     // None -> nombre real.
     QCOMPARE(leafString(out, QStringLiteral("Skill1"), QStringLiteral("Alias")),
              QStringLiteral("P_Eve_X"));
+}
+
+// Un FName nuevo (no presente en el NameMap del asset) debe quedar registrado:
+// si no, UAssetAPI lo trata como dummy y al escribir tira
+// DummyFNameSerializationException (UAssetGUI muere sin generar el uasset).
+void TestMergeEngine::newFNamesRegisteredInNameMap() {
+    QJsonObject base = table({
+        row(QStringLiteral("Skill1"), {
+            prop(QStringLiteral("Alias"), QStringLiteral("OldName"),
+                 QStringLiteral("NamePropertyData")),
+        }),
+    });
+    base.insert(QStringLiteral("NameMap"),
+                QJsonArray{QStringLiteral("Skill1"), QStringLiteral("Alias"),
+                           QStringLiteral("OldName")});
+    const QJsonObject mod = table({
+        row(QStringLiteral("Skill1"), {
+            prop(QStringLiteral("Alias"), QStringLiteral("BrandNewName"),
+                 QStringLiteral("NamePropertyData")),
+        }),
+    });
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;
+    QJsonObject out = base;
+    QVERIFY(MergeEngine::applyToTable(out, items).ok);
+
+    QStringList names;
+    for (const QJsonValue &n : out.value(QLatin1String("NameMap")).toArray())
+        names << n.toString();
+    QVERIFY2(names.contains(QStringLiteral("BrandNewName")),
+             qPrintable(names.join(QLatin1Char(','))));
+    QVERIFY(names.contains(QStringLiteral("OldName"))); // no se pierden los previos
 }
 
 #include "TestMergeEngine.moc"

@@ -7,6 +7,8 @@
 #include <QTextStream>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QGuiApplication>
+#include <QClipboard>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QDateTime>
@@ -15,10 +17,21 @@
 Q_LOGGING_CATEGORY(lcUasset, "st.uasset")
 
 namespace {
+// UAssetGUI no imprime sus excepciones: las COPIA AL PORTAPAPELES y sale sin
+// generar el archivo. Recuperamos ese texto (solo si parece un stack trace de
+// UAssetAPI) para poder mostrar el motivo real en vez de un fallo mudo.
+QString uassetClipboardError() {
+    if (!qobject_cast<QGuiApplication *>(QCoreApplication::instance())) return {};
+    QClipboard *cb = QGuiApplication::clipboard();
+    if (!cb) return {};
+    const QString text = cb->text();
+    if (text.contains(QLatin1String("UAssetAPI")) || text.contains(QLatin1String("Exception")))
+        return text.left(1500);
+    return {};
+}
+
 // Escribe un log de diagnóstico de una corrida de UAssetGUI (exe, args, código
-// de salida y salida de consola) y devuelve su ruta. UAssetGUI es una app GUI:
-// a veces sale con código 0 sin escribir el archivo ni imprimir nada, así que
-// dejamos rastro en disco para poder diagnosticar reportes de usuarios.
+// de salida, salida de consola y el error del portapapeles) y devuelve su ruta.
 QString writeUassetDiag(const QStringList &args, int exitCode, const QString &out) {
     const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
                         + QStringLiteral("/logs");
@@ -35,6 +48,9 @@ QString writeUassetDiag(const QStringList &args, int exitCode, const QString &ou
        << "exitCode: " << exitCode << "\n"
        << "----- output -----\n"
        << (out.isEmpty() ? QStringLiteral("(no console output captured)") : out) << "\n";
+    const QString clip = uassetClipboardError();
+    if (!clip.isEmpty())
+        ts << "----- UAssetGUI error (clipboard) -----\n" << clip << "\n";
     f.close();
     return path;
 }
@@ -169,14 +185,21 @@ bool UAssetService::fromJson(const QString &jsonPath, const QString &uassetPath,
     if (!run(args, error, &out))
         return false;
     if (!QFileInfo::exists(uassetPath)) {
+        // El motivo real viene por el portapapeles (UAssetGUI no lo imprime).
+        const QString clip = uassetClipboardError();
         const QString log = writeUassetDiag(args, 0, out);
         // Preservar el JSON de entrada (temporal, se limpia luego) junto al log
         // para poder inspeccionar la conversión Zen→UAssetGUI que falló.
         if (!log.isEmpty())
             QFile::copy(jsonPath, log + QStringLiteral(".input.json"));
-        if (error) *error = QStringLiteral("UAssetGUI no produjo el uasset esperado "
-                                           "(mapping/versión desactualizados tras parche del juego). %1\nLog: %2")
-                                .arg(out.trimmed().right(500), log);
+        if (error) {
+            *error = QStringLiteral("UAssetGUI no produjo el uasset esperado. %1")
+                         .arg(clip.isEmpty()
+                                  ? QStringLiteral("Probable mapping/versión desactualizados tras "
+                                                   "un parche del juego. ") + out.trimmed().right(400)
+                                  : clip.section(QLatin1Char('\n'), 0, 0));
+            *error += QStringLiteral("\nLog: %1").arg(log);
+        }
         return false;
     }
     return true;
