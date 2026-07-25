@@ -107,14 +107,12 @@ Item {
                         font.bold: true
                         Layout.fillWidth: true
                     }
-                    Button {
+                    FlatButton {
                         text: I18n.s.changes_all
-                        flat: true
                         onClicked: App.changeModel.setTableChecked(section, true)
                     }
-                    Button {
+                    FlatButton {
                         text: I18n.s.changes_none
-                        flat: true
                         onClicked: App.changeModel.setTableChecked(section, false)
                     }
                 }
@@ -147,9 +145,8 @@ Item {
                         elide: Text.ElideRight
                         Layout.fillWidth: true
                     }
-                    Button {
+                    FlatButton {
                         text: "✎"
-                        flat: true
                         visible: App.changeModel.canEdit(index)
                         onClicked: editDialog.openFor(index, summary)
                     }

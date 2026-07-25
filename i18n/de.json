@@ -138,5 +138,6 @@
   "builder_ex_gauge": "Beta bei perfekter Parade / Burst bei perfektem Ausweichen",
   "builder_ex_just": "Groesseres Perfekt-Parade/Ausweichen-Fenster (x1.5)",
   "builder_ex_airdodge": "Doppeltes Luftausweichen",
-  "needs_analyze": "%1 Mod(s) geladen, aber noch nicht analysiert — führe die Analyse aus, um sie hier zu sehen."
+  "needs_analyze": "%1 Mod(s) geladen, aber noch nicht analysiert — führe die Analyse aus, um sie hier zu sehen.",
+  "merge_dropped_note": "%1 wurde nicht in das gemergte Pak aufgenommen: Keine der Änderungen konnte geschrieben werden, ein Einschluss hätte die Tabelle durch Vanilla ersetzt und den Ursprungsmod überschrieben. Lass diesen Mod aktiviert."
 }

@@ -181,6 +181,7 @@ private:
     bool m_downloadingUsmap = false;
     QString m_statusText;
     QString m_lastMergeResult;
+    QStringList m_lastDroppedTables;  // tablas no emitidas (0 cambios aplicados)
     int m_lastSkipped = 0;
 };
 

@@ -215,5 +215,6 @@
   "builder_ex_gauge": "Beta al parry perfecto / Burst al dodge perfecto (sin skill tree)",
   "builder_ex_just": "Ventana de parry/dodge perfecto mas amplia (x1.5)",
   "builder_ex_airdodge": "Doble esquive aereo",
-  "needs_analyze": "%1 mod(s) cargados pero sin analizar — ejecutá el análisis para verlos acá."
+  "needs_analyze": "%1 mod(s) cargados pero sin analizar — ejecutá el análisis para verlos acá.",
+  "merge_dropped_note": "%1 quedó fuera del pak mergeado: no se pudo escribir ninguno de sus cambios, así que incluirla habría reemplazado esa tabla por vanilla y pisado al mod de origen. Mantené ese mod habilitado."
 }

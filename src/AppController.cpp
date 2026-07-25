@@ -402,6 +402,8 @@ QString AppController::runMerge(const QString &outDir) {
         }
     }
     report << QString() << QStringLiteral("Tables:");
+    // Tablas cuyos cambios se saltearon por completo: no se emiten (ver abajo).
+    m_lastDroppedTables.clear();
 
     const QString mergeRoot = workRoot() + QStringLiteral("/merged");
     QDir(mergeRoot).removeRecursively();
@@ -478,6 +480,17 @@ QString AppController::runMerge(const QString &outDir) {
         m_lastSkipped += res.skipped;
         report << QStringLiteral("  %1: %2 applied, %3 skipped")
                       .arg(tableBase).arg(res.applied).arg(res.skipped);
+
+        // Nada aplicado = la tabla quedaría idéntica a vanilla. Como el pak
+        // mergeado carga con máxima prioridad (zzz_), escribirla PISARÍA con
+        // vanilla la tabla del mod original. No emitirla es siempre mejor:
+        // así el mod de origen sigue mandando en esa tabla.
+        if (res.applied == 0) {
+            m_lastDroppedTables << tableBase;
+            report << QStringLiteral("    -> not written (would have been vanilla, "
+                                     "overriding the source mod)");
+            continue;
+        }
 
         const QString mergedJson = jsonDir + QLatin1Char('/')
             + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
@@ -598,6 +611,12 @@ void AppController::merge(const QUrl &outDirUrl) {
                                                  : t(QStringLiteral("merge_ok"))).arg(outDir);
                 if (m_lastSkipped > 0)
                     m_lastMergeResult += QStringLiteral(" ") + t(QStringLiteral("merge_skipped_note")).arg(m_lastSkipped);
+                // Aviso destacado: esas tablas quedaron fuera del pak, así que
+                // el mod que las traía tiene que seguir habilitado.
+                if (!m_lastDroppedTables.isEmpty())
+                    m_lastMergeResult += QStringLiteral("\n\n⚠ ")
+                        + t(QStringLiteral("merge_dropped_note"))
+                              .arg(m_lastDroppedTables.join(QStringLiteral(", ")));
             } else {
                 m_lastMergeOk = false;
                 m_lastMergeResult = t(QStringLiteral("merge_err")).arg(error);

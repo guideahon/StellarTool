@@ -138,5 +138,6 @@
   "builder_ex_gauge": "Beta al parry perfetto / Burst alla schivata perfetta",
   "builder_ex_just": "Finestra parry/schivata perfetta piu ampia (x1.5)",
   "builder_ex_airdodge": "Doppia schivata aerea",
-  "needs_analyze": "%1 mod caricati ma non ancora analizzati — esegui l'analisi per vederli qui."
+  "needs_analyze": "%1 mod caricati ma non ancora analizzati — esegui l'analisi per vederli qui.",
+  "merge_dropped_note": "%1 è stata esclusa dal pak unito: nessuna delle sue modifiche era scrivibile, includerla avrebbe sostituito quella tabella con la versione vanilla sovrascrivendo il mod di origine. Tieni quel mod attivo."
 }

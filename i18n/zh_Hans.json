@@ -138,5 +138,6 @@
   "builder_ex_gauge": "完美格挡得Beta／完美闪避得Burst",
   "builder_ex_just": "完美格挡/闪避判定更宽松（x1.5）",
   "builder_ex_airdodge": "二段空中闪避",
-  "needs_analyze": "已加载 %1 个模组，但尚未分析 — 运行分析后即可在此查看。"
+  "needs_analyze": "已加载 %1 个模组，但尚未分析 — 运行分析后即可在此查看。",
+  "merge_dropped_note": "%1 未包含在合并后的 pak 中：它的改动一项都无法写入，若包含则会把该表换回原版并覆盖来源模组。请保持那个模组启用。"
 }

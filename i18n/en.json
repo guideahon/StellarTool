@@ -215,5 +215,6 @@
   "builder_ex_gauge": "Beta on perfect parry / Burst on perfect dodge (no skill tree)",
   "builder_ex_just": "Wider perfect parry/dodge window (x1.5)",
   "builder_ex_airdodge": "Double air dodge",
-  "needs_analyze": "%1 mod(s) loaded but not analyzed yet — run the analysis to see them here."
+  "needs_analyze": "%1 mod(s) loaded but not analyzed yet — run the analysis to see them here.",
+  "merge_dropped_note": "%1 was left out of the merged pak: none of its changes could be written, so including it would have replaced that table with vanilla and overridden the mod it came from. Keep that mod enabled."
 }

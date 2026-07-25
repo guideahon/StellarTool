@@ -138,5 +138,6 @@
   "builder_ex_gauge": "Beta no parry perfeito / Burst no dodge perfeito",
   "builder_ex_just": "Janela de parry/dodge perfeito maior (x1.5)",
   "builder_ex_airdodge": "Esquiva aerea dupla",
-  "needs_analyze": "%1 mod(s) carregado(s) mas ainda não analisado(s) — execute a análise para vê-los aqui."
+  "needs_analyze": "%1 mod(s) carregado(s) mas ainda não analisado(s) — execute a análise para vê-los aqui.",
+  "merge_dropped_note": "%1 ficou de fora do pak mesclado: nenhuma de suas alterações pôde ser escrita, então incluí-la teria substituído essa tabela pela vanilla e sobrescrito o mod de origem. Mantenha esse mod ativado."
 }

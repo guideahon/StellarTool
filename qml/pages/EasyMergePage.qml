@@ -179,7 +179,7 @@ Item {
                         text: tableCount + " ⊞"
                         color: Theme.textDim; font.pixelSize: 12
                     }
-                    Button { text: "✕"; flat: true; enabled: !App.busy; onClicked: App.removeMod(index) }
+                    FlatButton { text: "✕"; enabled: !App.busy; onClicked: App.removeMod(index) }
                 }
             }
         }
@@ -305,8 +305,8 @@ Item {
                     anchors.leftMargin: 10
                     anchors.rightMargin: 10
                     Label { text: section; color: Theme.accent; font.bold: true; Layout.fillWidth: true }
-                    Button { text: I18n.s.changes_all; flat: true; onClicked: App.changeModel.setTableChecked(section, true) }
-                    Button { text: I18n.s.changes_none; flat: true; onClicked: App.changeModel.setTableChecked(section, false) }
+                    FlatButton { text: I18n.s.changes_all; onClicked: App.changeModel.setTableChecked(section, true) }
+                    FlatButton { text: I18n.s.changes_none; onClicked: App.changeModel.setTableChecked(section, false) }
                 }
             }
             delegate: Rectangle {
@@ -330,9 +330,8 @@ Item {
                         onToggled: App.changeModel.setChecked(index, cb.checked)
                     }
                     Label { text: summary; color: Theme.text; elide: Text.ElideRight; Layout.fillWidth: true }
-                    Button {
+                    FlatButton {
                         text: "✎"
-                        flat: true
                         visible: App.changeModel.canEdit(index)
                         onClicked: editDialog.openFor(index, summary)
                     }
