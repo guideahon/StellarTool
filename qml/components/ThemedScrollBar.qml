@@ -8,11 +8,11 @@ import ".."
 ScrollBar {
     id: bar
     policy: ScrollBar.AsNeeded
-    width: 12
+    width: 14
 
     contentItem: Rectangle {
-        implicitWidth: 8
-        radius: 4
+        implicitWidth: 12
+        radius: 6
         color: bar.pressed ? Theme.accent
                            : (bar.hovered ? Theme.textDim : Theme.border)
         opacity: bar.policy === ScrollBar.AlwaysOn || bar.active ? 1 : 0.6

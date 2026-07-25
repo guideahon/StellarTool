@@ -104,7 +104,7 @@ Item {
             }
             Button {
                 text: I18n.s.home_analyze
-                enabled: !App.busy && App.modModel.rowCount() > 0 && App.toolsAvailable
+                enabled: !App.busy && App.modModel.count > 0 && App.toolsAvailable
                 highlighted: true
                 onClicked: App.analyze()
             }
@@ -117,7 +117,7 @@ Item {
             model: App.modModel
             spacing: 6
             clip: true
-            readonly property real rowWidth: width - (vbar.visible ? vbar.width + 4 : 0)
+            readonly property real rowWidth: width - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
             delegate: Rectangle {
                 required property string name

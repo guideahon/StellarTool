@@ -36,8 +36,6 @@ Item {
             text: I18n.s.conflicts_none
             color: Theme.ok
         }
-        // Sin analizar no hay conflictos que mostrar: ofrecer la acción acá
-        // mismo en vez de mandar al usuario a buscarla a la página de Mods.
         // Con mods cargados pero sin analizar, pedirlo explícitamente y ofrecer
         // la acción acá; sin mods, solo el texto de ayuda.
         RowLayout {
@@ -85,7 +83,7 @@ Item {
             spacing: 8
             // Ancho útil para las filas: deja libre la franja de la barra para
             // que no quede encima del contenido.
-            readonly property real rowWidth: width - (vbar.visible ? vbar.width + 4 : 0)
+            readonly property real rowWidth: width - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             delegate: Rectangle {

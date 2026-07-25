@@ -84,7 +84,7 @@ Item {
             model: App.changeModel
             clip: true
             spacing: 2
-            readonly property real rowWidth: width - (vbar.visible ? vbar.width + 4 : 0)
+            readonly property real rowWidth: width - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             section.property: "tableName"

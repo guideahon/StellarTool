@@ -17,7 +17,7 @@ Item {
     // Auto-análisis: al terminar una importación (busy -> false) con mods
     // cargados y sin análisis, analizar solo (construye baseline si hace falta).
     function maybeAutoAnalyze() {
-        if (visible && !App.busy && !App.analyzed && App.modModel.rowCount() > 0
+        if (visible && !App.busy && !App.analyzed && App.modModel.count > 0
             && App.toolsAvailable && !pendingMerge)
             App.analyze()
     }
@@ -28,7 +28,7 @@ Item {
     }
 
     function startMerge() {
-        if (App.busy || App.modModel.rowCount() === 0) return
+        if (App.busy || App.modModel.count === 0) return
         var out = resolvedOut()
         if (out.length === 0) { outField.forceActiveFocus(); return }
         pendingOut = "file:///" + out.replace(/\\/g, "/")
@@ -72,7 +72,7 @@ Item {
             Item { Layout.fillWidth: true }
             Button {
                 text: I18n.s.easy_clear
-                visible: App.modModel.rowCount() > 0
+                visible: App.modModel.count > 0
                 enabled: !App.busy
                 onClicked: App.clearMods()
             }
@@ -155,7 +155,7 @@ Item {
             model: App.modModel
             clip: true
             spacing: 4
-            readonly property real rowWidth: width - (modBar.visible ? modBar.width + 4 : 0)
+            readonly property real rowWidth: width - (modBar.visible ? modBar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: modBar }
             delegate: Rectangle {
                 required property string name
@@ -205,14 +205,14 @@ Item {
             Button {
                 text: I18n.s.easy_merge_btn
                 highlighted: true
-                enabled: !App.busy && App.modModel.rowCount() > 0 && App.toolsAvailable
+                enabled: !App.busy && App.modModel.count > 0 && App.toolsAvailable
                 onClicked: page.startMerge()
             }
             Label {
                 text: App.analyzed
                       ? I18n.s.easy_summary.replace("%1", App.changeModel.totalCount)
                                            .replace("%2", App.conflictModel.rowCount())
-                      : (App.modModel.rowCount() > 0
+                      : (App.modModel.count > 0
                          ? (App.busy ? I18n.s.easy_analyzing_hint : "")
                          : I18n.s.easy_need_analyze)
                 color: Theme.textDim
@@ -248,7 +248,7 @@ Item {
             Layout.fillWidth: true
             CheckBox {
                 id: advToggle
-                enabled: !App.busy && App.modModel.rowCount() > 0
+                enabled: !App.busy && App.modModel.count > 0
                 text: I18n.s.easy_advanced
                 contentItem: Label {
                     text: advToggle.text
@@ -288,7 +288,7 @@ Item {
             model: App.changeModel
             clip: true
             spacing: 2
-            readonly property real rowWidth: width - (chgBar.visible ? chgBar.width + 4 : 0)
+            readonly property real rowWidth: width - (chgBar.visible ? chgBar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: chgBar }
             section.property: "tableName"
             section.criteria: ViewSection.FullString
