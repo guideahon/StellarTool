@@ -87,7 +87,7 @@ Item {
             spacing: 8
             // Ancho útil para las filas: deja libre la franja de la barra para
             // que no quede encima del contenido.
-            readonly property real rowWidth: width - 18 - (vbar.visible ? vbar.width : 0)
+            readonly property real rowWidth: width - 6 - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             delegate: Rectangle {
