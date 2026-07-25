@@ -117,7 +117,8 @@ Item {
             model: App.modModel
             spacing: 6
             clip: true
-            ScrollBar.vertical: ThemedScrollBar {}
+            readonly property real rowWidth: width - (vbar.visible ? vbar.width + 4 : 0)
+            ScrollBar.vertical: ThemedScrollBar { id: vbar }
             delegate: Rectangle {
                 required property string name
                 required property string source
@@ -125,7 +126,7 @@ Item {
                 required property int otherCount
                 required property int unreadableCount
                 required property int index
-                width: ListView.view.width
+                width: ListView.view.rowWidth
                 height: 64
                 radius: Theme.radius
                 color: Theme.panel

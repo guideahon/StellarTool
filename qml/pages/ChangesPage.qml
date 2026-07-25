@@ -84,13 +84,14 @@ Item {
             model: App.changeModel
             clip: true
             spacing: 2
-            ScrollBar.vertical: ThemedScrollBar {}
+            readonly property real rowWidth: width - (vbar.visible ? vbar.width + 4 : 0)
+            ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             section.property: "tableName"
             section.criteria: ViewSection.FullString
             section.delegate: Rectangle {
                 required property string section
-                width: ListView.view.width
+                width: ListView.view.rowWidth
                 height: 34
                 color: Theme.panelAlt
                 radius: Theme.radius
@@ -124,7 +125,7 @@ Item {
                 required property int conflictId
                 required property string modName
                 required property int index
-                width: ListView.view.width
+                width: ListView.view.rowWidth
                 height: 36
                 color: conflictId >= 0 ? Qt.rgba(0.9, 0.7, 0.33, 0.08) : "transparent"
                 radius: 4

@@ -77,12 +77,16 @@ Item {
         }
 
         ListView {
+            id: conflictList
             Layout.fillWidth: true
             Layout.fillHeight: true
             model: App.conflictModel
             clip: true
             spacing: 8
-            ScrollBar.vertical: ThemedScrollBar {}
+            // Ancho útil para las filas: deja libre la franja de la barra para
+            // que no quede encima del contenido.
+            readonly property real rowWidth: width - (vbar.visible ? vbar.width + 4 : 0)
+            ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             delegate: Rectangle {
                 required property string title
@@ -90,7 +94,7 @@ Item {
                 required property string resolvedMod
                 required property int groupId
                 required property string baseText
-                width: ListView.view.width
+                width: ListView.view.rowWidth
                 height: content.height + 24
                 radius: Theme.radius
                 color: Theme.panel
