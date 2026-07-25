@@ -32,7 +32,11 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     void setItems(QList<ChangeItem> *items);
+    // Reset completo: solo cuando cambia QUÉ filas se ven (analizar, filtros).
     void refresh();
+    // Marcar/desmarcar o reeditar valores no cambia la lista visible: se notifica
+    // con dataChanged para no perder la posición del scroll.
+    void refreshSelections();
 
     QString filterText() const { return m_filterText; }
     void setFilterText(const QString &t);

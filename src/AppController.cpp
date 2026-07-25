@@ -290,8 +290,8 @@ void AppController::resolveConflict(int groupId, const QString &modId) {
         for (int idx : g.itemIndexes)
             m_items[idx].selected = (m_items.at(idx).modId == modId);
     }
-    m_changeModel.refresh();
-    m_conflictModel.refresh();
+    m_changeModel.refreshSelections();
+    m_conflictModel.refreshResolutions();
 }
 
 void AppController::resolveAllWithMod(const QString &modId) {
@@ -304,8 +304,8 @@ void AppController::resolveAllWithMod(const QString &modId) {
         for (int idx : g.itemIndexes)
             m_items[idx].selected = (m_items.at(idx).modId == modId);
     }
-    m_changeModel.refresh();
-    m_conflictModel.refresh();
+    m_changeModel.refreshSelections();
+    m_conflictModel.refreshResolutions();
 }
 
 void AppController::resolveAllByPriority() {
@@ -324,8 +324,8 @@ void AppController::resolveAllByPriority() {
         for (int idx : g.itemIndexes)
             m_items[idx].selected = (m_items.at(idx).modId == best);
     }
-    m_changeModel.refresh();
-    m_conflictModel.refresh();
+    m_changeModel.refreshSelections();
+    m_conflictModel.refreshResolutions();
 }
 
 QStringList AppController::unresolvedConflictTitles() const {

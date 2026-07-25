@@ -86,6 +86,13 @@ void ConflictModel::refresh() {
     emit changed();
 }
 
+void ConflictModel::refreshResolutions() {
+    const int n = rowCount();
+    if (n > 0)
+        emit dataChanged(index(0, 0), index(n - 1, 0), {CandidatesRole, ResolvedModRole});
+    emit changed();
+}
+
 int ConflictModel::pendingCount() const {
     if (!m_groups) return 0;
     int n = 0;

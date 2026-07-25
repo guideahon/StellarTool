@@ -71,6 +71,13 @@ void ChangeListModel::refresh() {
     emit itemsChanged();
 }
 
+void ChangeListModel::refreshSelections() {
+    if (!m_visible.isEmpty())
+        emit dataChanged(index(0, 0), index(m_visible.size() - 1, 0),
+                         {CheckedRole, SummaryRole});
+    emit itemsChanged();
+}
+
 void ChangeListModel::setFilterText(const QString &t) {
     if (m_filterText == t) return;
     m_filterText = t;
@@ -199,7 +206,8 @@ void ChangeListModel::setTableChecked(const QString &tableName, bool checked) {
         if (tableNameOf(m_items->at(i)) == tableName)
             (*m_items)[i].selected = checked;
     }
-    refresh();
+    // 'selected' no afecta qué filas se ven: no hace falta resetear el modelo.
+    refreshSelections();
     emit selectionChanged();
 }
 

@@ -29,7 +29,12 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 
     void setSource(QList<ChangeItem> *items, QList<ConflictGroup> *groups);
+    // Reset completo: solo cuando cambia la LISTA de conflictos (tras analizar).
+    // Destruye los delegates, así que la vista vuelve al principio.
     void refresh();
+    // Resolver un conflicto no cambia la lista, solo el contenido de las filas:
+    // se notifica con dataChanged para no perder la posición del scroll.
+    void refreshResolutions();
     int pendingCount() const;
 
 signals:
