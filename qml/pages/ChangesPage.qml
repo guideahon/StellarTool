@@ -81,10 +81,11 @@ Item {
         ListView {
             Layout.fillWidth: true
             Layout.fillHeight: true
+            Layout.rightMargin: -18   // barra pegada al borde (ver ConflictsPage)
             model: App.changeModel
             clip: true
             spacing: 2
-            readonly property real rowWidth: width - (vbar.visible ? vbar.width : 0)
+            readonly property real rowWidth: width - 18 - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             section.property: "tableName"

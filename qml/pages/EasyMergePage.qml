@@ -155,7 +155,8 @@ Item {
             model: App.modModel
             clip: true
             spacing: 4
-            readonly property real rowWidth: width - (modBar.visible ? modBar.width : 0)
+            Layout.rightMargin: -18   // barra pegada al borde (ver ConflictsPage)
+            readonly property real rowWidth: width - 18 - (modBar.visible ? modBar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: modBar }
             delegate: Rectangle {
                 required property string name
@@ -288,7 +289,8 @@ Item {
             model: App.changeModel
             clip: true
             spacing: 2
-            readonly property real rowWidth: width - (chgBar.visible ? chgBar.width : 0)
+            Layout.rightMargin: -18   // barra pegada al borde (ver ConflictsPage)
+            readonly property real rowWidth: width - 18 - (chgBar.visible ? chgBar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: chgBar }
             section.property: "tableName"
             section.criteria: ViewSection.FullString

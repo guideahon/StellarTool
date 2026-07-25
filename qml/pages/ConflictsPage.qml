@@ -78,12 +78,16 @@ Item {
             id: conflictList
             Layout.fillWidth: true
             Layout.fillHeight: true
+            // Anula el margen derecho de la página solo para esta lista: así la
+            // barra queda pegada al borde de la ventana (y no flotando en el
+            // medio), mientras las tarjetas conservan su margen vía rowWidth.
+            Layout.rightMargin: -18
             model: App.conflictModel
             clip: true
             spacing: 8
             // Ancho útil para las filas: deja libre la franja de la barra para
             // que no quede encima del contenido.
-            readonly property real rowWidth: width - (vbar.visible ? vbar.width : 0)
+            readonly property real rowWidth: width - 18 - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
 
             delegate: Rectangle {
