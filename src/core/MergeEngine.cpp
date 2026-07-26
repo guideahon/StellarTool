@@ -431,17 +431,33 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
         return -1;
     };
 
-    // RowAdded se reconstruye desde una fila cruda de la misma tabla. RowRemoved
-    // queda bloqueado hasta tener un guard contra tablas clean incompletas.
+    // Un export clean al que le falte más de 25% de las filas de vanilla es
+    // sospechoso: podría ser una exportación CUE4Parse truncada. Bloquear sus
+    // RowRemoved evita convertir ese fallo de lectura en borrados reales.
+    QHash<QString, int> cleanRemovalsByMod;
+    for (const ChangeItem &item : items)
+        if (item.clean && item.type == ChangeItem::RowRemoved)
+            ++cleanRemovalsByMod[item.modId];
+    QSet<QString> suspiciousRemovalMods;
+    for (auto it = cleanRemovalsByMod.cbegin(); it != cleanRemovalsByMod.cend(); ++it)
+        if (!rows.isEmpty() && it.value() * 4 > rows.size())
+            suspiciousRemovalMods.insert(it.key());
+
+    // RowAdded se reconstruye desde una fila cruda de la misma tabla.
     auto writableClean = [](const ChangeItem &c) {
         if (!c.clean) return true;
-        return c.type == ChangeItem::Modified || c.type == ChangeItem::RowAdded;
+        return c.type != ChangeItem::AssetReplaced;
     };
 
     QSet<QString> touchedRows;
     for (const ChangeItem &item : items) {
         if (!item.selected) continue;
         if (!writableClean(item)) { ++res.skipped; continue; }
+        if (item.clean && item.type == ChangeItem::RowRemoved
+            && suspiciousRemovalMods.contains(item.modId)) {
+            ++res.skipped;
+            continue;
+        }
         touchedRows.insert(item.rowName);
         switch (item.type) {
         case ChangeItem::RowAdded: {

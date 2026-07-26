@@ -18,6 +18,8 @@ private slots:
     void writesOverUAssetGuiFloatZero();
     void cleanEmptyNameArrayMerge();
     void cleanRowAddedNormalizesNestedEmptyFNames();
+    void cleanRowRemoved();
+    void cleanRowRemovedMassLossGuard();
 };
 
 static QJsonObject baseTable() {
@@ -275,6 +277,52 @@ void TestMergeEngine::cleanRowAddedNormalizesNestedEmptyFNames() {
         names << name.toString();
     QVERIFY(names.contains(QStringLiteral("Added")));
     QVERIFY(names.contains(QStringLiteral("New")));
+}
+
+void TestMergeEngine::cleanRowRemoved() {
+    QJsonArray baseRows;
+    for (int i = 0; i < 8; ++i)
+        baseRows.append(row(QStringLiteral("Row%1").arg(i),
+                            {prop(QStringLiteral("Value"), double(i))}));
+    QJsonArray modRows = baseRows;
+    modRows.removeAt(3); // 1/8: borrado puntual, no export truncado.
+
+    const QJsonObject base = table(baseRows);
+    const QJsonObject mod = table(modRows);
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 1);
+    QCOMPARE(res.skipped, 0);
+    QCOMPARE(dataTableRows(out).size(), 7);
+    for (const QJsonValue &r : dataTableRows(out))
+        QVERIFY(r.toObject().value(QStringLiteral("Name")).toString()
+                != QStringLiteral("Row3"));
+}
+
+void TestMergeEngine::cleanRowRemovedMassLossGuard() {
+    QJsonArray baseRows;
+    for (int i = 0; i < 8; ++i)
+        baseRows.append(row(QStringLiteral("Row%1").arg(i),
+                            {prop(QStringLiteral("Value"), double(i))}));
+    QJsonArray truncatedRows;
+    for (int i = 0; i < 5; ++i)
+        truncatedRows.append(baseRows.at(i)); // faltan 3/8 (>25%).
+
+    const QJsonObject base = table(baseRows);
+    const QJsonObject mod = table(truncatedRows);
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 0);
+    QCOMPARE(res.skipped, 3);
+    QCOMPARE(dataTableRows(out).size(), 8);
 }
 
 #include "TestMergeEngine.moc"

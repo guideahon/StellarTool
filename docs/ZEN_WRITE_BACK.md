@@ -136,11 +136,11 @@ recursivamente los `NameProperty` vacíos de `""` a `null` y registra en
 `NameMap` tanto los FName anidados como el nombre de la fila. Tiene test de
 regresión; falta repetir la medición real del mod de referencia.
 
-### Filas quitadas (`RowRemoved`) — pendiente
+### Filas quitadas (`RowRemoved`) — implementado
 
-Se saltean, pero **no por una limitación real**: borrar una fila no requiere
-reconstruir nada. Sólo está bloqueado por el rechazo en bloque de todo lo que no
-sea `Modified`.
+Se aplican directamente. Si a un mod le falta más del 25% de las filas vanilla,
+se bloquean todos sus `RowRemoved` como guard ante una posible exportación
+CUE4Parse truncada.
 
 Se creyó que era ambiguo ("¿el mod la borró o simplemente no la trae?") y **es
 falso**: un override de DataTable en UE reemplaza el asset entero, así que la
@@ -148,8 +148,7 @@ tabla del mod viene completa. Verificado sobre el mod de prueba —
 SkillCommandTable 1440 filas vanilla → 1503 del mod, **0 faltantes**;
 EffectTable 4227 → 4227. Una fila ausente sería un borrado real.
 
-Salvedad al habilitarlo: si CUE4Parse fallara al exportar filas, se borrarían por
-error. Conviene un guard de cordura antes de aplicar borrados.
+El umbral del 25% evita convertir una exportación truncada en borrados masivos.
 
 ### Arrays con base vacía — escalares implementados
 Si vanilla tiene `[]`, ahora se sintetizan los wrappers escalares desde el

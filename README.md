@@ -74,8 +74,9 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
   verificado) — formato nativo del juego. Sin retoc, pak legacy V11.
 - **Merge de mods Zen**: se mergean **números, texto, enums, arrays, objetos y
   filas nuevas**. Los arrays escalares se reconstruyen incluso si la base está
-  vacía. Sigue sin soportarse quitar filas ni crear arrays de structs sin una
-  plantilla de layout; se cuentan y avisan en el reporte.
+  vacía. También se aplican filas borradas; como protección, se bloquean si un
+  único mod pierde más del 25% de la tabla vanilla. Los arrays de structs sin
+  una plantilla de layout se cuentan y avisan en el reporte.
 - **Una tabla sin cambios aplicados no se emite**: el pak mergeado carga con
   prioridad máxima, así que empaquetar una copia de vanilla pisaría al mod de
   origen. Se deja fuera y se avisa (`merge_report.txt`).

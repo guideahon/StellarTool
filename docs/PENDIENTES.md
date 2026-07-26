@@ -30,20 +30,19 @@ La implementación actual habilita filas nuevas, normaliza recursivamente FName
 vacíos y sintetiza arrays escalares desde `ArrayType`. Los tests unitarios
 pasan; falta repetir el merge real para reemplazar la medición histórica.
 
-### Filas borradas (`RowRemoved`) en mods Zen
+### Filas borradas (`RowRemoved`) en mods Zen — resuelto
 
-- **Estado**: se saltean. **Es el más fácil de los tres**: borrar una fila no
-  requiere reconstruir nada (`rows.removeAt`), sólo está bloqueado por el
-  rechazo en bloque de todo lo que no sea `Modified` en `writableClean`.
+Se aplican con `rows.removeAt`. El guard bloquea todos los borrados de un mod si
+faltan más del 25% de las filas vanilla; así una exportación CUE4Parse truncada
+no se convierte silenciosamente en una eliminación masiva.
+
 - **No es ambiguo** (se creía que sí, y era falso). Verificado sobre el mod de
   prueba: la tabla del mod trae **todas** las filas de vanilla más las nuevas
   (SkillCommandTable 1440 → 1503, faltantes 0; EffectTable 4227 → 4227). En UE
   un override de DataTable reemplaza el asset entero, así que una fila ausente
   en la tabla del mod es un borrado real del autor.
-- **Salvedad**: eso asume que la tabla del mod siempre viene completa. Si
-  CUE4Parse fallara al exportar algunas filas, habilitarlo las borraría por
-  error. Conviene un guard de cordura (no aplicar borrados si al mod le falta
-  una fracción sospechosa de las filas de vanilla).
+- **Salvedad resuelta con guard**: si faltan más del 25% de las filas vanilla,
+  no se aplica ningún borrado de ese mod.
 - No aparece en el mod de prueba (0 casos), pero va a aparecer con otros.
 
 ### Arrays de structs cuya base vanilla está vacía

@@ -172,8 +172,9 @@ fila reconstruida se convierten recursivamente los FName vacíos de `""` a
 
 Si un array vanilla está vacío, su `ArrayType` permite sintetizar wrappers para
 tipos escalares. Un `StructProperty` vacío sigue requiriendo un layout de
-plantilla y se saltea. `RowRemoved` clean permanece bloqueado hasta poder
-detectar con seguridad una exportación CUE4Parse incompleta.
+plantilla y se saltea. `RowRemoved` clean se aplica directamente, salvo si un
+mod pierde más del 25% de las filas vanilla: ese caso se considera una posible
+exportación CUE4Parse incompleta y se bloquean sus borrados.
 
 ### Trampa al depurar: instancias colgadas de UAssetGUI
 
