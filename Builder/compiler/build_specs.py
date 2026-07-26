@@ -50,22 +50,11 @@ _ET_EXTRAS = {
 _SK_EXTRAS = {"forgivingJust", "extraAirDodge"}   # SkillTable -> pak de combate
 
 
-def combo_to_targets(a: dict):
-    """a = respuestas normalizadas. Devuelve [ {name, transforms} ] o None."""
+def combat_transforms(a: dict) -> list[str]:
+    """Transforms de combate/economía elegidos, independientes del tipo de pak."""
     combat = a.get("combatProfile", "full")
-    outfit = a.get("outfitSkinSuit", True)
-    mb_on = a.get("miniBoss", "off") not in ("off", False, None)
-
-    # Mini-boss / First Run todavia no compilables por feature.
-    if mb_on or combat == "firstRun":
-        return None
-
-    extras = set(a.get("gameplayExtras") or [])
-    ct_extras = sorted(extras & _CT_EXTRAS)
-    et_extras = sorted(extras & _ET_EXTRAS)
-    sk_extras = sorted(extras & _SK_EXTRAS)
-
-    targets = []
+    if combat != "full":
+        return []
     if combat == "full":
         selected_features = a.get("combatFeatures")
         if selected_features is None:
@@ -88,6 +77,28 @@ def combo_to_targets(a: dict):
             tid = GAUGE_TRANSFORMS.get(tw)
             if tid:
                 transforms.append(tid)
+        return transforms
+    return []
+
+
+def combo_to_targets(a: dict):
+    """a = respuestas normalizadas. Devuelve [ {name, transforms} ] o None."""
+    combat = a.get("combatProfile", "full")
+    outfit = a.get("outfitSkinSuit", True)
+    mb_on = a.get("miniBoss", "off") not in ("off", False, None)
+
+    # Mini-boss / First Run se compilan en build_custom.
+    if mb_on or combat == "firstRun":
+        return None
+
+    extras = set(a.get("gameplayExtras") or [])
+    ct_extras = sorted(extras & _CT_EXTRAS)
+    et_extras = sorted(extras & _ET_EXTRAS)
+    sk_extras = sorted(extras & _SK_EXTRAS)
+
+    targets = []
+    if combat == "full":
+        transforms = combat_transforms(a)
         # Extras de CharacterTable van sobre el pak de combate.
         transforms += [f"extras.{e}" for e in ct_extras] + [f"extras.{e}" for e in sk_extras]
         if transforms:

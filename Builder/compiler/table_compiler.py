@@ -375,6 +375,22 @@ def load_table(name, base):
     return json.loads(orig.read_text(encoding="utf-8"))
 
 
+def apply_transforms(table, transform_ids, base="vanilla"):
+    """Aplica una selección a una tabla en memoria; útil para paks combinados."""
+    doc = load_table(table, base)
+    applied = []
+    for tid in transform_ids:
+        spec = REGISTRY.get(tid)
+        if not spec:
+            raise KeyError(f"Transform desconocido: {tid}")
+        if spec["table"] != table:
+            continue
+        vanilla = load_table(table, "vanilla") if spec["needs_vanilla"] else None
+        spec["fn"](doc, vanilla)
+        applied.append(tid)
+    return doc, {"transforms": applied, **doc.pop("_report", {})}
+
+
 def compile_pak(transform_ids, pak_name, work_dir, verify_result=True, toml_dir=None):
     """Aplica transforms, escribe JSON por tabla tocada, y packea a un pak Zen.
 

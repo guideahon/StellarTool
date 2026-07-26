@@ -604,7 +604,7 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
                      outfit=True, difficulty="flat", faithful=False, variety=False,
                      extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0,
                      area_densities=None, miniboss_config=None,
-                     just_mult=1.5, air_count=2):
+                     just_mult=1.5, air_count=2, combat_transform_ids=None):
     """Compila el pak mini-boss completo (10 tablas) a work_dir. Devuelve dict.
 
     Por defecto usa build_core -> incluye el fix anti-farm (excluye spawns
@@ -639,11 +639,15 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
                 "utoc": utoc, "verified": ok, "pakName": pak_name,
                 "report": {"mode": "faithful-staging+betaRevert", "outfit": outfit}}
 
-    ctd = json.loads((_SSMOD / "combatCT.json").read_text(encoding="utf-8"))
+    import table_compiler
+    combat_transform_ids = list(combat_transform_ids or [])
+    ctd, character_combat_report = table_compiler.apply_transforms(
+        "CharacterTable", combat_transform_ids, base="vanilla")
     esd = json.loads((_SSMOD / "EventSpawnTable.json").read_text(encoding="utf-8"))
     report = build_core(ctd, esd, density=density, region=region, difficulty=difficulty,
                         variety=variety, extras=extras, harder_mult=harder_mult,
                         area_densities=area_densities, miniboss_config=miniboss_config)
+    report["combatTransforms"] = {"CharacterTable": character_combat_report}
 
     import shutil
     uassets = []
@@ -659,6 +663,14 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
             if src.exists():
                 shutil.copy2(src, work_dir / f"{name}{ext}")
         uassets.append(work_dir / f"{name}.uasset")
+    # SkillTable del staging contiene un preset fijo. Se reemplaza por vanilla +
+    # exactamente los transforms elegidos, incluyendo cooldown y Blaster.
+    skill_doc, skill_combat_report = table_compiler.apply_transforms(
+        "SkillTable", combat_transform_ids, base="vanilla")
+    skill_json = work_dir / "SkillTable.json"
+    skill_json.write_text(json.dumps(skill_doc), encoding="utf-8")
+    toolchain.fromjson(skill_json, work_dir / "SkillTable.uasset")
+    report["combatTransforms"]["SkillTable"] = skill_combat_report
     if not outfit:
         _apply_disable_skinsuit(work_dir)
     # Extras de EffectTable (no fall damage / env death / tachy / gear).

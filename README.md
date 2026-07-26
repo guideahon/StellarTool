@@ -64,6 +64,10 @@ ofrecen niveles visibles; los mini-bosses permiten densidad independiente por
 región y configuración separada de vida, ataque, tamaño, escudo, drops, XP,
 persistencia, tipo Boss e inmunidad a ejecución. El cuestionario no usa menús
 desplegables.
+El pak combinado de mini-bosses aplica la misma selección granular sobre
+`CharacterTable` y `SkillTable`: activar mini-bosses no reemplaza silenciosamente
+la economía Beta/Burst ni el resto del perfil por un preset fijo. El
+`build_manifest.json` registra los transforms aplicados por tabla.
 La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicación.
 
 ## Modo headless (CLI)

@@ -136,9 +136,18 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
 
     # Gameplay: compilar por feature si el combo esta cubierto, si no, preset.
     mode = "preset"
+    compilation_report = {}
     paks_out = list(plan["paks"])
     mb_on = a.get("miniBoss", "off") not in ("off", False, None)
     targets = build_specs.combo_to_targets(a) if not a.get("forcePreset") else None
+    # Los parámetros también se usan en el pak combinado con mini-bosses.
+    table_compiler.PARAMS["harder_mult"] = float(a.get("harderEnemiesMult", 2.0))
+    table_compiler.PARAMS["gear_mult"] = float(a.get("strongerGearMult", 2.0))
+    table_compiler.PARAMS["combat_levels"] = a.get("combatFeatureLevels") or {}
+    table_compiler.PARAMS["economy_levels"] = a.get("combatEconomyLevels") or {}
+    table_compiler.PARAMS["blaster_mult"] = float(a.get("blasterMultiplier", 2.0))
+    table_compiler.PARAMS["just_mult"] = float(a.get("forgivingJustMult", 1.5))
+    table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
     if a.get("combatProfile") == "firstRun" and not a.get("forcePreset"):
         # First Run = variante fija (repack del staging legacy).
         import miniboss_builder
@@ -164,27 +173,23 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             area_densities=a.get("miniBossRegionDensity"),
             miniboss_config=a.get("miniBossConfig"),
             just_mult=float(a.get("forgivingJustMult", 1.5)),
-            air_count=int(a.get("airDodgeCount", 2)))
+            air_count=int(a.get("airDodgeCount", 2)),
+            combat_transform_ids=build_specs.combat_transforms(a))
         for key in ("pak", "ucas", "utoc"):
             shutil.copy2(res[key], paks_dir / Path(res[key]).name)
         paks_out = [res["pakName"]]
+        compilation_report = res.get("report", {})
         mode = "compiled-miniboss"
     elif targets:
         mode = "compiled"
         # Multiplicadores de los extras BETA (leidos por los transforms).
-        table_compiler.PARAMS["harder_mult"] = float(a.get("harderEnemiesMult", 2.0))
-        table_compiler.PARAMS["gear_mult"] = float(a.get("strongerGearMult", 2.0))
-        table_compiler.PARAMS["combat_levels"] = a.get("combatFeatureLevels") or {}
-        table_compiler.PARAMS["economy_levels"] = a.get("combatEconomyLevels") or {}
-        table_compiler.PARAMS["blaster_mult"] = float(a.get("blasterMultiplier", 2.0))
-        table_compiler.PARAMS["just_mult"] = float(a.get("forgivingJustMult", 1.5))
-        table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
         if (set(a.get("gameplayExtras") or []) & build_specs._CT_EXTRAS) and a.get("combatProfile") != "full":
             plan["warnings"].append("ctExtrasNeedCombat")
         results = table_compiler.compile_targets(targets, out_dir / "compile",
                                                  toml_dir=a.get("customPatchesDir") or None)
         paks_out = []
         for name, res in results.items():
+            compilation_report[name] = res.get("reports", {})
             for key in ("pak", "ucas", "utoc"):
                 shutil.copy2(res[key], paks_dir / Path(res[key]).name)
             paks_out.append(name)
@@ -209,7 +214,8 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     # Manifest de la build (trazabilidad).
     (stage / "build_manifest.json").write_text(
         json.dumps({"answers": a, "mode": mode, "preset": plan["folder"],
-                    "paks": paks_out, "warnings": plan["warnings"]},
+                    "paks": paks_out, "warnings": plan["warnings"],
+                    "compilationReport": compilation_report},
                    indent=2, ensure_ascii=False),
         encoding="utf-8",
     )

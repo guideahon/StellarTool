@@ -171,6 +171,34 @@ def test_new_builder_controls_are_translated_in_english_and_spanish():
         assert required <= strings.keys()
 
 
+def test_miniboss_build_keeps_granular_economy_transforms():
+    import build_specs
+    import table_compiler
+    answers = {
+        "combatProfile": "full", "miniBoss": "allRegions",
+        "combatFeatures": [],
+        "combatEconomyFeatures": ["slowerGain", "lowerCapacity", "cooldown"],
+    }
+    ids = build_specs.combat_transforms(answers)
+    assert ids == ["combat.slowerGain", "combat.lowerCapacity", "combat.antiSpamSkill"]
+
+    table_compiler.PARAMS["economy_levels"] = {
+        "slowerGain": -0.5,
+        "lowerCapacity": {"MaxBetaGauge": 400, "MaxBurstGauge": 800},
+        "cooldown": 3,
+    }
+    character, character_report = table_compiler.apply_transforms("CharacterTable", ids)
+    player = next(r for r in character["Exports"][0]["Table"]["Data"] if r["Name"] == "Player")
+    values = {p["Name"]: p.get("Value") for p in player["Value"]}
+    assert values["BetaGaugeAdditiveRate"] == -0.5
+    assert values["MaxBetaGauge"] == 400
+    assert values["MaxBurstGauge"] == 800
+    assert character_report["transforms"] == ["combat.slowerGain", "combat.lowerCapacity"]
+
+    _skill, skill_report = table_compiler.apply_transforms("SkillTable", ids)
+    assert skill_report["transforms"] == ["combat.antiSpamSkill"]
+
+
 def test_miniboss_density_scales():
     import json
     import miniboss_builder as mb
