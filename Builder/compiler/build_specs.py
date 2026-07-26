@@ -69,8 +69,17 @@ def combo_to_targets(a: dict):
         else:
             transforms = [COMBAT_FEATURE_TRANSFORMS[x] for x in selected_features
                           if x in COMBAT_FEATURE_TRANSFORMS]
-            if a.get("combatEconomy", "full") != "vanilla":
-                transforms += ["combat.antiSpamSkill", "combat.antiSpamCharacter"]
+            economy = a.get("combatEconomyFeatures")
+            if economy is None:
+                economy = [] if a.get("combatEconomy") == "vanilla" else [
+                    "slowerGain", "lowerCapacity", "cooldown"
+                ]
+            economy_transforms = {
+                "slowerGain": "combat.slowerGain",
+                "lowerCapacity": "combat.lowerCapacity",
+                "cooldown": "combat.antiSpamSkill",
+            }
+            transforms += [economy_transforms[x] for x in economy if x in economy_transforms]
         for tw in a.get("gaugeTweaks", []) or []:
             tid = GAUGE_TRANSFORMS.get(tw)
             if tid:

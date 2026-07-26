@@ -51,17 +51,14 @@
       ]
     },
     {
-      "id": "combatEconomy",
-      "type": "single",
+      "id": "combatEconomyFeatures",
+      "type": "multi",
       "i18nKey": "builder.combat.economy",
-      "default": "full",
-      "comment": "Grupo exclusivo: las opciones escriben las mismas propiedades de gauge/cooldown.",
+      "comment": "Cambios independientes de economía; se pueden combinar libremente.",
       "options": [
-        { "value": "vanilla" },
-        {
-          "value": "full",
-          "transforms": ["combat.antiSpamSkill", "combat.antiSpamCharacter"]
-        }
+        { "value": "slowerGain", "transform": "combat.slowerGain", "default": true },
+        { "value": "lowerCapacity", "transform": "combat.lowerCapacity", "default": true },
+        { "value": "cooldown", "transform": "combat.antiSpamSkill", "default": true }
       ]
     },
     {

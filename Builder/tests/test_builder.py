@@ -243,10 +243,22 @@ def test_granular_combat_overlaps_use_one_economy_option():
     import build_specs
     a = bc.normalize({
         "combatProfile": "full", "outfitSkinSuit": False, "miniBoss": "off",
-        "combatFeatures": [], "combatEconomy": "full",
+        "combatFeatures": [],
+        "combatEconomyFeatures": ["slowerGain", "lowerCapacity", "cooldown"],
     })
     transforms = build_specs.combo_to_targets(a)[0]["transforms"]
-    assert transforms == ["combat.antiSpamSkill", "combat.antiSpamCharacter"]
+    assert transforms == [
+        "combat.slowerGain", "combat.lowerCapacity", "combat.antiSpamSkill"
+    ]
+
+
+def test_granular_economy_checks_are_independent():
+    import build_specs
+    a = bc.normalize({
+        "combatProfile": "full", "outfitSkinSuit": False, "miniBoss": "off",
+        "combatFeatures": [], "combatEconomyFeatures": ["lowerCapacity"],
+    })
+    assert build_specs.combo_to_targets(a)[0]["transforms"] == ["combat.lowerCapacity"]
 
 
 def test_effect_extras_apply():

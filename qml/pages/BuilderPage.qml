@@ -30,7 +30,9 @@ Item {
         catch (e) { installed = { paks: [], helper: false } }
     }
     function applyTemplate(a) {
-        if (a.combatProfile) combat.currentIndex = combat.indexOfValue(a.combatProfile)
+        if (a.combatProfile === "firstRun") combatFirst.checked = true
+        else if (a.combatProfile === "none") combatNone.checked = true
+        else combatFull.checked = true
         var cf = a.combatFeatures
         function hasCombatFeature(name) { return !cf || cf.indexOf(name) >= 0 }
         combatBeta.checked = hasCombatFeature("betaBurstDamage")
@@ -42,11 +44,20 @@ Item {
         combatTachy.checked = hasCombatFeature("tachyDuration")
         combatVulnerability.checked = hasCombatFeature("enemyVulnerability")
         combatBlaster.checked = !a.gaugeTweaks || a.gaugeTweaks.indexOf("blasterCellX2") >= 0
-        if (a.combatEconomy) combatEconomy.currentIndex = combatEconomy.indexOfValue(a.combatEconomy)
+        var cef = a.combatEconomyFeatures
+        var legacyEconomy = a.combatEconomy === "full"
+        economyGain.checked = cef ? cef.indexOf("slowerGain") >= 0 : legacyEconomy || a.combatEconomy === undefined
+        economyCapacity.checked = cef ? cef.indexOf("lowerCapacity") >= 0 : legacyEconomy || a.combatEconomy === undefined
+        economyCooldown.checked = cef ? cef.indexOf("cooldown") >= 0 : legacyEconomy || a.combatEconomy === undefined
         outfit.checked = a.outfitSkinSuit !== false
-        if (a.miniBoss) miniboss.currentIndex = miniboss.indexOfValue(a.miniBoss)
-        if (a.miniBossDensity) density.currentIndex = density.indexOfValue(a.miniBossDensity)
-        if (a.miniBossDifficulty) difficulty.currentIndex = difficulty.indexOfValue(a.miniBossDifficulty)
+        if (a.miniBoss === "allRegions") minibossAll.checked = true
+        else if (a.miniBoss === "greatDesert") minibossDesert.checked = true
+        else minibossOff.checked = true
+        if (a.miniBossDensity === "p10") density10.checked = true
+        else if (a.miniBossDensity === "p33") density33.checked = true
+        else density20.checked = true
+        difficultyProgressive.checked = a.miniBossDifficulty === "progressive"
+        difficultyFlat.checked = !difficultyProgressive.checked
         variety.checked = a.enemyVariety === true
         var ex = a.gameplayExtras || []
         exQol.checked = ex.indexOf("playerQol") >= 0
@@ -61,9 +72,13 @@ Item {
         exAirDodge.checked = ex.indexOf("extraAirDodge") >= 0
         exHarder.checked = ex.indexOf("harderEnemies") >= 0
         exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
-        if (a.harderEnemiesMult) harderMult.currentIndex = harderMult.indexOfValue(a.harderEnemiesMult)
+        var hm = Number(a.harderEnemiesMult || 2)
+        harder2.checked = hm === 2; harder3.checked = hm === 3; harder4.checked = hm === 4
+        harder5.checked = hm === 5; harder6.checked = hm === 6
         tomlField.text = a.customPatchesDir || ""
-        if (a.helperMode) helper.currentIndex = helper.indexOfValue(a.helperMode)
+        helperRandom.checked = a.helperMode === "randomAny"
+        helperPeriodic.checked = a.helperMode === "randomPeriodic"
+        helperLast.checked = !helperRandom.checked && !helperPeriodic.checked
         if (a.helperIntervalSeconds) interval.value = a.helperIntervalSeconds
     }
     function toFolderUrl(txt) {
@@ -72,6 +87,12 @@ Item {
         var p = txt.replace(/\\/g, "/")
         return p.indexOf("/") === 0 ? "file://" + p : "file:///" + p
     }
+    function combatValue() { return combatFirst.checked ? "firstRun" : (combatNone.checked ? "none" : "full") }
+    function miniBossValue() { return minibossAll.checked ? "allRegions" : (minibossDesert.checked ? "greatDesert" : "off") }
+    function densityValue() { return density10.checked ? "p10" : (density33.checked ? "p33" : "p20") }
+    function difficultyValue() { return difficultyProgressive.checked ? "progressive" : "flat" }
+    function harderValue() { return harder6.checked ? 6 : (harder5.checked ? 5 : (harder4.checked ? 4 : (harder3.checked ? 3 : 2))) }
+    function helperValue() { return helperPeriodic.checked ? "randomPeriodic" : (helperRandom.checked ? "randomAny" : "last") }
 
     Connections {
         target: App
@@ -174,15 +195,15 @@ Item {
                         anchors.fill: parent; anchors.margins: 16; spacing: 14
 
                         FieldLabel { text: I18n.s.builder_q_combat || "Perfil de combate" }
-                        FieldCombo {
-                            id: combat
-                            Layout.fillWidth: true
-                            textRole: "label"; valueRole: "value"
-                            model: [
-                                { label: (I18n.s.builder_combat_full || "Completo"), value: "full" },
-                                { label: (I18n.s.builder_combat_firstRun || "First Run"), value: "firstRun" },
-                                { label: (I18n.s.builder_combat_none || "Ninguno"), value: "none" }
-                            ]
+                        ButtonGroup { id: combatGroup }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 18
+                            RadioButton { id: combatFull; checked: true; ButtonGroup.group: combatGroup
+                                text: I18n.s.builder_combat_full || "Completo" }
+                            RadioButton { id: combatFirst; ButtonGroup.group: combatGroup
+                                text: I18n.s.builder_combat_firstRun || "First Run" }
+                            RadioButton { id: combatNone; ButtonGroup.group: combatGroup
+                                text: I18n.s.builder_combat_none || "Ninguno" }
                         }
 
                         FieldLabel {
@@ -216,16 +237,15 @@ Item {
                         }
 
                         FieldLabel {
-                            text: I18n.s.builder_combat_economy || "Economía Beta/Burst (cambios superpuestos)"
+                            text: I18n.s.builder_combat_economy || "Economía Beta/Burst"
+                            font.bold: true
                         }
-                        FieldCombo {
-                            id: combatEconomy
-                            Layout.fillWidth: true
-                            textRole: "label"; valueRole: "value"
-                            model: [
-                                { label: I18n.s.builder_combat_economy_full || "Stellar Souls — recarga lenta, capacidad baja y cooldown", value: "full" },
-                                { label: I18n.s.builder_combat_economy_vanilla || "Vanilla", value: "vanilla" }
-                            ]
+                        GridLayout {
+                            Layout.fillWidth: true; columns: width >= 560 ? 2 : 1
+                            columnSpacing: 18; rowSpacing: 4
+                            CheckBox { id: economyGain; checked: true; text: I18n.s.builder_economy_gain || "Recarga Beta 50% más lenta" }
+                            CheckBox { id: economyCapacity; checked: true; text: I18n.s.builder_economy_capacity || "Capacidad Beta/Burst reducida" }
+                            CheckBox { id: economyCooldown; checked: true; text: I18n.s.builder_economy_cooldown || "Cooldown de skills Beta/Burst: 3 s" }
                         }
 
                         RowLayout {
@@ -236,32 +256,33 @@ Item {
                         }
 
                         FieldLabel { text: I18n.s.builder_q_miniboss || "Mini-bosses + drops NG+" }
-                        FieldCombo {
-                            id: miniboss
-                            Layout.fillWidth: true
-                            textRole: "label"; valueRole: "value"
-                            model: [
-                                { label: (I18n.s.builder_mb_off || "No"), value: "off" },
-                                { label: (I18n.s.builder_mb_all || "Sí, todas las regiones"), value: "allRegions" },
-                                { label: (I18n.s.builder_mb_gd || "Sí, solo Great Desert"), value: "greatDesert" }
-                            ]
+                        ButtonGroup { id: minibossGroup }
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 2
+                            RadioButton { id: minibossOff; checked: true; ButtonGroup.group: minibossGroup
+                                text: I18n.s.builder_mb_off || "No" }
+                            RadioButton { id: minibossAll; ButtonGroup.group: minibossGroup
+                                text: I18n.s.builder_mb_all || "Sí, todas las regiones" }
+                            RadioButton { id: minibossDesert; ButtonGroup.group: minibossGroup
+                                text: I18n.s.builder_mb_gd || "Sí, solo Great Desert" }
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: 6
-                            visible: miniboss.currentValue !== "off"
+                            visible: !minibossOff.checked
                             FieldLabel { text: I18n.s.builder_q_density || "Densidad de mini-bosses" }
-                            FieldCombo {
-                                id: density
-                                Layout.fillWidth: true
-                                textRole: "label"; valueRole: "value"; currentIndex: 1
-                                model: [ { label: "10%", value: "p10" }, { label: "20%", value: "p20" }, { label: "33%", value: "p33" } ]
+                            ButtonGroup { id: densityGroup }
+                            RowLayout {
+                                spacing: 18
+                                RadioButton { id: density10; ButtonGroup.group: densityGroup; text: "10%" }
+                                RadioButton { id: density20; checked: true; ButtonGroup.group: densityGroup; text: "20%" }
+                                RadioButton { id: density33; ButtonGroup.group: densityGroup; text: "33%" }
                             }
                         }
 
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: 6
-                            visible: miniboss.currentValue !== "off"
+                            visible: !minibossOff.checked
                             RowLayout {
                                 spacing: 8
                                 FieldLabel { text: I18n.s.builder_q_difficulty || "Curva de dificultad" }
@@ -272,14 +293,13 @@ Item {
                                            color: Theme.warnText; font.pixelSize: 10; font.bold: true }
                                 }
                             }
-                            FieldCombo {
-                                id: difficulty
-                                Layout.fillWidth: true
-                                textRole: "label"; valueRole: "value"
-                                model: [
-                                    { label: (I18n.s.builder_diff_flat || "Pareja (misma densidad)"), value: "flat" },
-                                    { label: (I18n.s.builder_diff_progressive || "Progresiva (zonas tardías más densas)"), value: "progressive" }
-                                ]
+                            ButtonGroup { id: difficultyGroup }
+                            ColumnLayout {
+                                spacing: 2
+                                RadioButton { id: difficultyFlat; checked: true; ButtonGroup.group: difficultyGroup
+                                    text: I18n.s.builder_diff_flat || "Pareja (misma densidad)" }
+                                RadioButton { id: difficultyProgressive; ButtonGroup.group: difficultyGroup
+                                    text: I18n.s.builder_diff_progressive || "Progresiva (zonas tardías más densas)" }
                             }
                             Text {
                                 Layout.fillWidth: true; wrapMode: Text.Wrap
@@ -359,12 +379,15 @@ Item {
                                 CheckBox { id: exHarder }
                                 Text { text: I18n.s.builder_ex_harder || "Enemigos más duros"
                                        color: Theme.text; Layout.fillWidth: false }
-                                FieldCombo {
-                                    id: harderMult
-                                    Layout.preferredWidth: 90
+                                ButtonGroup { id: harderGroup }
+                                RowLayout {
                                     visible: exHarder.checked
-                                    textRole: "label"; valueRole: "value"
-                                    model: [ {label:"x2",value:2},{label:"x3",value:3},{label:"x4",value:4},{label:"x5",value:5},{label:"x6",value:6} ]
+                                    spacing: 4
+                                    RadioButton { id: harder2; checked: true; ButtonGroup.group: harderGroup; text: "x2" }
+                                    RadioButton { id: harder3; ButtonGroup.group: harderGroup; text: "x3" }
+                                    RadioButton { id: harder4; ButtonGroup.group: harderGroup; text: "x4" }
+                                    RadioButton { id: harder5; ButtonGroup.group: harderGroup; text: "x5" }
+                                    RadioButton { id: harder6; ButtonGroup.group: harderGroup; text: "x6" }
                                 }
                             }
 
@@ -391,20 +414,20 @@ Item {
                             Layout.fillWidth: true; spacing: 6
                             visible: outfit.checked
                             FieldLabel { text: I18n.s.builder_q_helper || "Comportamiento del outfit CNS" }
-                            FieldCombo {
-                                id: helper
-                                Layout.fillWidth: true
-                                textRole: "label"; valueRole: "value"
-                                model: [
-                                    { label: (I18n.s.builder_helper_last || "Restaurar último outfit"), value: "last" },
-                                    { label: (I18n.s.builder_helper_random || "Outfit aleatorio"), value: "randomAny" },
-                                    { label: (I18n.s.builder_helper_periodic || "Aleatorio + periódico"), value: "randomPeriodic" }
-                                ]
+                            ButtonGroup { id: helperGroup }
+                            ColumnLayout {
+                                spacing: 2
+                                RadioButton { id: helperLast; checked: true; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_last || "Restaurar último outfit" }
+                                RadioButton { id: helperRandom; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_random || "Outfit aleatorio" }
+                                RadioButton { id: helperPeriodic; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_periodic || "Aleatorio + periódico" }
                             }
                         }
                         RowLayout {
                             spacing: 10
-                            visible: outfit.checked && helper.currentValue === "randomPeriodic"
+                            visible: outfit.checked && helperPeriodic.checked
                             FieldLabel { text: I18n.s.builder_q_interval || "Intervalo (s)" }
                             SpinBox { id: interval; from: 5; to: 600; value: 30; Layout.preferredWidth: 140 }
                         }
@@ -463,11 +486,15 @@ Item {
                     text: I18n.s.builder_build || "Compilar mi mod"
                     enabled: !App.busy && outField.text.length > 0
                     onClicked: {
-                        var mb = miniboss.currentValue
-                        if (combat.currentValue === "firstRun" && mb === "off") mb = "allRegions"
+                        var mb = miniBossValue()
+                        if (combatValue() === "firstRun" && mb === "off") mb = "allRegions"
                         var a = {
-                            combatProfile: combat.currentValue,
-                            combatEconomy: combatEconomy.currentValue,
+                            combatProfile: combatValue(),
+                            combatEconomyFeatures: [
+                                economyGain.checked ? "slowerGain" : "",
+                                economyCapacity.checked ? "lowerCapacity" : "",
+                                economyCooldown.checked ? "cooldown" : ""
+                            ].filter(function(x){ return x.length > 0 }),
                             combatFeatures: [
                                 combatBeta.checked ? "betaBurstDamage" : "",
                                 combatDrone.checked ? "droneDamage" : "",
@@ -481,8 +508,8 @@ Item {
                             gaugeTweaks: combatBlaster.checked ? ["blasterCellX2"] : [],
                             outfitSkinSuit: outfit.checked,
                             miniBoss: mb,
-                            miniBossDensity: density.currentValue,
-                            miniBossDifficulty: difficulty.currentValue,
+                            miniBossDensity: densityValue(),
+                            miniBossDifficulty: difficultyValue(),
                             enemyVariety: variety.checked,
                             gameplayExtras: [
                                 exQol.checked ? "playerQol" : "",
@@ -498,9 +525,9 @@ Item {
                                 exHarder.checked ? "harderEnemies" : "",
                                 exTumbler.checked ? "tumblerHeal" : ""
                             ].filter(function(x){ return x.length > 0 }),
-                            harderEnemiesMult: harderMult.currentValue || 2,
+                            harderEnemiesMult: harderValue(),
                             customPatchesDir: tomlField.text,
-                            helperMode: helper.currentValue,
+                            helperMode: helperValue(),
                             helperIntervalSeconds: interval.value,
                             lang: I18n.language
                         }

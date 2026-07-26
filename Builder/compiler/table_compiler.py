@@ -236,7 +236,15 @@ _skill_feature("combat.perfectDodge",
 
 @transform("combat.antiSpamSkill", table="SkillTable", base="vanilla")
 def _anti_spam_skill(doc, _vanilla):
-    _apply_overrides(doc, "SkillTable")
+    overrides = _load_overrides()["SkillTable"]
+    idx = {r["Name"]: r for r in rows(doc)}
+    n = 0
+    for row_name, values in overrides.items():
+        row = idx.get(row_name)
+        if row and "CoolTime" in values and get(row, "CoolTime") != values["CoolTime"]:
+            setv(row, "CoolTime", values["CoolTime"])
+            n += 1
+    doc.setdefault("_report", {})["combat.cooldown"] = n
 
 
 @transform("combat.tachyDuration", table="CharacterTable", base="vanilla")
@@ -256,7 +264,32 @@ def _enemy_vulnerability(doc, _vanilla):
 
 @transform("combat.antiSpamCharacter", table="CharacterTable", base="vanilla")
 def _anti_spam_character(doc, _vanilla):
-    _apply_overrides(doc, "CharacterTable")
+    # Compatibilidad con plantillas anteriores: equivale a gain + capacity.
+    _slower_gain(doc, _vanilla)
+    _lower_capacity(doc, _vanilla)
+
+
+@transform("combat.slowerGain", table="CharacterTable", base="vanilla")
+def _slower_gain(doc, _vanilla):
+    player = find(rows(doc), "Player")
+    value = _load_overrides()["CharacterTable"]["Player"]["BetaGaugeAdditiveRate"]
+    changed = bool(player and get(player, "BetaGaugeAdditiveRate") != value)
+    if changed:
+        setv(player, "BetaGaugeAdditiveRate", value)
+    doc.setdefault("_report", {})["combat.slowerGain"] = int(changed)
+
+
+@transform("combat.lowerCapacity", table="CharacterTable", base="vanilla")
+def _lower_capacity(doc, _vanilla):
+    player = find(rows(doc), "Player")
+    values = _load_overrides()["CharacterTable"]["Player"]
+    n = 0
+    if player:
+        for field in ("MaxBetaGauge", "MaxBurstGauge"):
+            if get(player, field) != values[field]:
+                setv(player, field, values[field])
+                n += 1
+    doc.setdefault("_report", {})["combat.lowerCapacity"] = n
 
 
 def _reg_extra(tid, table, base, fn_name, module):

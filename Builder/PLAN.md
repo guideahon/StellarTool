@@ -15,8 +15,10 @@ Pendiente fino: byte-parity exacta mini-boss/FR (staging interno != publico por 
 
 ## Estado (2026-07-26): selección granular nativa
 
-- UI QML integrada: cambios independientes con check y valores superpuestos con
-  selección única.
+- UI QML integrada sin dropdowns: cambios independientes con check y valores
+  superpuestos con radios visibles de selección única.
+- Economía Beta/Burst separada en tres checks: velocidad de recarga, capacidad
+  máxima y cooldown.
 - SkillTable granular: Beta/Burst, drones, dash, EVE, enemigos y perfect dodge.
 - CharacterTable granular: Tachy, vulnerabilidad y economía Beta/Burst.
 - EffectTable granular: extras y Tumbler.

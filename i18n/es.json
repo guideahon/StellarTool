@@ -227,9 +227,12 @@
   "builder_combat_tachy": "Duración de Tachy reducida",
   "builder_combat_vulnerability": "Enemigos reciben más daño",
   "builder_combat_blaster": "Blaster Cell reforzada (x2)",
-  "builder_combat_economy": "Economía Beta/Burst (cambios superpuestos)",
+  "builder_combat_economy": "Economía Beta/Burst",
   "builder_combat_economy_full": "Stellar Souls — recarga lenta, capacidad baja y cooldown",
   "builder_combat_economy_vanilla": "Vanilla",
+  "builder_economy_gain": "Recarga Beta 50% más lenta",
+  "builder_economy_capacity": "Capacidad Beta/Burst reducida",
+  "builder_economy_cooldown": "Cooldown de skills Beta/Burst: 3 s",
   "builder_ex_tumbler": "Tumbler: curación base 60%",
   "needs_analyze": "%1 mod(s) cargados pero sin analizar — ejecutá el análisis para verlos acá.",
   "merge_dropped_note": "%1 quedó fuera del pak mergeado: no se pudo escribir ninguno de sus cambios, así que incluirla habría reemplazado esa tabla por vanilla y pisado al mod de origen. Mantené ese mod habilitado."
