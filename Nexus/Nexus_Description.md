@@ -26,7 +26,7 @@ Reading Zen/IoStore mods
 
 Most Stellar Blade mods ship as Zen containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (it auto-detects Steam) and it can analyze and diff Zen mods against vanilla. Legacy .pak, .zip and loose .uasset folders work too.
 
-When merging Zen mods, numbers, text and enums (HP, damage, shields, multipliers, skill aliases, actor states...) are written back and verified. Only arrays and object references are shown in the diff but skipped on write for now - they don't round-trip reliably into a Zen container yet - and the tool reports exactly how many were skipped. Nothing is silent.
+When merging Zen mods, numbers, text, enums, arrays and object fields (HP, damage, shields, multipliers, skill aliases, actor states, combo lists...) are written back and verified. The one thing still skipped on write is adding or removing whole rows - those don't round-trip into a Zen container yet - and the tool reports exactly how many were skipped. Nothing is silent.
 
 If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version in one click, or load your own - no need to wait for a new release.
 
@@ -54,7 +54,7 @@ Beyond merging, Stellar Tool now includes a "Build mod" tab: a questionnaire tha
 - Combat / Outfit / Combat+Outfit, Full or First Run.
 - Mini-bosses + NG+ gear drops: all regions or Great Desert, adjustable density, progressive difficulty (denser late-game). Anti-farm: respawnable spawns are excluded so they can't be exploited. (BETA)
 - Enemy variety: elites and unique foes injected into repetitive zones, on existing spawn points. (BETA)
-- Gameplay extras (BETA): Player QoL (high ammo/consumable stacks, shield regen, attack speed), HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2.
+- Gameplay extras (BETA): Player QoL (high ammo/consumable stacks, shield regen, attack speed), HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, Beta on perfect parry / Burst on perfect dodge without the skill tree, a wider perfect parry/dodge window, and a double air dodge.
 - Custom TOML patches: drop your own <Table>.toml files (row/property patches) and they're applied on top - a simple declarative format inspired by automod. (BETA)
 - CNS outfit helper compiled to your choice: restore last outfit / random / random + periodic swap.
 - Auto-detects your game and, with your approval, installs the mod (to ~mods) and the helper (edits mods.txt) directly - and can uninstall exactly what it installed.

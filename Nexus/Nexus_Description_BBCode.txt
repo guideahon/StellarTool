@@ -23,7 +23,7 @@ Tick the changes you want. When two mods set the same value differently, that's 
 
 Most Stellar Blade mods ship as Zen containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse — point it at your Stellar Blade folder once (it auto-detects Steam) and it can analyze and diff Zen mods against vanilla. Legacy .pak, .zip and loose .uasset folders work too.
 
-When merging Zen mods, [b]numbers, text and enums[/b] (HP, damage, shields, multipliers, skill aliases, actor states…) are written back and verified. Only [b]arrays and object references[/b] are shown in the diff but skipped on write for now — they don't round-trip reliably into a Zen container yet — and the tool reports exactly how many were skipped. Nothing is silent.
+When merging Zen mods, [b]numbers, text, enums, arrays and object fields[/b] (HP, damage, shields, multipliers, skill aliases, actor states, combo lists…) are written back and verified. The one thing still skipped on write is [b]adding or removing whole rows[/b] — those don't round-trip into a Zen container yet — and the tool reports exactly how many were skipped. Nothing is silent.
 
 If a game update makes the bundled mappings stale (errors reading/writing assets), [b]Settings → Mappings[/b] can download the matching [b].usmap[/b] for your game version in one click, or load your own — no need to wait for a new release.
 
@@ -53,7 +53,7 @@ Beyond merging, a "Build mod" tab COMPILES a custom Stellar Souls mod + CNS help
 [list]
 [*]Combat / Outfit / Combat+Outfit, Full or First Run.
 [*]Mini-bosses + NG+ gear drops: all regions or Great Desert, adjustable density, progressive difficulty, anti-farm fix. [b](BETA)[/b]
-[*]Gameplay extras [b](BETA)[/b]: Player QoL, HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, enemy variety.
+[*]Gameplay extras [b](BETA)[/b]: Player QoL, HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, Beta/Burst on perfect parry/dodge (no skill tree), wider perfect-timing window, double air dodge, enemy variety.
 [*]Custom TOML patches: drop your own <Table>.toml row/property patches on top. [b](BETA)[/b]
 [*]CNS helper compiled to your choice: restore last outfit / random / random + periodic.
 [*]Auto-detects your game and, with approval, installs mod + helper (and uninstalls exactly what it installed). History of builds — reuse as templates or re-export.

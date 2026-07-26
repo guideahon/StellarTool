@@ -23,13 +23,13 @@ BUILD MOD (make your own Stellar Souls mod)
 Beyond merging, a "Build mod" tab compiles a custom Stellar Souls mod + CNS helper from a short questionnaire - the exact pak you want, byte-for-byte matching the released files, with an install guide in your language.
 - Combat / Outfit / Combat+Outfit, Full or First Run.
 - Mini-bosses + NG+ gear drops: all regions or Great Desert, adjustable density, progressive difficulty, and an anti-farm fix. (BETA)
-- Gameplay extras (BETA): Player QoL, HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, enemy variety.
+- Gameplay extras (BETA): Player QoL, HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, Beta/Burst on perfect parry/dodge (no skill tree), wider perfect-timing window, double air dodge, enemy variety.
 - Custom TOML patches: drop your own <Table>.toml row/property patches on top. (BETA)
 - Auto-detects the game and, with your approval, installs mod + helper (and can uninstall exactly what it installed). History of builds you can reuse as templates or re-export.
 - Ships embedded Python (nothing to install); reads Oodle from your own game to pack. Needs Stellar Blade installed for this tab.
 
 READING ZEN/IOSTORE MODS
-Most Stellar Blade mods ship as Zen/IoStore containers. Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (Settings; it auto-detects Steam). Numbers, text and enums (HP, damage, shields, multipliers, skill aliases, actor states...) are written back and verified; only arrays and object references are shown in the diff but skipped on write for now, and the tool reports exactly how many. If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version, or load your own. If something fails, the real reason is recovered and written to a diagnostic log in %LOCALAPPDATA%\StellarTool\logs\ - attach the newest one when reporting an issue.
+Most Stellar Blade mods ship as Zen/IoStore containers. Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (Settings; it auto-detects Steam). Numbers, text, enums, arrays and object fields (HP, damage, shields, multipliers, skill aliases, actor states, combo lists...) are written back and verified; the one thing still skipped on write is adding or removing whole rows, and the tool reports exactly how many. If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version, or load your own. If something fails, the real reason is recovered and written to a diagnostic log in %LOCALAPPDATA%\StellarTool\logs\ - attach the newest one when reporting an issue.
 
 INSTALL
 1. Download and extract anywhere. Run StellarTool.exe.

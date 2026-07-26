@@ -8,6 +8,7 @@ Herramienta de escritorio (Qt 6/QML, Windows) para analizar y **mergear mods de 
 - Genera un único `zzz_StellarTool_Merged.pak` verificado, listo para `~mods`.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
+Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)
 
 ## Instalación (usuario final)
 
