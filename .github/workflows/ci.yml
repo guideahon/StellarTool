@@ -17,6 +17,7 @@ jobs:
         with:
           version: '6.8.3'
           arch: win64_msvc2022_64
+          modules: qtmultimedia
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
@@ -58,6 +59,7 @@ jobs:
         with:
           version: '6.8.3'
           arch: win64_msvc2022_64
+          modules: qtmultimedia
 
       - name: Setup MSVC environment
         uses: ilammy/msvc-dev-cmd@v1
