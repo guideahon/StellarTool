@@ -68,6 +68,9 @@ El pak combinado de mini-bosses aplica la misma selección granular sobre
 `CharacterTable` y `SkillTable`: activar mini-bosses no reemplaza silenciosamente
 la economía Beta/Burst ni el resto del perfil por un preset fijo. El
 `build_manifest.json` registra los transforms aplicados por tabla.
+El helper CNS aleatorio espera el flanco confirmado de escudo completo
+(detach de BS_102/salida de SkinSuit); no restaura al aparecer BS_102 durante
+la rotura del escudo.
 La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicación.
 
 ## Modo headless (CLI)

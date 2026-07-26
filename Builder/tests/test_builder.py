@@ -24,6 +24,23 @@ def test_helper_overrides_periodic_interval():
     assert ov["periodicRandomCnsIntervalMs"] == 45000
 
 
+def test_cns_restore_uses_only_confirmed_shield_full_edges():
+    scripts = BUILDER / "vendor" / "helper" / "StellarSoulsOutfitRestore" / "Scripts"
+    config = (scripts / "config.lua").read_text(encoding="utf-8")
+    main = (scripts / "main.lua").read_text(encoding="utf-8")
+    for setting in (
+        "enableSavedBodySkinSuitWatcher",
+        "enableMeshEventRestore",
+        "enableStuckSkinSuitGuard",
+    ):
+        assert f"{setting} = false" in config
+    assert "cfgBool(cfg.enableSavedBodySkinSuitWatcher, false)" in main
+    assert "cfgBool(cfg.enableMeshEventRestore, false)" in main
+    assert "cfgBool(cfg.enableStuckSkinSuitGuard, false)" in main
+    assert "enableEquipmentListWatcher = true" in config
+    assert "enableBodyMeshWatcher = true" in config
+
+
 def test_apply_overrides_preserves_comments_and_replaces_value():
     src = "return {\n    -- comentario\n    restoreMode = \"last\",\n    other = 5,\n}\n"
     out = hc.apply_overrides(src, {"restoreMode": "randomAny"})
