@@ -41,17 +41,38 @@ Item {
         tachyRow.selected = hasCombatFeature("tachyDuration")
         vulnRow.selected = hasCombatFeature("enemyVulnerability")
         blasterRow.selected = !a.gaugeTweaks || a.gaugeTweaks.indexOf("blasterCellX2") >= 0
+        var levels = a.combatFeatureLevels || {}
+        betaMild.checked = Number(levels.betaBurstDamage || 1.333333) < 1.2
+        betaFull.checked = !betaMild.checked
+        droneMild.checked = Number(levels.droneDamage || 1.333333) < 1.2
+        droneFull.checked = !droneMild.checked
+        dashMild.checked = Number(levels.dashDamage || 2) < 1.5
+        dashFull.checked = !dashMild.checked
+        eveMild.checked = Number(levels.eveDamage || 4) < 2
+        eveFull.checked = !eveMild.checked
+        enemyMild.checked = Number(levels.enemyDamage || 1) < 0.5
+        enemyFull.checked = !enemyMild.checked
+        tachyMild.checked = Number(levels.tachyDuration || 1) < 0.75
+        tachyFull.checked = !tachyMild.checked
+        vulnMild.checked = Number(levels.enemyVulnerability || 1) < 0.75
+        vulnFull.checked = !vulnMild.checked
+        blaster2.checked = Number(a.blasterMultiplier || 3) === 2
+        blaster3.checked = !blaster2.checked
         var cef = a.combatEconomyFeatures
         var legacyEconomy = a.combatEconomy === "full"
         gainRow.selected = cef ? cef.indexOf("slowerGain") >= 0 : legacyEconomy || a.combatEconomy === undefined
         capacityRow.selected = cef ? cef.indexOf("lowerCapacity") >= 0 : legacyEconomy || a.combatEconomy === undefined
         cooldownRow.selected = cef ? cef.indexOf("cooldown") >= 0 : legacyEconomy || a.combatEconomy === undefined
+        var economyLevels = a.combatEconomyLevels || {}
+        gain25.checked = Number(economyLevels.slowerGain === undefined ? -0.5 : economyLevels.slowerGain) > -0.4
+        gain50.checked = !gain25.checked
+        var capacity = economyLevels.lowerCapacity || {}
+        capacityFirst.checked = Number(capacity.MaxBetaGauge || 400) === 700
+        capacityFull.checked = !capacityFirst.checked
+        cooldown2.checked = Number(economyLevels.cooldown || 3) === 2
+        cooldown3.checked = !cooldown2.checked
         outfit.checked = a.outfitSkinSuit !== false
         var densities = a.miniBossRegionDensity || {}
-        function loadRegion(check, spin, code) {
-            var value = Number(densities[code] || 0); check.checked = value > 0
-            if (value > 0) spin.value = value
-        }
         function loadRegionRow(row, code) {
             var value = Number(densities[code] || 0); row.selected = value > 0
             if (value > 0) row.density = value
@@ -60,6 +81,28 @@ Item {
         loadRegionRow(meRow, "ME"); loadRegionRow(wlbRow, "WLB")
         loadRegionRow(aylRow, "AYL"); loadRegionRow(ded40Row, "DED40")
         loadRegionRow(dedaRow, "DEDA"); loadRegionRow(seRow, "SE")
+        if (a.miniBossRegionDensity === undefined
+                && a.miniBoss !== undefined && a.miniBoss !== "off" && a.miniBoss !== false)
+            setMiniBossPreset(true)
+        var mb = a.miniBossConfig || {}
+        mbHealthRow.selected = mb.health === undefined ? true : mb.health
+        mbAttackRow.selected = mb.attack === undefined ? true : mb.attack
+        mbScaleRow.selected = mb.scale === undefined ? true : mb.scale
+        mbShield.checked = mb.removeShield === undefined ? true : mb.removeShield
+        mbRewards.checked = mb.rewards === undefined ? true : mb.rewards
+        mbXp.checked = mb.xpRewards === undefined ? true : mb.xpRewards
+        mbPersistent.checked = mb.persistent === undefined ? true : mb.persistent
+        mbBossType.checked = mb.bossType === undefined ? true : mb.bossType
+        mbExecution.checked = mb.executionImmunity === undefined ? true : mb.executionImmunity
+        var hpMult = Number(mb.healthMultiplier || 4.5)
+        mbHp15.checked = hpMult === 1.5; mbHp3.checked = hpMult === 3
+        mbHp45.checked = !mbHp15.checked && !mbHp3.checked
+        var attackMult = Number(mb.attackMultiplier || 1.6)
+        mbAtk13.checked = attackMult === 1.3; mbAtk16.checked = attackMult === 1.6
+        mbAtk2.checked = attackMult === 2; mbAtk3.checked = attackMult === 3
+        var scaleMult = Number(mb.scaleMultiplier || 1.6)
+        mbScale12.checked = scaleMult === 1.2; mbScale16.checked = scaleMult === 1.6
+        mbScale2.checked = scaleMult === 2
         variety.checked = a.enemyVariety === true
         var ex = a.gameplayExtras || []
         var legacyQol = ex.indexOf("playerQol") >= 0
@@ -83,6 +126,10 @@ Item {
         var hm = Number(a.harderEnemiesMult || 2)
         harder2.checked = hm === 2; harder3.checked = hm === 3; harder4.checked = hm === 4
         harder5.checked = hm === 5; harder6.checked = hm === 6
+        var justMult = Number(a.forgivingJustMult || 1.5)
+        just15.checked = justMult === 1.5; just2.checked = justMult === 2; just3.checked = justMult === 3
+        var airCount = Number(a.airDodgeCount || 2)
+        air2.checked = airCount === 2; air3.checked = airCount === 3
         tomlField.text = a.customPatchesDir || ""
         helperRandom.checked = a.helperMode === "randomAny"
         helperPeriodic.checked = a.helperMode === "randomPeriodic"

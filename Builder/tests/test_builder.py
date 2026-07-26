@@ -222,6 +222,18 @@ def test_split_gauge_recovery_extras_are_applied():
         assert row["Value"][0]["Value"] is None
 
 
+def test_builder_template_restores_every_granular_answer_group():
+    qml = (Path(__file__).resolve().parents[2] / "qml" / "pages" / "BuilderPage.qml").read_text(
+        encoding="utf-8")
+    restore = qml.split("function applyTemplate(a)", 1)[1].split("function toFolderUrl", 1)[0]
+    for answer in (
+        "combatFeatureLevels", "combatEconomyLevels", "blasterMultiplier",
+        "miniBossRegionDensity", "miniBossConfig", "harderEnemiesMult",
+        "forgivingJustMult", "airDodgeCount", "helperIntervalSeconds",
+    ):
+        assert f"a.{answer}" in restore
+
+
 def test_miniboss_density_scales():
     import json
     import miniboss_builder as mb
