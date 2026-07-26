@@ -69,8 +69,9 @@ El pak combinado de mini-bosses aplica la misma selección granular sobre
 la economía Beta/Burst ni el resto del perfil por un preset fijo. El
 `build_manifest.json` registra los transforms aplicados por tabla.
 El helper CNS aleatorio espera el flanco confirmado de escudo completo
-(detach de BS_102/salida de SkinSuit); no restaura al aparecer BS_102 durante
-la rotura del escudo.
+(detach de BS_102/salida de SkinSuit). Antes de elegir o escribir un outfit
+vuelve a leer la malla actual y cancela si EVE todavía usa SkinSuit, Tachy o
+Fusion; nunca restaura al aparecer BS_102 durante la rotura del escudo.
 La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicación.
 
 ## Modo headless (CLI)

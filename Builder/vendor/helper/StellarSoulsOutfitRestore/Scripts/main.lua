@@ -408,6 +408,8 @@ local adoptNextGoodMesh = false
 -- ALL automatic restores are suppressed so the helper never fights the CNS
 -- wardrobe menu (the 13:53 log showed the helper reverting every user change).
 local lastUserOutfitChangeAt = -1e9
+local isSpecialBodyMesh
+local automaticRestoreBlockedByMesh
 
 local function isSkinSuitAlias(alias)
     return alias == SKIN_SUIT_ALIAS or alias == "BS_102" or alias == "SkinSuit_Common"
@@ -507,8 +509,12 @@ local function reloadCns(source, force, alreadyOnGameThread)
         log("Skipped CNS reload (cooldown), source=" .. tostring(source))
         return
     end
-    lastRestoreAt = nowMs()
     local function doReloadOnGameThread()
+        if source ~= "Alt+S" and automaticRestoreBlockedByMesh
+            and automaticRestoreBlockedByMesh(source) then
+            return
+        end
+        lastRestoreAt = nowMs()
         local cns = findCnsModActor()
         local saveData = findCnsSaveData()
         if not cns or not saveData then
@@ -806,7 +812,6 @@ local function checkSavedBodySkinSuitWatcher()
     if isSkinSuitAlias(savedBody) and isGoodBodyOutfitAlias(lastKnownGoodBodyOutfit) and not savedBodyRestorePending and not resetPulseInProgress then
         savedBodyRestorePending = true
         log("Saved body is SkinSuit/BS_102. Fast-restoring remembered CNS body '" .. tostring(lastKnownGoodBodyOutfit) .. "' in " .. SAVED_BODY_RESTORE_DELAY_MS .. " ms.")
-        pcall(function() setSavedBodyOutfit(saveData, lastKnownGoodBodyOutfit) end)
         local doRestore = function()
             reloadCns("SavedBodySkinSuitWatcher", true)
             local hasBurst = false
@@ -868,7 +873,6 @@ local function onMeshEvent(hookName)
             and not resetPulseInProgress then
             savedBodyRestorePending = true
             log("MESH #" .. seq .. " " .. hookName .. ": saved body is SkinSuit/BS_102. Immediate CNS restore.")
-            pcall(function() setSavedBodyOutfit(saveData, lastKnownGoodBodyOutfit) end)
             reloadCns("MeshEvent:" .. hookName, true)
             ExecuteWithDelay(750, function() savedBodyRestorePending = false end)
         end
@@ -956,8 +960,6 @@ local function checkEffectAliasWatcher()
                 effectAliasRestorePending = true
                 log("SHIELD-FULL edge: break effect alias disappeared (battle=" .. tostring(b) ..
                     "). Restoring remembered CNS body '" .. tostring(lastKnownGoodBodyOutfit) .. "' NOW.")
-                local saveData = findCnsSaveData()
-                if saveData then pcall(function() setSavedBodyOutfit(saveData, lastKnownGoodBodyOutfit) end) end
                 reloadCns("EffectAliasShieldFullEdge", true)
                 forEachBurstDelay(function(delayMs)
                     ExecuteWithDelay(delayMs, function()
@@ -1002,8 +1004,6 @@ local function runSignalEdgeRestore(source)
     signalEdgeRestorePending = true
     log("SIGNAL edge (" .. tostring(source) .. "): marker disappeared. Restoring remembered CNS body '" ..
         tostring(lastKnownGoodBodyOutfit) .. "' NOW.")
-    local saveData = findCnsSaveData()
-    if saveData then pcall(function() setSavedBodyOutfit(saveData, lastKnownGoodBodyOutfit) end) end
     reloadCns("SignalEdge:" .. tostring(source), true)
     forEachBurstDelay(function(delayMs)
         ExecuteWithDelay(delayMs, function()
@@ -1096,13 +1096,37 @@ local lastBodyMeshName = nil
 local rememberedGoodBodyMesh = nil
 local bodyMeshRestorePending = false
 
-local function isSpecialBodyMesh(name)
+isSpecialBodyMesh = function(name)
     if name == SKIN_SUIT_MESH_NAME then return true end
     for _, m in ipairs(TACHY_MESH_NAMES) do
         if name == m then return true end
     end
     for _, m in ipairs(FUSION_MESH_NAMES) do
         if name == m then return true end
+    end
+    return false
+end
+
+-- Hard safety rule: automatic paths must never choose or write a CNS outfit
+-- while EVE is visibly in SkinSuit/Tachy/Fusion. Signals can be early or noisy;
+-- the current mesh is the final authority. Alt+S remains the explicit manual
+-- override. Returning true leaves rerollPending armed for the later confirmed
+-- SkinSuit -> normal-mesh edge.
+automaticRestoreBlockedByMesh = function(source)
+    local p = findPlayer()
+    local mesh = nil
+    if isValid(p) then
+        pcall(function() mesh = valueToString(p:GetBodyMeshName()) end)
+    end
+    if mesh == nil or mesh == "None" or mesh == "nil" or mesh == "" then
+        log("AUTO restore blocked: current body mesh unavailable (source=" ..
+            tostring(source) .. ").")
+        return true
+    end
+    if isSpecialBodyMesh(mesh) then
+        log("AUTO restore blocked: EVE still wears special mesh '" .. tostring(mesh) ..
+            "' (source=" .. tostring(source) .. ").")
+        return true
     end
     return false
 end

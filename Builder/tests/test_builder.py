@@ -39,6 +39,12 @@ def test_cns_restore_uses_only_confirmed_shield_full_edges():
     assert "cfgBool(cfg.enableStuckSkinSuitGuard, false)" in main
     assert "enableEquipmentListWatcher = true" in config
     assert "enableBodyMeshWatcher = true" in config
+    assert "automaticRestoreBlockedByMesh(source)" in main
+    assert "EVE still wears special mesh" in main
+    # The random choice happens only after the central current-mesh guard.
+    guard_at = main.index("automaticRestoreBlockedByMesh(source)")
+    random_at = main.index("if rerollPending then", guard_at)
+    assert guard_at < random_at
 
 
 def test_apply_overrides_preserves_comments_and_replaces_value():
