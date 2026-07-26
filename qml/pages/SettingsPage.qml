@@ -195,7 +195,7 @@ Item {
                             Label {
                                 anchors.centerIn: parent
                                 text: modelData.code.split("_")[0].toUpperCase()
-                                color: I18n.language === modelData.code ? "#14161c" : Theme.text
+                                color: I18n.language === modelData.code ? Theme.accentText : Theme.text
                                 font.pixelSize: 11
                                 font.bold: true
                             }
@@ -216,7 +216,7 @@ Item {
             }
         }
 
-        // ---- Apariencia (claro / oscuro) ----
+        // ---- Apariencia (claro / oscuro / OLED) ----
         Label {
             text: I18n.s.settings_appearance || "Appearance"
             color: Theme.text; font.pixelSize: 16; font.bold: true
@@ -225,23 +225,24 @@ Item {
             spacing: 8
             Repeater {
                 model: [
-                    { key: "settings_dark", dark: true },
-                    { key: "settings_light", dark: false }
+                    { key: "settings_dark", mode: "dark", icon: "🌙" },
+                    { key: "settings_oled", mode: "oled", icon: "◉" },
+                    { key: "settings_light", mode: "light", icon: "☀" }
                 ]
                 delegate: Rectangle {
                     Layout.preferredWidth: 160; height: 40; radius: Theme.radius
-                    color: Theme.dark === modelData.dark ? Theme.accent : Theme.panel
-                    border.color: Theme.border
+                    color: Theme.mode === modelData.mode ? Theme.accent : Theme.panel
+                    border.color: Theme.mode === modelData.mode ? Theme.accent : Theme.border
                     Label {
                         anchors.centerIn: parent
-                        text: (modelData.dark ? "🌙 " : "☀ ") + (I18n.s[modelData.key] || (modelData.dark ? "Dark" : "Light"))
-                        color: Theme.dark === modelData.dark ? "#ffffff" : Theme.text
+                        text: modelData.icon + " " + (I18n.s[modelData.key] || modelData.mode)
+                        color: Theme.mode === modelData.mode ? Theme.accentText : Theme.text
                         font.pixelSize: 14; font.bold: true
                     }
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
-                        onClicked: Theme.dark = modelData.dark
+                        onClicked: App.themeMode = modelData.mode
                     }
                 }
             }

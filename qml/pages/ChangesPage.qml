@@ -159,7 +159,7 @@ Item {
                             anchors.centerIn: parent
                             text: I18n.s.badge_conflict
                             font.pixelSize: 11; font.bold: true
-                            color: "#14161c"
+                            color: Theme.warnText
                         }
                     }
                     Label {

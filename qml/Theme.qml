@@ -3,18 +3,24 @@ import QtQuick
 
 QtObject {
     id: theme
-    // Modo: true = oscuro (default), false = claro. Cambiar desde Settings.
-    property bool dark: true
+    // Fuente única persistida en AppController/QSettings.
+    readonly property string mode: App.themeMode
+    readonly property bool dark: mode !== "light"
+    readonly property bool oled: mode === "oled"
 
-    readonly property color bg:       dark ? "#14161c" : "#f4f6fa"
-    readonly property color panel:    dark ? "#1d2129" : "#ffffff"
-    readonly property color panelAlt: dark ? "#232834" : "#eef1f6"
-    readonly property color border:   dark ? "#323a49" : "#d3d9e2"
-    readonly property color text:     dark ? "#e6e9ef" : "#1b2028"
-    readonly property color textDim:  dark ? "#9aa3b2" : "#5b6472"
-    readonly property color accent:   dark ? "#5aa2ff" : "#2f6fe0"
-    readonly property color warn:     dark ? "#e6b455" : "#b7791f"
-    readonly property color danger:   dark ? "#e06c75" : "#c0392b"
-    readonly property color ok:       dark ? "#7fc97f" : "#2e8b57"
+    // Dark usa superficies casi negras; OLED reserva negro perfecto para el
+    // lienzo y sólo eleva los controles lo imprescindible para distinguirlos.
+    readonly property color bg:       oled ? "#000000" : (dark ? "#090b0f" : "#f3f5f8")
+    readonly property color panel:    oled ? "#050505" : (dark ? "#101319" : "#ffffff")
+    readonly property color panelAlt: oled ? "#0d0d0d" : (dark ? "#181c24" : "#e9edf3")
+    readonly property color border:   oled ? "#262626" : (dark ? "#29313d" : "#cbd3de")
+    readonly property color text:     dark ? "#f1f4f8" : "#171b22"
+    readonly property color textDim:  oled ? "#a8a8a8" : (dark ? "#a7b0bd" : "#566170")
+    readonly property color accent:   oled ? "#66aaff" : (dark ? "#62a6ff" : "#2868d8")
+    readonly property color warn:     dark ? "#f0bd62" : "#a96813"
+    readonly property color danger:   dark ? "#f07882" : "#bc3428"
+    readonly property color ok:       dark ? "#78d58b" : "#257a49"
+    readonly property color accentText: "#ffffff"
+    readonly property color warnText:   "#171b22"
     readonly property int radius: 8
 }

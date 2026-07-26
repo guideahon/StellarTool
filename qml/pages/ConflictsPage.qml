@@ -25,7 +25,7 @@ Item {
                     id: pendingLabel
                     anchors.centerIn: parent
                     text: I18n.s.conflicts_unresolved.replace("%1", App.conflictModel.pendingCount)
-                    color: "#14161c"; font.bold: true; font.pixelSize: 12
+                    color: Theme.warnText; font.bold: true; font.pixelSize: 12
                 }
             }
             Item { Layout.fillWidth: true }

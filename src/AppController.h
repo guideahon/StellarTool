@@ -32,6 +32,7 @@ class AppController : public QObject {
     Q_PROPERTY(QString detectedGameVersion READ detectedGameVersion NOTIFY gamePathChanged)
     Q_PROPERTY(bool downloadingUsmap READ downloadingUsmap NOTIFY usmapDownloadChanged)
     Q_PROPERTY(bool advancedMode READ advancedMode WRITE setAdvancedMode NOTIFY advancedModeChanged)
+    Q_PROPERTY(QString themeMode READ themeMode WRITE setThemeMode NOTIFY themeModeChanged)
     Q_PROPERTY(bool toolsAvailable READ toolsAvailable CONSTANT)
     Q_PROPERTY(QString toolsError READ toolsError CONSTANT)
     Q_PROPERTY(st::ModListModel *modModel READ modModel CONSTANT)
@@ -118,6 +119,8 @@ public:
     Q_INVOKABLE int disableSourceMods();
     bool advancedMode() const;
     void setAdvancedMode(bool v);
+    QString themeMode() const;
+    void setThemeMode(const QString &mode);
     Q_INVOKABLE void saveProject(const QUrl &fileUrl);
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     // Exporta los cambios seleccionados como patches TOML legibles (uno por
@@ -136,6 +139,7 @@ signals:
     void usmapDownloadChanged();
     void usmapDownloadDone(bool ok, const QString &message);
     void advancedModeChanged();
+    void themeModeChanged();
     void analysisChanged();
     void mergeFinished();
     void builderFinished(const QString &zipPath);

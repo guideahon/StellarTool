@@ -59,7 +59,7 @@ Dialog {
                             Label {
                                 anchors.centerIn: parent
                                 text: modelData.code.split("_")[0].toUpperCase()
-                                color: root.selected === modelData.code ? "#14161c" : Theme.text
+                                color: root.selected === modelData.code ? Theme.accentText : Theme.text
                                 font.pixelSize: 11
                                 font.bold: true
                             }

@@ -3,7 +3,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import QtMultimedia
-import "."
+import ".."
 import "../components"
 
 // Stellar Souls Builder: cuestionario nativo que compila un mod personalizado
@@ -140,10 +140,10 @@ Item {
                         RowLayout {
                             id: musicRow
                             anchors.centerIn: parent; spacing: 6
-                            Text { text: music.playing ? "♪" : "♪"; color: music.playing ? "#fff" : Theme.textDim; font.pixelSize: 15 }
+                            Text { text: "♪"; color: music.playing ? Theme.accentText : Theme.textDim; font.pixelSize: 15 }
                             Text {
                                 text: I18n.s.builder_music || "Old school music"
-                                color: music.playing ? "#fff" : Theme.text; font.pixelSize: 13
+                                color: music.playing ? Theme.accentText : Theme.text; font.pixelSize: 13
                             }
                         }
                         MouseArea {
@@ -214,7 +214,7 @@ Item {
                                     radius: 4; color: Theme.warn
                                     implicitWidth: betaTxt.width + 12; implicitHeight: 18
                                     Text { id: betaTxt; anchors.centerIn: parent; text: "BETA"
-                                           color: "#1b2028"; font.pixelSize: 10; font.bold: true }
+                                           color: Theme.warnText; font.pixelSize: 10; font.bold: true }
                                 }
                             }
                             FieldCombo {
@@ -240,7 +240,7 @@ Item {
                                     radius: 4; color: Theme.warn
                                     implicitWidth: vbeta.width + 12; implicitHeight: 18
                                     Text { id: vbeta; anchors.centerIn: parent; text: "BETA"
-                                           color: "#1b2028"; font.pixelSize: 10; font.bold: true }
+                                           color: Theme.warnText; font.pixelSize: 10; font.bold: true }
                                 }
                             }
                         }
@@ -254,7 +254,7 @@ Item {
                                 spacing: 6; Layout.topMargin: 8
                                 FieldLabel { text: I18n.s.builder_extras || "Extras de gameplay" }
                                 Rectangle { radius: 4; color: Theme.warn; implicitWidth: xbeta.width+12; implicitHeight: 18
-                                    Text { id: xbeta; anchors.centerIn: parent; text: "BETA"; color: "#1b2028"; font.pixelSize: 10; font.bold: true } }
+                                    Text { id: xbeta; anchors.centerIn: parent; text: "BETA"; color: Theme.warnText; font.pixelSize: 10; font.bold: true } }
                             }
                             RowLayout { spacing: 10
                                 CheckBox { id: exQol }
@@ -314,7 +314,7 @@ Item {
                                 spacing: 6; Layout.topMargin: 8
                                 FieldLabel { text: I18n.s.builder_toml || "Patches TOML propios (carpeta <Tabla>.toml)" }
                                 Rectangle { radius: 4; color: Theme.warn; implicitWidth: tbeta.width+12; implicitHeight: 18
-                                    Text { id: tbeta; anchors.centerIn: parent; text: "BETA"; color: "#1b2028"; font.pixelSize: 10; font.bold: true } }
+                                    Text { id: tbeta; anchors.centerIn: parent; text: "BETA"; color: Theme.warnText; font.pixelSize: 10; font.bold: true } }
                             }
                             RowLayout {
                                 spacing: 8; Layout.fillWidth: true

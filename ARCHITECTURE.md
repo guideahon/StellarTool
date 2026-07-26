@@ -100,7 +100,7 @@ Páginas (`qml/pages`):
 3. **ConflictsPage** — vista lado a lado por `ConflictGroup`: valor de cada mod (y baseline si hay), RadioButtons para elegir ganador, "aplicar mod X a todos sus conflictos".
 4. **MergePage** — resumen del plan (N cambios, M conflictos resueltos, pendientes bloquean), destino del pak, log de progreso, resultado con verificación.
 
-Componentes reutilizables en `qml/components` (Card, SectionHeader, tema oscuro estilo LlamaCode). Estado global vía `AppController` (contextProperty o singleton QML).
+Componentes reutilizables en `qml/components` (Card, SectionHeader). `Theme.qml` define las paletas Claro, Oscuro y OLED; `AppController.themeMode` persiste la selección en `QSettings` y la expone globalmente a QML.
 
 ## 6. Manejo de errores
 

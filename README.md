@@ -2,6 +2,8 @@
 
 Herramienta de escritorio (Qt 6/QML, Windows) para analizar y **mergear mods de Stellar Blade**.
 
+La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), seleccionables desde Settings. La elección queda guardada entre sesiones.
+
 - Carga mods como `.pak`, `.zip` o carpeta.
 - Lista cada cambio de DataTable (fila/propiedad) con checkbox.
 - Detecta conflictos entre mods y permite elegir con qué valor quedarse.

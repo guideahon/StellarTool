@@ -15,6 +15,19 @@ ApplicationWindow {
     minimumHeight: 560
     title: "Stellar Tool — " + I18n.s.app_subtitle
     color: Theme.bg
+    palette.window: Theme.bg
+    palette.windowText: Theme.text
+    palette.base: Theme.panel
+    palette.alternateBase: Theme.panelAlt
+    palette.button: Theme.panelAlt
+    palette.buttonText: Theme.text
+    palette.text: Theme.text
+    palette.brightText: Theme.text
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.accentText
+    palette.placeholderText: Theme.textDim
+    palette.toolTipBase: Theme.panelAlt
+    palette.toolTipText: Theme.text
 
     property int currentPage: 0
 
@@ -95,7 +108,7 @@ ApplicationWindow {
                                 id: pendLabel
                                 anchors.centerIn: parent
                                 text: App.conflictModel.pendingCount
-                                color: "#14161c"
+                                color: Theme.warnText
                                 font.pixelSize: 12
                                 font.bold: true
                             }

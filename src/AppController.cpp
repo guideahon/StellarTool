@@ -710,6 +710,24 @@ void AppController::setAdvancedMode(bool v) {
     emit advancedModeChanged();
 }
 
+QString AppController::themeMode() const {
+    QSettings s;
+    const QString mode = s.value(QStringLiteral("themeMode"), QStringLiteral("dark")).toString();
+    return mode == QLatin1String("light") || mode == QLatin1String("oled")
+        ? mode : QStringLiteral("dark");
+}
+
+void AppController::setThemeMode(const QString &mode) {
+    if (mode != QLatin1String("light") && mode != QLatin1String("dark")
+        && mode != QLatin1String("oled"))
+        return;
+    QSettings s;
+    if (s.value(QStringLiteral("themeMode"), QStringLiteral("dark")).toString() == mode)
+        return;
+    s.setValue(QStringLiteral("themeMode"), mode);
+    emit themeModeChanged();
+}
+
 void AppController::setGamePath(const QUrl &dirUrl) {
     const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
     GamePaths::setGameRoot(dir);
