@@ -73,8 +73,15 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
         if (isWrapperObj(to)
             && !(clean.isObject() && clean.toObject().contains(QLatin1String("Name")))) {
             QJsonObject out = to;
-            out.insert(QLatin1String("Value"),
-                       fillTemplate(to.value(QLatin1String("Value")), clean));
+            QJsonValue v = fillTemplate(to.value(QLatin1String("Value")), clean);
+            // El diff canoniza el FName None como "". Escribir "" en un
+            // NameProperty hace que UAssetAPI tire "Cannot add an empty FString
+            // to the name map": hay que devolverlo a null.
+            if (v.isString() && v.toString().isEmpty()
+                && to.value(QLatin1String("$type")).toString()
+                     .contains(QLatin1String("NameProperty")))
+                v = QJsonValue(QJsonValue::Null);
+            out.insert(QLatin1String("Value"), v);
             return out;
         }
     }
@@ -104,11 +111,11 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
             return out;
         }
         // Array indexado: clonar el último elemento como molde y reindexar.
-        if (ta.isEmpty()) return ca.isEmpty() ? tmpl : QJsonValue();
+        if (ta.isEmpty()) return ca.isEmpty() ? tmpl : QJsonValue(QJsonValue::Undefined);
         QJsonArray out;
         for (int i = 0; i < ca.size(); ++i) {
             QJsonValue e = fillTemplate(i < ta.size() ? ta.at(i) : ta.last(), ca.at(i));
-            if (e.isUndefined()) return {};
+            if (e.isUndefined()) return QJsonValue(QJsonValue::Undefined);
             if (e.isObject()) {
                 QJsonObject eo = e.toObject();
                 const QString nm = eo.value(QLatin1String("Name")).toString();
@@ -135,11 +142,11 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
 // cualquiera sirve para obtener $type y metadata. Vacío si no se puede.
 static QJsonValue buildRowFromTemplate(const QJsonValue &tmpl, const QJsonValue &cleanRow,
                                        const QString &rowName) {
-    if (!tmpl.isObject() || !cleanRow.isObject()) return {};
+    if (!tmpl.isObject() || !cleanRow.isObject()) return QJsonValue(QJsonValue::Undefined);
     QJsonObject out = tmpl.toObject();
     const QJsonValue filled = fillTemplate(out.value(QLatin1String("Value")),
                                            cleanRow.toObject().value(QLatin1String("Value")));
-    if (filled.isUndefined()) return {};
+    if (filled.isUndefined()) return QJsonValue(QJsonValue::Undefined);
     out.insert(QLatin1String("Value"), filled);
     out.insert(QLatin1String("Name"), rowName);
     return out;
@@ -244,9 +251,15 @@ bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth
             QJsonObject wrap = node.toObject();
             if (wrap.contains(QLatin1String("Name")) && wrap.contains(QLatin1String("Value"))) {
                 const QJsonValue inner = wrap.value(QLatin1String("Value"));
-                if (!allowCreate && !inner.isUndefined() && !writableLeaf(inner, newValue))
+                if (!allowCreate && !inner.isUndefined() && !newValue.isArray()
+                    && !writableLeaf(inner, newValue))
                     return false;
-                wrap.insert(QLatin1String("Value"), reconcileLeaf(inner, newValue));
+                // fillTemplate reconstruye la forma cruda que UAssetAPI espera
+                // (wrappers con $type, índices). Escribir el valor normalizado
+                // tal cual mete strings pelados donde va un PropertyData.
+                const QJsonValue filled = fillTemplate(inner, newValue);
+                if (filled.isUndefined()) return false;
+                wrap.insert(QLatin1String("Value"), filled);
                 node = wrap;
                 return true;
             }
@@ -255,9 +268,12 @@ bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth
         // sobre el valor real de UAssetGUI (mismo tipo, o string sobre None):
         // evita meter un valor donde el uasset espera otro tipo, lo que rompería
         // fromjson silenciosamente. reconcileLeaf ajusta la forma (enum namespace).
-        if (!allowCreate && !node.isUndefined() && !writableLeaf(node, newValue))
+        if (!allowCreate && !node.isUndefined() && !newValue.isArray() && !newValue.isObject()
+            && !writableLeaf(node, newValue))
             return false;
-        node = reconcileLeaf(node, newValue);
+        const QJsonValue filled = fillTemplate(node, newValue);
+        if (filled.isUndefined()) return false;
+        node = filled;
         return true;
     }
     const QString &seg = path.at(depth);
@@ -337,17 +353,19 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
     // representación distinta y romperían fromjson. Se saltean y se cuentan.
     auto writableClean = [](const ChangeItem &c) {
         if (!c.clean) return true;
-        // Filas enteras nuevas o quitadas de un mod Zen: se pueden reconstruir
-        // desde una plantilla (buildRowFromTemplate), pero el uasset resultante
-        // no sobrevive el round-trip de UAssetGUI, así que no se emiten. Ver
-        // ARCHITECTURE.md ("Lo que no round-tripea").
+        // Filas enteras nuevas/quitadas de un mod Zen: se reconstruyen bien,
+        // pero UAssetAPI rechaza el uasset ("Cannot add an empty FString to the
+        // name map"). Ver ARRAYS_Y_FILAS.md. No se emiten.
         if (c.type != ChangeItem::Modified) return false;
         // Escalares: numéricos, bool y strings (Name/Enum/Str). Los strings se
         // reconcilian contra el leaf real de UAssetGUI en applyPath (enum
         // namespace, None) + el verify round-trip descarta la tabla si no cuadra.
         // Arrays/objetos clean siguen sin soportarse (representación distinta).
-        const QJsonValue &v = c.newValue;
-        return v.isBool() || v.isDouble() || v.isString();
+        // Escalares, y también arrays/objetos: applyPath los reconstruye con
+        // fillTemplate a la forma cruda que UAssetAPI espera, y el verify
+        // round-trip descarta la tabla si algo no cuadra.
+        Q_UNUSED(c);
+        return true;
     };
 
     QSet<QString> touchedRows;

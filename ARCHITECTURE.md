@@ -160,6 +160,9 @@ cambios aplicados, empaquetarla significa escribir una copia de vanilla que
 **pisa al mod de origen**: para el usuario la tabla "desaparece". `runMerge` la
 deja fuera y lo dice en el resultado y en `merge_report.txt`.
 
+Bitácora completa del problema, con los errores exactos, lo que se probó y lo
+que quedó pendiente: [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md).
+
 ### Lo que no round-tripea (limitación abierta)
 
 Para mods **Zen** (leídos con CUE4Parse, `clean=true`) se escriben números,
