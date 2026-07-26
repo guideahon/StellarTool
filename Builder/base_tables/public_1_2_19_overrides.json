@@ -1,0 +1,103 @@
+{
+ "SkillTable": {
+  "P_Eve_Sword_Beta_ChainStab1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ChargeSlash1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ChargeSlash2_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_SwordAura1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ShieldBreak1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ShieldBreak2_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ChainStab1Ex": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ChargeSlash1Ex": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_SwordAura1Ex_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Beta_ShieldBreak1Ex_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 400.0
+  },
+  "P_Eve_Sword_Burst_SpinAttack1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 600.0
+  },
+  "P_Eve_Sword_Burst_SpinAttack2_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 600.0
+  },
+  "P_Eve_Sword_Burst_FinishAttack1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 600.0
+  },
+  "P_Eve_Sword_Burst_FinishAttack2_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 600.0
+  },
+  "P_Eve_Sword_Burst_FinishAttack3_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 600.0
+  },
+  "P_Eve_Sword_Burst_MassiveAttack1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 800.0
+  },
+  "P_Eve_Sword_Burst_MassiveAttack2_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 800.0
+  },
+  "P_Eve_Sword_Burst_MeleeCombatBuff1_1": {
+   "CoolTime": 3.0,
+   "UseEnergyAmount": 600.0
+  }
+ },
+ "CharacterTable": {
+  "Player": {
+   "MaxBetaGauge": 400,
+   "MaxBurstGauge": 800,
+   "BetaGaugeAdditiveRate": -0.5
+  }
+ },
+ "EffectTable": {
+  "P_Eve_TachyMode": {
+   "ChainEffectAliasArray": []
+  },
+  "P_Eve_TachyFusionMode_End": {
+   "ChainEffectAliasArray": []
+  },
+  "Item_HP_Recovery_Small": {
+   "LoopTargetEffectAliasArray": []
+  },
+  "Item_HP_Recovery": {
+   "ChainEffectAliasArray": []
+  },
+  "Item_HP_RPotion": {
+   "CalculationValue": 60.0
+  },
+  "Item_Heal_Grenade_Heal": {
+   "ChainEffectAliasArray": []
+  }
+ }
+}

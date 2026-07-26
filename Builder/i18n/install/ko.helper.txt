@@ -1,0 +1,7 @@
+
+2) HELPER (CNS / 스킨수트 의상에 필요)
+UE4SS + CNS 필요. 이전 StellarSoulsOutfitRestore를 삭제한 뒤 폴더 복사:
+   ue4ss\Mods\StellarSoulsOutfitRestore
+복사 위치:
+   StellarBlade\SB\Binaries\Win64\ue4ss\Mods\StellarSoulsOutfitRestore
+로그 %USERPROFILE%\StellarSoulsOutfitRestore.log 로 로드 확인.

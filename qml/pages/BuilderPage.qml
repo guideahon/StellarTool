@@ -31,6 +31,18 @@ Item {
     }
     function applyTemplate(a) {
         if (a.combatProfile) combat.currentIndex = combat.indexOfValue(a.combatProfile)
+        var cf = a.combatFeatures
+        function hasCombatFeature(name) { return !cf || cf.indexOf(name) >= 0 }
+        combatBeta.checked = hasCombatFeature("betaBurstDamage")
+        combatDrone.checked = hasCombatFeature("droneDamage")
+        combatDash.checked = hasCombatFeature("dashDamage")
+        combatEve.checked = hasCombatFeature("eveDamage")
+        combatEnemy.checked = hasCombatFeature("enemyDamage")
+        combatDodge.checked = hasCombatFeature("perfectDodge")
+        combatTachy.checked = hasCombatFeature("tachyDuration")
+        combatVulnerability.checked = hasCombatFeature("enemyVulnerability")
+        combatBlaster.checked = !a.gaugeTweaks || a.gaugeTweaks.indexOf("blasterCellX2") >= 0
+        if (a.combatEconomy) combatEconomy.currentIndex = combatEconomy.indexOfValue(a.combatEconomy)
         outfit.checked = a.outfitSkinSuit !== false
         if (a.miniBoss) miniboss.currentIndex = miniboss.indexOfValue(a.miniBoss)
         if (a.miniBossDensity) density.currentIndex = density.indexOfValue(a.miniBossDensity)
@@ -48,6 +60,7 @@ Item {
         exJust.checked = ex.indexOf("forgivingJust") >= 0
         exAirDodge.checked = ex.indexOf("extraAirDodge") >= 0
         exHarder.checked = ex.indexOf("harderEnemies") >= 0
+        exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
         if (a.harderEnemiesMult) harderMult.currentIndex = harderMult.indexOfValue(a.harderEnemiesMult)
         tomlField.text = a.customPatchesDir || ""
         if (a.helperMode) helper.currentIndex = helper.indexOfValue(a.helperMode)
@@ -173,6 +186,49 @@ Item {
                             ]
                         }
 
+                        FieldLabel {
+                            text: I18n.s.builder_combat_changes || "Cambios de combate incluidos"
+                            font.bold: true
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: I18n.s.builder_combat_changes_hint
+                                  || "Cada opción corresponde a un cambio real de Stellar Souls. Podés combinarlas libremente."
+                            color: Theme.textDim; font.pixelSize: 11; wrapMode: Text.Wrap
+                        }
+                        GridLayout {
+                            Layout.fillWidth: true
+                            columns: width >= 560 ? 2 : 1
+                            columnSpacing: 18; rowSpacing: 4
+                            component FeatureCheck: CheckBox {
+                                Layout.fillWidth: true
+                                checked: true
+                                palette.windowText: Theme.text
+                            }
+                            FeatureCheck { id: combatBeta; text: I18n.s.builder_combat_beta || "Daño Beta/Burst reducido" }
+                            FeatureCheck { id: combatDrone; text: I18n.s.builder_combat_drone || "Daño de drones reducido" }
+                            FeatureCheck { id: combatDash; text: I18n.s.builder_combat_dash || "Dash cargado equilibrado" }
+                            FeatureCheck { id: combatEve; text: I18n.s.builder_combat_eve || "Ataques normales de EVE reforzados" }
+                            FeatureCheck { id: combatEnemy; text: I18n.s.builder_combat_enemy || "Daño de enemigos aumentado" }
+                            FeatureCheck { id: combatDodge; text: I18n.s.builder_combat_dodge || "Perfect dodge sin lock-on" }
+                            FeatureCheck { id: combatTachy; text: I18n.s.builder_combat_tachy || "Duración de Tachy reducida" }
+                            FeatureCheck { id: combatVulnerability; text: I18n.s.builder_combat_vulnerability || "Enemigos reciben más daño" }
+                            FeatureCheck { id: combatBlaster; text: I18n.s.builder_combat_blaster || "Blaster Cell reforzada (x2)" }
+                        }
+
+                        FieldLabel {
+                            text: I18n.s.builder_combat_economy || "Economía Beta/Burst (cambios superpuestos)"
+                        }
+                        FieldCombo {
+                            id: combatEconomy
+                            Layout.fillWidth: true
+                            textRole: "label"; valueRole: "value"
+                            model: [
+                                { label: I18n.s.builder_combat_economy_full || "Stellar Souls — recarga lenta, capacidad baja y cooldown", value: "full" },
+                                { label: I18n.s.builder_combat_economy_vanilla || "Vanilla", value: "vanilla" }
+                            ]
+                        }
+
                         RowLayout {
                             spacing: 10
                             CheckBox { id: outfit; checked: true }
@@ -287,6 +343,10 @@ Item {
                             RowLayout { spacing: 10
                                 CheckBox { id: exGauge }
                                 Text { text: I18n.s.builder_ex_gauge || "Beta al parry perfecto / Burst al dodge perfecto (sin skill tree)"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exTumbler }
+                                Text { text: I18n.s.builder_ex_tumbler || "Tumbler: curación base 60%"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
                             RowLayout { spacing: 10
                                 CheckBox { id: exJust }
@@ -415,6 +475,18 @@ Item {
                         if (combat.currentValue === "firstRun" && mb === "off") mb = "allRegions"
                         var a = {
                             combatProfile: combat.currentValue,
+                            combatEconomy: combatEconomy.currentValue,
+                            combatFeatures: [
+                                combatBeta.checked ? "betaBurstDamage" : "",
+                                combatDrone.checked ? "droneDamage" : "",
+                                combatDash.checked ? "dashDamage" : "",
+                                combatEve.checked ? "eveDamage" : "",
+                                combatEnemy.checked ? "enemyDamage" : "",
+                                combatDodge.checked ? "perfectDodge" : "",
+                                combatTachy.checked ? "tachyDuration" : "",
+                                combatVulnerability.checked ? "enemyVulnerability" : ""
+                            ].filter(function(x){ return x.length > 0 }),
+                            gaugeTweaks: combatBlaster.checked ? ["blasterCellX2"] : [],
                             outfitSkinSuit: outfit.checked,
                             miniBoss: mb,
                             miniBossDensity: density.currentValue,
@@ -431,7 +503,8 @@ Item {
                                 exGauge.checked ? "autoGaugeRecovery" : "",
                                 exJust.checked ? "forgivingJust" : "",
                                 exAirDodge.checked ? "extraAirDodge" : "",
-                                exHarder.checked ? "harderEnemies" : ""
+                                exHarder.checked ? "harderEnemies" : "",
+                                exTumbler.checked ? "tumblerHeal" : ""
                             ].filter(function(x){ return x.length > 0 }),
                             harderEnemiesMult: harderMult.currentValue || 2,
                             customPatchesDir: tomlField.text,

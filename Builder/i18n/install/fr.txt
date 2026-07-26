@@ -1,0 +1,12 @@
+STELLAR SOULS - INSTALLER VOTRE MOD PERSONNALISE
+================================================
+
+Profil de combat : {{PROFILE}}   Mini-Boss : {{MINIBOSS}}
+
+1) PAKS (gameplay)
+Copiez ces fichiers dans :
+   StellarBlade\SB\Content\Paks\~mods
+{{PAKS}}
+Ne pas melanger avec d'autres paks Stellar Souls : memes DataTables.
+{{HELPER_BLOCK}}
+Termine. Lancez le jeu.

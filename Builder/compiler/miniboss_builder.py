@@ -1,0 +1,672 @@
+"""miniboss_builder — genera CharacterTable + EventSpawnTable del mini-boss NG+.
+
+Port parametrizado de build_allmaps.py. Produce los 2 JSON core (con densidad y
+region configurables) a partir de las bases de combate (combatCT) y EventSpawn.
+Las otras 8 tablas del pak mini-boss (EffectTable/SkillTable/SkillResult/
+RewardGroup/TargetFilter/Item*/GearStat) son FIJAS (no dependen de densidad) y
+se toman de sus sources; ver miniboss_targets().
+
+Parametros:
+  density: "p10"|"p20"|"p33"  -> denominador global (10 -> ~10% de spawns, etc.)
+  region:  "allRegions" | "greatDesert"
+
+Reglas de area (densidad base 1.31.1). density escala el denominador.
+"""
+from __future__ import annotations
+
+import copy
+import json
+from collections import defaultdict
+from pathlib import Path
+
+MARK = "ss_NoStealth"
+HP_FLOOR = 40000
+
+# Mapa arch -> reward group (elites por area) derivado de shipped 1.31.1.
+_RG_PATH = Path(__file__).resolve().parent.parent / "base_tables" / "miniboss_reward_groups.json"
+try:
+    _REWARD_GROUPS = json.loads(_RG_PATH.read_text(encoding="utf-8"))
+except FileNotFoundError:
+    _REWARD_GROUPS = {}
+
+# Denominador base por area (1.31.1). None = area sin mini-boss.
+AREA_RULES_BASE = {
+    "SD": (None, None), "DED": (None, None), "Xion": (None, None),
+    "WLA": (20, "mk1_123"), "ATL": (20, "mk1_123"),
+    "ME": (10, "mk1_123"), "WLB": (10, "mk1_123"),
+    "AYL": (10, "mk2_123"), "DED40": (7, "mk2_23"),
+    "DEDA": (7, "mk2_23"), "SE": (7, "mk2_23"),
+}
+AREA_XP_GROUP = {
+    "WLA": "m_wasteland_elite1", "ATL": "m_altesLabor_elite1",
+    "ME": "m_matrix11_elite1", "WLB": "m_Desert_elite1",
+    "AYL": "m_abyssLabor_elite1", "DED40": "m_eidos9_elite1_Group",
+    "DEDA": "m_eidos9_elite1_Group", "SE": "m_elevator_elite1",
+}
+# density -> factor sobre el denominador base (mayor denom = menos mini-bosses).
+DENSITY_FACTOR = {"p33": 0.5, "p20": 1.0, "p10": 2.0}
+GREAT_DESERT_AREAS = {"WLB"}
+
+
+def R(d):
+    return d["Exports"][0]["Table"]["Data"]
+
+
+def find(rows, n):
+    return next((r for r in rows if r.get("Name") == n), None)
+
+
+def prop(r, n):
+    return next((p for p in r["Value"] if p["Name"] == n), None)
+
+
+def gv(r, n):
+    p = prop(r, n)
+    return p.get("Value") if p else None
+
+
+def sv(r, n, v):
+    p = prop(r, n)
+    if p:
+        p["Value"] = v
+
+
+def addnames(d, names):
+    for x in names:
+        if x and x not in d["NameMap"]:
+            d["NameMap"].append(x)
+
+
+def nameprop(v):
+    return {"$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
+            "Name": "0", "ArrayIndex": 0, "PropertyGuid": None, "IsZero": False,
+            "PropertyTagFlags": "None", "PropertyTypeName": None,
+            "PropertyTagExtensions": "NoExtension", "Value": v}
+
+
+def area_for_zone(zone):
+    s = str(zone or "")
+    return s.split("_")[1] if s.startswith("Zone_") else None
+
+
+def _buff(r, reward_group):
+    def mul(n, m, i=False):
+        p = prop(r, n)
+        if p and isinstance(p.get("Value"), (int, float)):
+            v = p["Value"] * m
+            p["Value"] = int(round(v)) if i else v
+    # 1.31.1 (build_ngplus_corrected + remove_miniboss_shield_hp15):
+    # HP = max(round(base*3), 40000), luego *1.5. El floor va ANTES del *1.5.
+    p = prop(r, "MaxHP")
+    if p and isinstance(p.get("Value"), (int, float)):
+        base_hp = p["Value"]
+        stepped = max(int(round(base_hp * 3)), HP_FLOOR)
+        p["Value"] = int(round(stepped * 1.5))
+    # 1.31.1 (derivado empiricamente de datos shipped): shield y block a 0.
+    sv(r, "MaxShield", 0)
+    mul("PhysicAttackPower", 1.6)
+    mul("RangeAttackPower", 1.6)
+    sv(r, "ShieldBlock", 0.0)
+    p = prop(r, "MeshScale")
+    if p and isinstance(p.get("Value"), (int, float)):
+        p["Value"] = min(p["Value"] * 1.6, 3.0)
+    sv(r, "RewardGroupAlias", reward_group)
+    sv(r, "RewardSpawnBucketType", "ESBItemBucketType_World")
+    sv(r, "RewardFormationAssetPath", "None")
+    sv(r, "RewardOverrideSaveType", "ESBItemOverrideSaveType_Save")
+    p = prop(r, "ActorType")
+    if p:
+        p["Value"] = "ActorType_BossMonster"
+    p = prop(r, "SpawnEffectList")
+    if p is not None:
+        if not isinstance(p.get("Value"), list):
+            p["Value"] = []
+        if not any(isinstance(e, dict) and e.get("Value") == MARK for e in p["Value"]):
+            p["Value"].append(nameprop(MARK))
+
+
+# Orden de campana (temprano -> tardio) para la dificultad progresiva.
+AREA_CAMPAIGN_RANK = {
+    "WLA": 0, "ATL": 1, "ME": 2, "WLB": 3, "AYL": 4, "DED40": 5, "DEDA": 6, "SE": 7,
+}
+# Progresivo: factor por area (menor = mas denso). Temprano ~1.3 (menos mini-bosses),
+# tardio ~0.5 (mas mini-bosses) -> la dificultad sube hacia el final.
+def _progressive_factor(area):
+    rank = AREA_CAMPAIGN_RANK.get(area)
+    if rank is None:
+        return 1.0
+    span = max(AREA_CAMPAIGN_RANK.values())
+    frac = rank / span if span else 0.0
+    return 1.3 - 0.8 * frac  # 1.3 (early) -> 0.5 (late)
+
+
+def _area_rules(density, region, difficulty="flat"):
+    factor = DENSITY_FACTOR.get(density, 1.0)
+    rules = {}
+    for area, (denom, loot) in AREA_RULES_BASE.items():
+        if denom is None:
+            rules[area] = (None, None)
+            continue
+        if region == "greatDesert" and area not in GREAT_DESERT_AREAS:
+            rules[area] = (None, None)
+            continue
+        f = factor * (_progressive_factor(area) if difficulty == "progressive" else 1.0)
+        rules[area] = (max(1, int(round(denom * f))), loot)
+    return rules
+
+
+def _is_respawnable(row):
+    """Spawn que revive (SpawnRuleType RespawnAfterDead o RespawnInterval>0).
+    Se excluye de la conversion a mini-boss: mini-boss + EXP elite + respawn =
+    granja infinita (reporte de FengYeLy: Lurkers subterraneos en WLB_20)."""
+    if gv(row, "SpawnRuleType") == "ESBSpawnRule_RespawnAfterDead":
+        return True
+    for f in ("RespawnIntervalTimeMin", "RespawnIntervalTimeMax"):
+        v = gv(row, f)
+        if isinstance(v, (int, float)) and v > 0:
+            return True
+    return False
+
+
+def _is_combat_alias(a):
+    if not a or a.startswith("N_") or "Dummy" in a:
+        return False
+    if any(k in a for k in ["Shop", "Citizen", "Talker", "Gardener", "Bolt", "Scarlet", "Emil", "Merchant"]):
+        return False
+    return True
+
+
+_VARIETY_POOL = None
+
+
+def _variety_pool():
+    global _VARIETY_POOL
+    if _VARIETY_POOL is None:
+        p = _BUILDER_ROOT / "features" / "variety_pool.json"
+        _VARIETY_POOL = json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    return _VARIETY_POOL
+
+
+def _apply_variety(esd, ES, ct_names, spawns, converted_ids, named):
+    """BETA - repunta un % de spawns NO convertidos a arquetipos curados
+    (elite/cross-area/raven) sobre coords existentes. Ideas A/B/C. Determinista.
+    Devuelve conteo por categoria y agrega los FName usados al NameMap."""
+    pool = _variety_pool()
+    if not pool:
+        return {}
+    elite = [a for a in pool.get("elite", []) if a in ct_names]
+    cross = [a for a in pool.get("cross", []) if a in ct_names]
+    raven = [a for a in pool.get("raven", []) if a in ct_names]
+    late = set(pool.get("lateAreas", []))
+    # arquetipos nativos por area (para cross = solo lo que NO esta ahi)
+    native = defaultdict(set)
+    for a, area, r, el in spawns:
+        native[area].add(a)
+    # elegibles por area: spawn no convertido, no respawneable, no named
+    per_area = defaultdict(list)
+    for a, area, r, el in spawns:
+        if id(el) in converted_ids or a in named:
+            continue
+        per_area[area].append((a, r, el))
+
+    used_names = set()
+    rep = defaultdict(int)
+
+    def inject(entries, denom, picker):
+        n = 0
+        for i, (a, r, el) in enumerate(entries):
+            if id(el) in converted_ids:
+                continue
+            if denom <= 0 or i % denom != 0:
+                continue
+            pick = picker(a, r, i)
+            if not pick:
+                continue
+            el["Value"] = pick
+            converted_ids.add(id(el))
+            used_names.add(pick)
+            n += 1
+        return n
+
+    def pct_denom(p):
+        return max(0, int(round(100 / p))) if p else 0
+
+    for area, entries in per_area.items():
+        entries = sorted(entries, key=lambda x: str(gv(x[1], "SpawnPointName")))
+        # B - elite en zonas tardias
+        if area in late and elite:
+            rep["elite"] += inject(entries, pct_denom(pool.get("eliteLatePct", 0)),
+                                    lambda a, r, i: elite[i % len(elite)])
+        # A - cross-area (solo arquetipos no nativos del area)
+        if cross:
+            foreign = [c for c in cross if c not in native.get(area, set())]
+            if foreign:
+                rep["cross"] += inject(entries, pct_denom(pool.get("crossPct", 0)),
+                                       lambda a, r, i: foreign[i % len(foreign)])
+        # C - raven raro
+        if raven:
+            rep["raven"] += inject(entries, pct_denom(pool.get("ravenPct", 0)),
+                                   lambda a, r, i: raven[i % len(raven)])
+    addnames(esd, list(used_names))
+    return dict(rep)
+
+
+def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allRegions",
+               difficulty="flat", variety=False, extras=None, harder_mult=2.0):
+    """Muta combat_ct y event_spawn con clones `<arch>_MB` + subset de spawns.
+
+    Esquema 1.31.1: UN clone por arquetipo de combate distinto que aparece en
+    spawns no-boss (todas las areas), nombre `<arch>_MB`. Densidad/region/dificultad
+    afectan que porcion de spawns se repunta a los clones. difficulty="progressive"
+    hace las zonas tardias mas densas. Spawns respawneables se EXCLUYEN (anti-farm).
+    Devuelve reporte {clones, conv, byArea, skippedRespawn}.
+    """
+    rules = _area_rules(density, region, difficulty)
+    ctd, esd = combat_ct, event_spawn
+    CT, ES = R(ctd), R(esd)
+    ctnames = {r["Name"] for r in CT}
+    named = {r["Name"] for r in CT
+             if gv(r, "DifficultyStatGroupAlias") == r["Name"] and not r["Name"].startswith("Player")}
+    newnames = [MARK, "ActorType_BossMonster", "ESBItemBucketType_World", "ESBItemOverrideSaveType_Save"]
+
+    # 1) Recolectar spawns candidatos y arquetipos distintos (todas las areas no-boss).
+    spawns = []          # (arch, area, row, element)
+    archetypes = []      # orden estable de aparicion
+    seen = set()
+    skipped_respawn = 0
+    for r in ES:
+        z = gv(r, "Zone")
+        if not z or "Boss" in str(z):
+            continue
+        area = area_for_zone(z)
+        p = prop(r, "CharacterAlias")
+        els = p["Value"] if p and isinstance(p.get("Value"), list) else []
+        if len(els) != 1:
+            continue
+        a = els[0].get("Value")
+        if not _is_combat_alias(a) or a in named or a not in ctnames:
+            continue
+        if a not in seen:   # el arquetipo se clona igual (aparece en spawns normales)
+            seen.add(a)
+            archetypes.append(a)
+        if _is_respawnable(r):   # NO convertir spawns que reviven (anti-farm)
+            skipped_respawn += 1
+            continue
+        spawns.append((a, area, r, els[0]))
+
+    # 2) Un clone `<arch>_MB` por arquetipo. Loot group por area del arquetipo
+    #    (primera area donde aparece; fallback mk1_123).
+    arch_area = {}
+    for a, area, _, _ in spawns:
+        arch_area.setdefault(a, area)
+    clones = {}
+    for i, a in enumerate(archetypes):
+        nw = copy.deepcopy(find(CT, a))
+        mbn = a + "_MB"
+        nw["Name"] = mbn
+        ip = prop(nw, "ID")
+        if ip and isinstance(ip.get("Value"), int):
+            ip["Value"] = ip["Value"] + 700000000 + i
+        # 1.31.1: ss_ngplus por defecto; 74 arquetipos usan elite groups por area
+        # (mapa exacto derivado de shipped en miniboss_reward_groups.json).
+        group = _REWARD_GROUPS.get(a, "ss_ngplus")
+        _buff(nw, group)
+        CT.append(nw)
+        clones[a] = mbn
+        newnames.extend([mbn, group])
+    ll = find(CT, "WLB_M_LesserLurker_01_MB")
+    if ll:
+        p = prop(ll, "WeightType")
+        if p:
+            p["Value"] = "ActorWeightType_SuperLarge"
+        addnames(ctd, ["ActorWeightType_SuperLarge"])
+    addnames(ctd, newnames)
+
+    # 3) Repuntar subset de spawns (densidad/region) a los clones.
+    conv = 0
+    by_area = defaultdict(int)
+    converted_ids = set()
+    per_area = defaultdict(list)
+    for a, area, r, el in spawns:
+        per_area[area].append((a, r, el))
+    for area, lst in per_area.items():
+        rule = rules.get(area)
+        if not rule or rule[0] is None:
+            continue
+        denom = rule[0]
+        for i, (a, r, el) in enumerate(sorted(lst, key=lambda x: str(gv(x[1], "SpawnPointName")))):
+            if i % denom == 0:
+                el["Value"] = clones[a]
+                converted_ids.add(id(el))
+                if area in AREA_XP_GROUP:
+                    sv(r, "RewardGroup", AREA_XP_GROUP[area])
+                conv += 1
+                by_area[area] += 1
+    addnames(esd, list(clones.values()) + list(AREA_XP_GROUP.values()))
+
+    # 4) BETA - variedad de enemigos (repunta % de spawns no convertidos).
+    variety_rep = {}
+    if variety:
+        variety_rep = _apply_variety(esd, ES, ctnames, spawns, converted_ids, named)
+
+    # 5) BETA - extras de gameplay (Player QoL / harder enemies / tachy).
+    extras_rep = {}
+    if extras:
+        import extras as _extras
+        extras_rep = _extras.apply_extras(ctd, extras, harder_mult)
+
+    return {"clones": len(clones), "conv": conv, "byArea": dict(sorted(by_area.items())),
+            "skippedRespawn": skipped_respawn, "variety": variety_rep, "extras": extras_rep}
+
+
+# Fuentes de las 8 tablas fijas del pak mini-boss (no dependen de densidad).
+# CharacterTable + EventSpawnTable las genera build_core. Las otras 8 se toman
+# del STAGING LEGACY ya compilado (v131 = 1.31.x), copiando los .uasset/.uexp
+# directamente (no re-fromjson: los MERGED_*.json son intermedios no encodeables).
+import os as _os
+
+_BUILDER_ROOT = Path(__file__).resolve().parent.parent
+# vendor/ tiene prioridad (distribucion portable); rutas relativas a Builder/.
+_VENDOR_PATHS = _BUILDER_ROOT / "vendor" / "paths.json"
+if _VENDOR_PATHS.exists():
+    _PATHS = json.loads(_VENDOR_PATHS.read_text(encoding="utf-8"))
+    _rel = lambda p: str((_BUILDER_ROOT / p).resolve())
+    _PATHS["ssmodTables"]["path"] = _rel(_PATHS["ssmodTables"]["path"])
+    _PATHS["tools"]["path"] = _rel(_PATHS["tools"]["path"])
+    _PATHS["stagings"]["miniBoss"] = _rel(_PATHS["stagings"]["miniBoss"])
+    _PATHS["stagings"]["firstRun"] = _rel(_PATHS["stagings"]["firstRun"])
+else:
+    _PATHS = json.loads((_BUILDER_ROOT / "base_tables" / "paths.json").read_text(encoding="utf-8"))
+
+
+def _cfg_path(key_path, env, default):
+    val = _os.environ.get(env)
+    return Path(val) if val else Path(default)
+
+
+_SSMOD = _cfg_path("ssmodTables", _PATHS["ssmodTables"]["env"], _PATHS["ssmodTables"]["path"])
+_STAGING = Path(_os.environ.get("SSMOD_MINIBOSS_STAGING", _PATHS["stagings"]["miniBoss"]))
+_STATIC_TABLES = [
+    "EffectTable", "RewardGroupTable", "SkillTable", "SkillResultTable",
+    "TargetFilterTable", "ItemTable", "ItemEquipableTable", "GearStatTable",
+]
+
+
+# Staging legacy de variantes fijas (10 tablas ya compiladas). Se repackean tal
+# cual (no dependen de parametros). Cercanas al shipped publico (delta menor por
+# tweaks post-staging; el staging exacto de la version publica no siempre existe).
+_STAGINGS = {
+    "firstRun": {
+        "dir": Path(_os.environ.get("SSMOD_FIRSTRUN_STAGING", _PATHS["stagings"]["firstRun"])),
+        "pak": "StellarSouls-FirstRun-CombatOutfitMiniBoss",
+        # Nombre del pak publico de la variante sin outfit (mismo que en Nexus).
+        "pakNoOutfit": "StellarSouls-FirstRun-MiniBossNoOutfit",
+    },
+}
+
+
+def _script_path(name):
+    """Ubica un script de transform: Builder/scripts (portable) o Development (dev)."""
+    local = _BUILDER_ROOT / "scripts" / name
+    if local.exists():
+        return local
+    return _BUILDER_ROOT.parent / "Development" / name
+
+
+def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0):
+    """tojson EffectTable.uasset -> effect_extras -> fromjson. Solo si hay extras
+    de EffectTable. Devuelve reporte o {}."""
+    import json
+    import subprocess
+    import effect_extras
+    sel = [e for e in (extras or []) if e in effect_extras.EFFECT_EXTRAS]
+    if not sel:
+        return {}
+    data_dir = Path(data_dir)
+    et = data_dir / "EffectTable.uasset"
+    if not et.exists():
+        return {}
+    import toolchain
+    tools = toolchain.tools_dir()
+    usmap = tools / "StellarBlade.usmap"
+    uag = tools / "UAssetGUI.exe"
+    tj = data_dir / "_ET_x.json"
+    subprocess.run([str(uag), "tojson", str(et), str(tj), "VER_UE4_26", str(usmap)],
+                   capture_output=True, text=True, timeout=900)
+    doc = json.loads(tj.read_text(encoding="utf-8"))
+    rep = effect_extras.apply_effect_extras(doc, sel, gear_mult)
+    tj.write_text(json.dumps(doc), encoding="utf-8")
+    subprocess.run([str(uag), "fromjson", str(tj), str(et), "StellarBlade"],
+                   capture_output=True, text=True, timeout=900)
+    tj.unlink(missing_ok=True)
+    return rep
+
+
+def _apply_skill_extras_pass(data_dir, extras):
+    """tojson SkillTable.uasset -> skill_extras -> fromjson (solo si aplica)."""
+    import json
+    import subprocess
+    import skill_extras
+    sel = [e for e in (extras or []) if e in skill_extras.SKILL_EXTRAS]
+    if not sel:
+        return {}
+    data_dir = Path(data_dir)
+    sk = data_dir / "SkillTable.uasset"
+    if not sk.exists():
+        return {}
+    import toolchain
+    tools = toolchain.tools_dir()
+    usmap = tools / "StellarBlade.usmap"
+    uag = tools / "UAssetGUI.exe"
+    tj = data_dir / "_SK_x.json"
+    subprocess.run([str(uag), "tojson", str(sk), str(tj), "VER_UE4_26", str(usmap)],
+                   capture_output=True, text=True, timeout=900)
+    doc = json.loads(tj.read_text(encoding="utf-8"))
+    rep = skill_extras.apply_skill_extras(doc, sel)
+    tj.write_text(json.dumps(doc), encoding="utf-8")
+    subprocess.run([str(uag), "fromjson", str(tj), str(sk), "StellarBlade"],
+                   capture_output=True, text=True, timeout=900)
+    tj.unlink(missing_ok=True)
+    return rep
+
+
+def _apply_beta_revert(data_dir):
+    """Aplica el revert de costo Beta/Burst a SkillTable.uasset de un staging.
+
+    El shipped (1.31.1/1.5.0) = staging interno + este revert (Jul-19). Restaura
+    UseEnergyAmount vanilla en filas Beta/Burst; deja intacto el nerf de dano.
+    Tras esto, los 10 hashes de paquete coinciden con el pak publico.
+    """
+    import subprocess
+    data_dir = Path(data_dir)
+    tools = toolchain.tools_dir() if False else Path(_PATHS["tools"].get("path"))
+    tools = Path(_os.environ.get(_PATHS["tools"]["env"], _PATHS["tools"]["path"]))
+    usmap = tools / "StellarBlade.usmap"
+    uag = tools / "UAssetGUI.exe"
+    sk = data_dir / "SkillTable.uasset"
+    van = _SSMOD / "SkillTable_v.json"
+    revert = _script_path("revert_beta_burst_cost.py")
+    tmp_json = data_dir / "_SK.json"
+    tmp_rev = data_dir / "_SK_rev.json"
+    subprocess.run([str(uag), "tojson", str(sk), str(tmp_json), "VER_UE4_26", str(usmap)],
+                   capture_output=True, text=True, timeout=600)
+    subprocess.run(["python", str(revert), str(tmp_json), str(tmp_rev), str(van)],
+                   capture_output=True, text=True, timeout=300)
+    subprocess.run([str(uag), "fromjson", str(tmp_rev), str(sk), "StellarBlade"],
+                   capture_output=True, text=True, timeout=600)
+    tmp_json.unlink(missing_ok=True)
+    tmp_rev.unlink(missing_ok=True)
+
+
+def _apply_disable_skinsuit(data_dir):
+    """Desactiva el swap Skin-Suit-on-break en EffectTable.uasset (variante sin
+    outfit). Neutraliza nanosuit_break.Action1/ActionValue1 dejando el resto
+    intacto. (El pak 'NoOutfit' publico NO tiene esto aplicado — bug shipped.)"""
+    import subprocess
+    data_dir = Path(data_dir)
+    tools = Path(_os.environ.get(_PATHS["tools"]["env"], _PATHS["tools"]["path"]))
+    usmap = tools / "StellarBlade.usmap"
+    uag = tools / "UAssetGUI.exe"
+    et = data_dir / "EffectTable.uasset"
+    script = _script_path("disable_skinsuit_on_break.py")
+    tj = data_dir / "_ET.json"
+    to = data_dir / "_ET_off.json"
+    subprocess.run([str(uag), "tojson", str(et), str(tj), "VER_UE4_26", str(usmap)],
+                   capture_output=True, text=True, timeout=900)
+    subprocess.run(["python", str(script), str(tj), str(to)], capture_output=True, text=True, timeout=300)
+    subprocess.run([str(uag), "fromjson", str(to), str(et), "StellarBlade"],
+                   capture_output=True, text=True, timeout=900)
+    tj.unlink(missing_ok=True)
+    to.unlink(missing_ok=True)
+
+
+def compile_from_staging(variant, work_dir, verify_result=True, beta_revert=True,
+                         outfit=True, extras=None, gear_mult=2.0):
+    """Repackea un staging legacy fijo (ej First Run) a su pak Zen.
+
+    outfit=False -> desactiva Skin-Suit-on-break en la EffectTable y usa el nombre
+    de pak de la variante sin outfit.
+    """
+    import shutil
+    import toolchain
+    spec = _STAGINGS[variant]
+    work_dir = Path(work_dir)
+    pkg = work_dir / "package"
+    if pkg.exists():
+        shutil.rmtree(pkg)
+    shutil.copytree(spec["dir"], pkg)
+    data = pkg / "SB" / "Content" / "Local" / "Data"
+    if beta_revert:
+        _apply_beta_revert(data)
+    if not outfit:
+        _apply_disable_skinsuit(data)
+    if extras:
+        _apply_effect_extras_pass(data, extras, gear_mult)
+        _apply_skill_extras_pass(data, extras)
+    pak = spec["pak"] if outfit else spec.get("pakNoOutfit", spec["pak"] + "NoOutfit")
+    spec = dict(spec, pak=pak)
+    utoc = work_dir / f'{spec["pak"]}_P.utoc'
+    toolchain.to_zen(pkg, utoc)
+    ok = toolchain.verify(utoc) if verify_result else None
+    return {"pak": utoc.with_suffix(".pak"), "ucas": utoc.with_suffix(".ucas"),
+            "utoc": utoc, "verified": ok, "pakName": spec["pak"]}
+
+
+def _repair_namemap(doc):
+    """Agrega a NameMap todo FName referenciado (row Name + NameProperty values)
+    que falte. Evita el gotcha 'fromjson escribe nada' por FName no registrado.
+    """
+    nm = doc.get("NameMap")
+    if nm is None:
+        return
+    have = set(nm)
+    NAME_TYPE = "NamePropertyData"
+
+    def walk(v):
+        if isinstance(v, dict):
+            t = v.get("$type", "")
+            if NAME_TYPE in t and isinstance(v.get("Value"), str):
+                yield v["Value"]
+            for x in v.values():
+                yield from walk(x)
+        elif isinstance(v, list):
+            for x in v:
+                yield from walk(x)
+
+    add = []
+    for row in R(doc):
+        n = row.get("Name")
+        if isinstance(n, str) and n not in have:
+            have.add(n); add.append(n)
+        for nm_val in walk(row):
+            if nm_val and nm_val not in have:
+                have.add(nm_val); add.append(nm_val)
+    nm.extend(add)
+    return len(add)
+
+
+def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result=True,
+                     outfit=True, difficulty="flat", faithful=False, variety=False,
+                     extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0):
+    """Compila el pak mini-boss completo (10 tablas) a work_dir. Devuelve dict.
+
+    Por defecto usa build_core -> incluye el fix anti-farm (excluye spawns
+    respawneables) y difficulty (progressive = zonas tardias mas densas). Con
+    faithful=True (solo p20/allRegions/flat) repackea el staging shipped tal cual
+    (byte-parity exacta al pak publico 1.31.1, PARA VALIDACION; conserva el
+    exploit del Lurker respawneable). outfit=False -> desactiva Skin-Suit-on-break.
+    """
+    import shutil
+    import toolchain
+    work_dir = Path(work_dir)
+    work_dir.mkdir(parents=True, exist_ok=True)
+    pak_name = "StellarSouls-MiniBossNGPlus-Combat" if outfit else "StellarSouls-MiniBossNGPlus-CombatNoOutfit"
+
+    # Camino fiel (opt-in): reproduce el pak publico exacto para validacion.
+    if (faithful and not variety and not extras and not toml_dir and density == "p20"
+            and region == "allRegions" and difficulty == "flat"):
+        pkg = work_dir / "package"
+        if pkg.exists():
+            shutil.rmtree(pkg)
+        data = pkg / "SB" / "Content" / "Local" / "Data"
+        data.mkdir(parents=True)
+        for f in _STAGING.glob("*"):
+            shutil.copy2(f, data / f.name)
+        _apply_beta_revert(data)
+        if not outfit:
+            _apply_disable_skinsuit(data)
+        utoc = work_dir / f"{pak_name}_P.utoc"
+        toolchain.to_zen(pkg, utoc)
+        ok = toolchain.verify(utoc) if verify_result else None
+        return {"pak": utoc.with_suffix(".pak"), "ucas": utoc.with_suffix(".ucas"),
+                "utoc": utoc, "verified": ok, "pakName": pak_name,
+                "report": {"mode": "faithful-staging+betaRevert", "outfit": outfit}}
+
+    ctd = json.loads((_SSMOD / "combatCT.json").read_text(encoding="utf-8"))
+    esd = json.loads((_SSMOD / "EventSpawnTable.json").read_text(encoding="utf-8"))
+    report = build_core(ctd, esd, density=density, region=region, difficulty=difficulty,
+                        variety=variety, extras=extras, harder_mult=harder_mult)
+
+    import shutil
+    uassets = []
+    # Core tables: fromjson desde build_core.
+    for name, doc in (("CharacterTable", ctd), ("EventSpawnTable", esd)):
+        oj = work_dir / f"{name}.json"
+        oj.write_text(json.dumps(doc), encoding="utf-8")
+        uassets.append(toolchain.fromjson(oj, work_dir / f"{name}.uasset"))
+    # Tablas fijas: copiar los .uasset/.uexp legacy del staging.
+    for name in _STATIC_TABLES:
+        for ext in (".uasset", ".uexp"):
+            src = _STAGING / f"{name}{ext}"
+            if src.exists():
+                shutil.copy2(src, work_dir / f"{name}{ext}")
+        uassets.append(work_dir / f"{name}.uasset")
+    if not outfit:
+        _apply_disable_skinsuit(work_dir)
+    # Extras de EffectTable (no fall damage / env death / tachy / gear).
+    eff = _apply_effect_extras_pass(work_dir, extras, gear_mult)
+    if eff:
+        report["effectExtras"] = eff
+    skx = _apply_skill_extras_pass(work_dir, extras)
+    if skx:
+        report["skillExtras"] = skx
+    if toml_dir:  # patches TOML del usuario (opcional) sobre los uassets
+        import toml_patch
+        report["tomlPatches"] = toml_patch.apply_toml_dir(toml_dir, work_dir)
+
+    res = toolchain.stage_and_pack(uassets, pak_name, work_dir, verify_result)
+    res["report"] = report
+    res["pakName"] = pak_name
+    return res
+
+
+if __name__ == "__main__":
+    import argparse
+    ap = argparse.ArgumentParser(description="Compila el pak mini-boss NG+.")
+    ap.add_argument("--out", required=True)
+    ap.add_argument("--density", default="p20")
+    ap.add_argument("--region", default="allRegions")
+    args = ap.parse_args()
+    r = compile_miniboss(Path(args.out), args.density, args.region)
+    print("verified:", r["verified"], "| report:", r["report"])
+    print("pak:", r["pak"])

@@ -1,0 +1,12 @@
+STELLAR SOULS - 安装你的自定义MOD
+================================
+
+战斗配置: {{PROFILE}}   迷你Boss: {{MINIBOSS}}
+
+1) PAKS (玩法)
+将这些文件复制到:
+   StellarBlade\SB\Content\Paks\~mods
+{{PAKS}}
+不要与其他 Stellar Souls pak 混用（替换相同的 DataTable）。
+{{HELPER_BLOCK}}
+完成。启动游戏。

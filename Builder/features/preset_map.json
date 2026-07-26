@@ -1,0 +1,39 @@
+{
+  "comment": "F1 fallback: mapea combo (combatProfile|outfitSkinSuit|miniBoss) -> paks prebuilt existentes en Release/. key = 'combat|outfit|mb'. paths relativos a la carpeta Release. Cuando exista TableCompiler (F2+) estos combos se compilan en vez de copiarse. Sub-features granulares (densidad, gaugeTweaks) NO son honradas por presets: se avisa al usuario.",
+  "releaseRoot": "..\\Release",
+  "presets": {
+    "full|false|off": {
+      "folder": "Stellar Souls - Combat Tweaks - 1.2.19",
+      "paks": ["StellarSouls-CombatOnly_P"]
+    },
+    "full|true|off": {
+      "folder": "Stellar Souls - Combat and Outfit Tweaks - 1.2.19",
+      "paks": ["StellarSouls-CombatOnly_P", "StellarSouls-DirectRestore-NoRestFX_P"]
+    },
+    "none|true|off": {
+      "folder": "Stellar Souls - Outfit Tweaks - 1.2.19",
+      "paks": ["StellarSouls-DirectRestore-NoRestFX_P"]
+    },
+    "full|false|on": {
+      "folder": "Stellar Souls - Combat Tweaks - Mini-Boss - 1.31.1",
+      "paks": ["StellarSouls-MiniBossNGPlus-CombatNoOutfit_P"]
+    },
+    "full|true|on": {
+      "folder": "Stellar Souls - Combat and Outfit Tweaks - Mini-Boss - 1.31.1",
+      "paks": ["StellarSouls-MiniBossNGPlus-Combat_P"]
+    },
+    "firstRun|false|on": {
+      "folder": "Stellar Souls - First Run - Combat Tweaks - Mini-Boss - 1.5.0",
+      "paks": ["StellarSouls-FirstRun-MiniBossNoOutfit_P"]
+    },
+    "firstRun|true|on": {
+      "folder": "Stellar Souls - First Run - Combat and Outfit Tweaks - Mini-Boss - 1.5.0",
+      "paks": ["StellarSouls-FirstRun-CombatOutfitMiniBoss_P"]
+    }
+  },
+  "helperBase": "..\\Release\\Helper - Random CNS and 30s Random - 1.2.17\\StellarSoulsOutfitRestore\\Scripts\\config.lua",
+  "noPresetNote": {
+    "firstRun|*|off": "First Run solo existe con Mini-Boss; en modo preset se requiere miniBoss=on. Se compila directo en F3.",
+    "none|false|off": "Nada seleccionado."
+  }
+}

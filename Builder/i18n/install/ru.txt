@@ -1,0 +1,12 @@
+STELLAR SOULS - УСТАНОВКА ВАШЕГО МОДА
+=====================================
+
+Профиль боя: {{PROFILE}}   Мини-босс: {{MINIBOSS}}
+
+1) PAKS (геймплей)
+Скопируйте эти файлы в:
+   StellarBlade\SB\Content\Paks\~mods
+{{PAKS}}
+Не смешивайте с другими паками Stellar Souls: те же DataTables.
+{{HELPER_BLOCK}}
+Готово. Запустите игру.

@@ -33,9 +33,9 @@ ComboBox {
 
     delegate: ItemDelegate {
         width: control.width
+        height: 38
         contentItem: Text {
-            text: control.textRole ? (Array.isArray(control.model)
-                    ? modelData[control.textRole] : model[control.textRole]) : modelData
+            text: control.textAt(index)
             color: highlighted ? Theme.accent : Theme.text
             verticalAlignment: Text.AlignVCenter
             leftPadding: 8
@@ -49,6 +49,7 @@ ComboBox {
     popup: Popup {
         y: control.height + 4
         width: control.width
+        height: Math.min(control.count * 38 + padding * 2, 268)
         padding: 4
         background: Rectangle {
             radius: Theme.radius
@@ -57,7 +58,6 @@ ComboBox {
         }
         contentItem: ListView {
             clip: true
-            implicitHeight: Math.min(contentHeight, 260)
             model: control.popup.visible ? control.delegateModel : null
             ScrollIndicator.vertical: ScrollIndicator {}
         }

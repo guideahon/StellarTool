@@ -1,0 +1,12 @@
+STELLAR SOULS - 커스텀 모드 설치
+================================
+
+전투 프로파일: {{PROFILE}}   미니보스: {{MINIBOSS}}
+
+1) PAKS (게임플레이)
+다음 파일을 복사:
+   StellarBlade\SB\Content\Paks\~mods
+{{PAKS}}
+다른 Stellar Souls pak와 섞지 마세요(같은 DataTable 교체).
+{{HELPER_BLOCK}}
+완료. 게임을 실행하세요.

@@ -1,0 +1,7 @@
+
+2) HELPER (necessario para roupas CNS / Skin Suit)
+Requer UE4SS + CNS. Apague qualquer StellarSoulsOutfitRestore antigo, depois copie a pasta:
+   ue4ss\Mods\StellarSoulsOutfitRestore
+para:
+   StellarBlade\SB\Binaries\Win64\ue4ss\Mods\StellarSoulsOutfitRestore
+O log %USERPROFILE%\StellarSoulsOutfitRestore.log confirma o carregamento.

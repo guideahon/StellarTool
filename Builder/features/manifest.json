@@ -1,0 +1,354 @@
+{
+  "schemaVersion": 1,
+  "comment": "Catalogo declarativo de features del builder. Cada 'question' se traduce por i18nKey en los 10 idiomas (builder.* en i18n). 'transforms' referencia operaciones del TableCompiler (portadas de Development/*.py). 'requiresHelper' marca combos que necesitan el helper Lua.",
+  "outputBaseName": "StellarSouls-Custom",
+  "questions": [
+    {
+      "id": "combatProfile",
+      "type": "single",
+      "i18nKey": "builder.q.combatProfile",
+      "default": "full",
+      "options": [
+        {
+          "value": "none",
+          "i18nKey": "builder.q.combatProfile.none"
+        },
+        {
+          "value": "full",
+          "i18nKey": "builder.q.combatProfile.full",
+          "transforms": [
+            "combat.skill.full",
+            "combat.skillResult.turretNoStagger",
+            "combat.perfectDodgeNoLock"
+          ]
+        },
+        {
+          "value": "firstRun",
+          "i18nKey": "builder.q.combatProfile.firstRun",
+          "transforms": [
+            "combat.skill.firstRunMidpoint",
+            "combat.skillResult.turretHalfStun",
+            "combat.perfectDodgeNoLock"
+          ],
+          "note": "Half-strength: numeric midpoint vanilla<->full (build_first_run_variant.py)."
+        }
+      ]
+    },
+    {
+      "id": "combatFeatures",
+      "type": "multi",
+      "i18nKey": "builder.combat.changes",
+      "comment": "Cambios históricos independientes; el compilador parte de vanilla y aplica sólo los elegidos.",
+      "options": [
+        { "value": "betaBurstDamage", "transform": "combat.betaBurstDamage", "default": true },
+        { "value": "droneDamage", "transform": "combat.droneDamage", "default": true },
+        { "value": "dashDamage", "transform": "combat.dashDamage", "default": true },
+        { "value": "eveDamage", "transform": "combat.eveDamage", "default": true },
+        { "value": "enemyDamage", "transform": "combat.enemyDamage", "default": true },
+        { "value": "perfectDodge", "transform": "combat.perfectDodge", "default": true },
+        { "value": "tachyDuration", "transform": "combat.tachyDuration", "default": true },
+        { "value": "enemyVulnerability", "transform": "combat.enemyVulnerability", "default": true }
+      ]
+    },
+    {
+      "id": "combatEconomy",
+      "type": "single",
+      "i18nKey": "builder.combat.economy",
+      "default": "full",
+      "comment": "Grupo exclusivo: las opciones escriben las mismas propiedades de gauge/cooldown.",
+      "options": [
+        { "value": "vanilla" },
+        {
+          "value": "full",
+          "transforms": ["combat.antiSpamSkill", "combat.antiSpamCharacter"]
+        }
+      ]
+    },
+    {
+      "id": "outfitSkinSuit",
+      "type": "bool",
+      "i18nKey": "builder.q.outfitSkinSuit",
+      "default": true,
+      "whenTrue": {
+        "transforms": [
+          "outfit.effectTable.skinSuitOnBreak",
+          "outfit.hudRemnantFix"
+        ],
+        "requiresHelper": true
+      }
+    },
+    {
+      "id": "miniBoss",
+      "type": "single",
+      "i18nKey": "builder.q.miniBoss",
+      "default": "off",
+      "options": [
+        {
+          "value": "off",
+          "i18nKey": "builder.q.miniBoss.off"
+        },
+        {
+          "value": "greatDesert",
+          "i18nKey": "builder.q.miniBoss.greatDesert",
+          "transforms": [
+            "miniboss.clones",
+            "miniboss.spawnSubset.greatDesert",
+            "miniboss.ngPlusDrops",
+            "miniboss.executionImmunity"
+          ]
+        },
+        {
+          "value": "allRegions",
+          "i18nKey": "builder.q.miniBoss.allRegions",
+          "transforms": [
+            "miniboss.clones",
+            "miniboss.spawnSubset.allRegions",
+            "miniboss.ngPlusDrops",
+            "miniboss.executionImmunity"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "miniBossDensity",
+      "type": "single",
+      "i18nKey": "builder.q.miniBossDensity",
+      "default": "p20",
+      "showIf": {
+        "miniBoss": [
+          "greatDesert",
+          "allRegions"
+        ]
+      },
+      "options": [
+        {
+          "value": "p10",
+          "i18nKey": "builder.q.miniBossDensity.p10",
+          "param": {
+            "densityPct": 10
+          }
+        },
+        {
+          "value": "p20",
+          "i18nKey": "builder.q.miniBossDensity.p20",
+          "param": {
+            "densityPct": 20
+          }
+        },
+        {
+          "value": "p33",
+          "i18nKey": "builder.q.miniBossDensity.p33",
+          "param": {
+            "densityPct": 33
+          }
+        }
+      ]
+    },
+    {
+      "id": "miniBossDifficulty",
+      "type": "single",
+      "i18nKey": "builder.q.difficulty",
+      "default": "flat",
+      "showIf": {
+        "miniBoss": [
+          "greatDesert",
+          "allRegions"
+        ]
+      },
+      "options": [
+        {
+          "value": "flat",
+          "i18nKey": "builder.q.difficulty.flat"
+        },
+        {
+          "value": "progressive",
+          "i18nKey": "builder.q.difficulty.progressive"
+        }
+      ]
+    },
+    {
+      "id": "gameplayExtras",
+      "type": "multi",
+      "i18nKey": "builder.q.extras",
+      "comment": "BETA - extras.py (CharacterTable) + effect_extras.py (EffectTable). Aplican con o sin mini-boss. Inspirado en automod (jpabscale), valores propios.",
+      "options": [
+        {
+          "value": "playerQol",
+          "i18nKey": "builder.ex.qol"
+        },
+        {
+          "value": "longerTachy",
+          "i18nKey": "builder.ex.tachy"
+        },
+        {
+          "value": "hpDrain",
+          "i18nKey": "builder.ex.drain"
+        },
+        {
+          "value": "noFallDamage",
+          "i18nKey": "builder.ex.fall"
+        },
+        {
+          "value": "noEnvDeath",
+          "i18nKey": "builder.ex.env"
+        },
+        {
+          "value": "tachyReduce",
+          "i18nKey": "builder.ex.tachyr"
+        },
+        {
+          "value": "strongerGear",
+          "i18nKey": "builder.ex.gear"
+        },
+        {
+          "value": "harderEnemies",
+          "i18nKey": "builder.ex.harder"
+        },
+        {
+          "value": "autoGaugeRecovery",
+          "i18nKey": "builder.ex.gauge"
+        },
+        {
+          "value": "forgivingJust",
+          "i18nKey": "builder.ex.just"
+        },
+        {
+          "value": "extraAirDodge",
+          "i18nKey": "builder.ex.airdodge"
+        }
+      ]
+    },
+    {
+      "id": "enemyVariety",
+      "type": "bool",
+      "i18nKey": "builder.q.variety",
+      "default": false,
+      "showIf": {
+        "miniBoss": [
+          "greatDesert",
+          "allRegions"
+        ]
+      },
+      "comment": "BETA - repunta % de spawns a pool curado (features/variety_pool.json): elites + cross-area + raven, sobre coords existentes."
+    },
+    {
+      "id": "gaugeTweaks",
+      "type": "multi",
+      "i18nKey": "builder.q.gaugeTweaks",
+      "showIf": {
+        "combatProfile": [
+          "full",
+          "firstRun"
+        ]
+      },
+      "options": [
+        {
+          "value": "betaGaugeReduce",
+          "i18nKey": "builder.q.gaugeTweaks.betaReduce",
+          "transforms": [
+            "combat.betaGaugeAdditiveRate"
+          ],
+          "default": true
+        },
+        {
+          "value": "burstGaugeReduce",
+          "i18nKey": "builder.q.gaugeTweaks.burstReduce",
+          "transforms": [
+            "combat.burstGaugeReduceEffect"
+          ],
+          "default": false
+        },
+        {
+          "value": "blasterCellX2",
+          "i18nKey": "builder.q.gaugeTweaks.blasterX2",
+          "transforms": [
+            "combat.blasterCellDamageX2"
+          ],
+          "default": true
+        },
+        {
+          "value": "tumblerHeal",
+          "i18nKey": "builder.q.gaugeTweaks.tumblerHeal",
+          "transforms": [
+            "combat.tumblerUpgradeHeal"
+          ],
+          "default": false
+        }
+      ]
+    },
+    {
+      "id": "helperMode",
+      "type": "single",
+      "i18nKey": "builder.q.helperMode",
+      "default": "last",
+      "showIf": {
+        "outfitSkinSuit": [
+          true
+        ]
+      },
+      "comment": "Genera config.lua. last=restoreMode 'last'; randomAny=restoreMode 'randomAny'; randomPeriodic=randomAny + enablePeriodicRandomCns.",
+      "options": [
+        {
+          "value": "last",
+          "i18nKey": "builder.q.helperMode.last",
+          "helperConfig": {
+            "restoreMode": "last",
+            "enablePeriodicRandomCns": false
+          }
+        },
+        {
+          "value": "randomAny",
+          "i18nKey": "builder.q.helperMode.randomAny",
+          "helperConfig": {
+            "restoreMode": "randomAny",
+            "enablePeriodicRandomCns": false
+          }
+        },
+        {
+          "value": "randomPeriodic",
+          "i18nKey": "builder.q.helperMode.randomPeriodic",
+          "helperConfig": {
+            "restoreMode": "randomAny",
+            "enablePeriodicRandomCns": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "helperInterval",
+      "type": "int",
+      "i18nKey": "builder.q.helperInterval",
+      "default": 30,
+      "min": 5,
+      "max": 600,
+      "unit": "s",
+      "showIf": {
+        "helperMode": [
+          "randomPeriodic"
+        ]
+      },
+      "helperConfigKey": "periodicRandomCnsIntervalMs",
+      "scale": 1000
+    }
+  ],
+  "conflicts": [
+    {
+      "comment": "Sin combate y sin outfit = nada que compilar.",
+      "requireAtLeastOne": [
+        "combatProfile!=none",
+        "outfitSkinSuit==true",
+        "miniBoss!=off"
+      ]
+    }
+  ],
+  "install": {
+    "paks": {
+      "dest": "StellarBlade\\SB\\Content\\Paks\\~mods",
+      "i18nKey": "builder.install.paks"
+    },
+    "helper": {
+      "dest": "StellarBlade\\SB\\Binaries\\Win64\\ue4ss\\Mods\\StellarSoulsOutfitRestore",
+      "i18nKey": "builder.install.helper"
+    }
+  }
+}

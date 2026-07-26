@@ -102,6 +102,12 @@ Páginas (`qml/pages`):
 
 Componentes reutilizables en `qml/components` (Card, SectionHeader). `Theme.qml` define las paletas Claro, Oscuro y OLED; `AppController.themeMode` persiste la selección en `QSettings` y la expone globalmente a QML.
 
+`BuilderPage` envía opciones semánticas al compilador Python de `Builder/`.
+Los cambios independientes son booleanos; las alternativas que modifican la
+misma mecánica (perfil, economía Beta/Burst, región/densidad/dificultad) son
+selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
+solamente los subconjuntos elegidos desde las bases autoritativas del mod.
+
 ## 6. Manejo de errores
 
 - Cada paso externo (repak/UAssetGUI) reporta por-asset: un uasset que no convierte no aborta la ingesta; se lista como "no analizable" y se ofrece modo AssetReplaced.

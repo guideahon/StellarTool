@@ -1,0 +1,21 @@
+{
+  "comment": "Rutas a las tablas base JSON (UAssetAPI named). 'full' = version del mod combate 1.2.39 (base autoritativa de CombatOnly). 'vanilla' = tabla original (para midpoint/diff). Hoy referencian C:\\Temp\\ssmod y BuildOutput; al empaquetar la app se copian versionadas aca. Override raiz con env SSMOD_TABLES.",
+  "tables": {
+    "SkillTable": {
+      "full": "C:\\Users\\cristian\\Documents\\Stellar Souls\\Development\\BuildOutput\\Stellar Souls (Combat Tweaks) 1.2.39\\json\\SkillTable.json",
+      "vanilla": "C:\\Temp\\ssmod\\SkillTable_v.json"
+    },
+    "SkillResultTable": {
+      "full": "C:\\Temp\\ssmod\\SkillResultTable_ns.json",
+      "vanilla": "C:\\Temp\\ssmod\\SkillResultTable.json"
+    },
+    "CharacterTable": {
+      "full": "C:\\Temp\\ssmod\\combatCT.json",
+      "vanilla": "C:\\Temp\\ssmod\\CharacterTable_sub.json"
+    },
+    "EffectTable": {
+      "full": "C:\\Temp\\ssmod\\DR_EffectTable.json",
+      "vanilla": "C:\\Temp\\ssmod\\VANILLA_EffectTable.json"
+    }
+  }
+}

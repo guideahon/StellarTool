@@ -1,0 +1,11 @@
+{
+  "comment": "Rutas de fuentes de compilacion. Absolutas hoy (maquina del autor). Para distribuir la app: vendorizar estas carpetas junto al exe o extraerlas del juego del usuario en primer arranque, y sobreescribir con las env vars indicadas. Cada clave admite override por env var.",
+  "ssmodTables": { "path": "C:\\Temp\\ssmod", "env": "SSMOD_TABLES" },
+  "tools": { "path": "C:\\Users\\cristian\\Documents\\Stellar Tool\\tools", "env": "STELLAR_TOOLS" },
+  "stagings": {
+    "env": "SSMOD_STAGINGS",
+    "miniBoss": "C:\\Temp\\ss-ngplus-v131-work\\package\\SB\\Content\\Local\\Data",
+    "firstRun": "C:\\Temp\\ss-first-run-v14-work\\package"
+  },
+  "vendoring": "Para release: copiar ssmodTables (base JSON), tools (retoc/UAssetGUI/repak/usmap) y stagings (uassets legacy) a Builder/vendor/ y apuntar las env vars ahi. Tamano estimado: EffectTable ~262MB domina; considerar compresion o extraccion on-demand."
+}

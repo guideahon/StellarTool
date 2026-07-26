@@ -1,0 +1,10 @@
+# Ejemplo: ajustes al Player. Copiar esta carpeta, editar valores, y apuntarla
+# desde el campo "Patches TOML propios" del Builder.
+# El comentario a la derecha es el valor original del juego (referencia).
+
+[Player]
+MaxBurstGauge = 1800              # 1600
+AttackSpeed = 1.2                 # 1.0
+ShieldRegenPerSecond = 120.0      # 80.0
+ShieldRegenPerSecondWhenBattle = 25.0  # 10.0
+DrainHpByAttackPowerRate = 0.02   # "+0"  (HP drain leve al pegar)

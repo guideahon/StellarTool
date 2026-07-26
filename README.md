@@ -51,6 +51,14 @@ Los binarios externos no se versionan; `setup.bat` los baja de sus releases ofic
 
 Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
 
+### Stellar Souls Builder
+
+La página **Build mod** compila un Stellar Souls personalizado por cambio:
+daño Beta/Burst, drones, dash, ataques de EVE, daño/vulnerabilidad de enemigos,
+perfect dodge, duración de Tachy, economía de gauges, Blaster Cell, outfit,
+mini-bosses y extras independientes. Los cambios que pisan la misma mecánica
+se presentan como una única selección exclusiva; los combinables usan checks.
+
 ## Modo headless (CLI)
 
 ```bat

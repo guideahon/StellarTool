@@ -1,0 +1,7 @@
+
+2) HELPER (CNS / 紧身衣服装所需)
+需要 UE4SS + CNS。删除任何旧的 StellarSoulsOutfitRestore，然后复制文件夹:
+   ue4ss\Mods\StellarSoulsOutfitRestore
+到:
+   StellarBlade\SB\Binaries\Win64\ue4ss\Mods\StellarSoulsOutfitRestore
+日志 %USERPROFILE%\StellarSoulsOutfitRestore.log 确认已加载。

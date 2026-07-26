@@ -20,3 +20,9 @@ dist/
 Media/generated/
 !Media/screenshots/
 !Media/screenshots/*.png
+
+# Builder: el código fuente se versiona; las tablas/juegos vendorizados y el
+# runtime Python se generan localmente para empaquetar y son demasiado grandes.
+Builder/vendor/
+Builder/pyembed/
+Builder/**/__pycache__/

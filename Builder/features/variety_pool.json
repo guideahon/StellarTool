@@ -1,0 +1,34 @@
+{
+ "comment": "BETA - Variedad de enemigos (ideas A/B/C de FengYeLy). Repunta un % de spawns EXISTENTES (coords validas) a arquetipos curados ground-based. NO agrega placements ni toca umaps. Editable sin recompilar: cambia pools/porcentajes y recompila el mod. Validar in-game (nav/comportamiento por terreno).",
+ "elite": [
+  "DED_M_GrubShooterElite_01",
+  "M_Behemoth",
+  "M_GrubShooterEliteB",
+  "M_LesserBehemoth",
+  "WLAN_M_LesserBehemoth_01",
+  "WLA_M_HedgeBoarBrute_01",
+  "WLB_M_Behemoth_01"
+ ],
+ "cross": [
+  "M_Antlion",
+  "M_ClriketA_Nikke",
+  "WLB_M_AntlionF_01",
+  "WLB_M_TentacleBGround_01",
+  "WLA_M_AntlionE_01"
+ ],
+ "raven": [
+  "M_RavenBeast",
+  "NST_M_Raven_01",
+  "SD_M_RavenBeast_01_Seq",
+  "XION_M_RavenBeast_01"
+ ],
+ "eliteLatePct": 10,
+ "crossPct": 8,
+ "ravenPct": 2,
+ "lateAreas": [
+  "AYL",
+  "DED40",
+  "DEDA",
+  "SE"
+ ]
+}
