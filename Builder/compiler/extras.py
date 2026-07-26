@@ -119,6 +119,14 @@ def apply_extras(ct_doc, extras: list, harder_mult=2.0) -> dict:
     rep = {}
     if "playerQol" in extras:
         rep["playerQol"] = player_qol(ct_doc)
+    if "ammoStacks" in extras:
+        rep["ammoStacks"] = ammo_stacks(ct_doc)
+    if "consumableStacks" in extras:
+        rep["consumableStacks"] = consumable_stacks(ct_doc)
+    if "shieldRegen" in extras:
+        rep["shieldRegen"] = shield_regen(ct_doc)
+    if "attackSpeed" in extras:
+        rep["attackSpeed"] = attack_speed(ct_doc)
     if "longerTachy" in extras:
         rep["longerTachy"] = longer_tachy(ct_doc)
     if "hpDrain" in extras:

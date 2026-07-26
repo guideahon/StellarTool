@@ -136,7 +136,8 @@ def tumbler_heal(et_doc, value=60.0) -> bool:
 # Que extras tocan EffectTable (para saber si hace falta el pase tojson/fromjson).
 EFFECT_EXTRAS = {
     "noFallDamage", "noEnvDeath", "tachyReduce", "strongerGear",
-    "autoGaugeRecovery", "tumblerHeal",
+    "autoGaugeRecovery", "noWaterDeath", "noSandDeath", "betaParryRecovery",
+    "burstDodgeRecovery", "tumblerHeal",
 }
 
 
@@ -146,12 +147,20 @@ def apply_effect_extras(et_doc, extras: list, gear_mult=2.0) -> dict:
         rep["noFallDamage"] = no_fall_damage(et_doc)
     if "noEnvDeath" in extras:
         rep["noEnvDeath"] = no_environment_death(et_doc)
+    if "noWaterDeath" in extras:
+        rep["noWaterDeath"] = no_water_death(et_doc)
+    if "noSandDeath" in extras:
+        rep["noSandDeath"] = no_sand_death(et_doc)
     if "tachyReduce" in extras:
         rep["tachyReduce"] = tachy_reduce(et_doc)
     if "strongerGear" in extras:
         rep["strongerGear"] = stronger_gear(et_doc, gear_mult)
     if "autoGaugeRecovery" in extras:
         rep["autoGaugeRecovery"] = auto_gauge_recovery(et_doc)
+    if "betaParryRecovery" in extras:
+        rep["betaParryRecovery"] = beta_parry_recovery(et_doc)
+    if "burstDodgeRecovery" in extras:
+        rep["burstDodgeRecovery"] = burst_dodge_recovery(et_doc)
     if "tumblerHeal" in extras:
         rep["tumblerHeal"] = tumbler_heal(et_doc)
     return rep

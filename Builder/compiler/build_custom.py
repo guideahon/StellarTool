@@ -85,10 +85,10 @@ def resolve(a: dict) -> dict:
             f"Requiere TableCompiler (F2+) o ajustar respuestas. "
             f"Presets: {sorted(preset_map['presets'])}"
         )
-    # Presets no honran sub-features granulares.
-    if a.get("miniBossDensity") and a["miniBoss"] != "off":
+    # Solo el fallback precompilado ignora sub-features granulares.
+    if a.get("forcePreset") and a.get("miniBossDensity") and a["miniBoss"] != "off":
         warnings.append("densityIgnored")
-    if a.get("gaugeTweaks"):
+    if a.get("forcePreset") and a.get("gaugeTweaks"):
         warnings.append("gaugeTweaksIgnored")
     # Helper base: preferir el vendorizado (Builder autocontenido en Stellar
     # Tool); si no, la ruta de preset_map (dev, apunta a Stellar Souls/Release).

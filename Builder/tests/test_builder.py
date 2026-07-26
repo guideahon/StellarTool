@@ -76,7 +76,7 @@ def test_resolve_warns_ignored_subfeatures():
     a = bc.normalize({"combatProfile": "full", "outfitSkinSuit": True, "miniBoss": "on",
                       "gaugeTweaks": ["betaGaugeReduce"]})
     plan = bc.resolve(a)
-    assert "gaugeTweaksIgnored" in plan["warnings"]
+    assert "gaugeTweaksIgnored" not in plan["warnings"]
 
 
 # ---- build end-to-end (requiere paks prebuilt en Release/) ----
@@ -155,6 +155,10 @@ def test_qol_can_be_selected_property_group_by_property_group():
     assert extras.ammo_stacks(doc) == 1
     assert extras._get(player, "StackBullet1") == 999
     assert extras._get(player, "StackConsumable1") == 1
+    report = extras.apply_extras(doc, ["consumableStacks", "shieldRegen", "attackSpeed"])
+    assert report == {"consumableStacks": 1, "shieldRegen": 2, "attackSpeed": 1}
+    assert extras._get(player, "StackConsumable1") == 99
+    assert extras._get(player, "AttackSpeed") == 1.3
 
 
 def test_new_builder_controls_are_translated_in_english_and_spanish():
@@ -197,6 +201,25 @@ def test_miniboss_build_keeps_granular_economy_transforms():
 
     _skill, skill_report = table_compiler.apply_transforms("SkillTable", ids)
     assert skill_report["transforms"] == ["combat.antiSpamSkill"]
+
+
+def test_split_gauge_recovery_extras_are_applied():
+    import effect_extras
+    names = (
+        "P_Eve_SkillTree_JustParry_BetaGauge1", "P_Eve_SkillTree_JustParry_BetaGauge2",
+        "P_Eve_SkillTree_JustEvade_BurstGauge1", "P_Eve_SkillTree_JustEvade_BurstGauge2",
+    )
+    doc = {"Exports": [{"Table": {"Data": [
+        {"Name": name, "Value": [{
+            "Name": "ConditionActive_ConstructorActorAcquisitionAlias",
+            "Value": "Locked", "IsZero": False,
+        }]} for name in names
+    ]}}]}
+    report = effect_extras.apply_effect_extras(
+        doc, ["betaParryRecovery", "burstDodgeRecovery"])
+    assert report == {"betaParryRecovery": 2, "burstDodgeRecovery": 2}
+    for row in doc["Exports"][0]["Table"]["Data"]:
+        assert row["Value"][0]["Value"] is None
 
 
 def test_miniboss_density_scales():
