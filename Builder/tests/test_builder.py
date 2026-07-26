@@ -157,6 +157,20 @@ def test_qol_can_be_selected_property_group_by_property_group():
     assert extras._get(player, "StackConsumable1") == 1
 
 
+def test_new_builder_controls_are_translated_in_english_and_spanish():
+    import json
+    root = Path(__file__).resolve().parents[2]
+    required = {
+        "builder_presets", "builder_miniboss_regions", "builder_miniboss_traits",
+        "builder_mb_health", "builder_mb_attack", "builder_mb_scale",
+        "builder_ex_ammo", "builder_ex_consumables", "builder_ex_water",
+        "builder_ex_sand", "builder_ex_beta_parry", "builder_ex_burst_dodge",
+    }
+    for lang in ("en", "es"):
+        strings = json.loads((root / "i18n" / f"{lang}.json").read_text(encoding="utf-8"))
+        assert required <= strings.keys()
+
+
 def test_miniboss_density_scales():
     import json
     import miniboss_builder as mb

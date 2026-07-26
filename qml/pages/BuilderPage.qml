@@ -237,12 +237,12 @@ Item {
                         id: form
                         anchors.fill: parent; anchors.margins: 16; spacing: 14
 
-                        FieldLabel { text: "Presets de combate (solo preseleccionan opciones)" }
+                        FieldLabel { text: I18n.s.builder_presets || "Combat presets (only preselect options)" }
                         RowLayout {
                             Layout.fillWidth: true; spacing: 18
-                            Button { text: "Aplicar Full"; onClicked: root.setCombatPreset("full") }
-                            Button { text: "Aplicar First Run"; onClicked: root.setCombatPreset("first") }
-                            Button { text: "Restaurar vanilla"; onClicked: root.setCombatPreset("vanilla") }
+                            Button { text: I18n.s.builder_preset_full || "Apply Full"; onClicked: root.setCombatPreset("full") }
+                            Button { text: I18n.s.builder_preset_first || "Apply First Run"; onClicked: root.setCombatPreset("first") }
+                            Button { text: I18n.s.builder_preset_vanilla || "Restore vanilla"; onClicked: root.setCombatPreset("vanilla") }
                         }
 
                         FieldLabel {
@@ -263,36 +263,36 @@ Item {
                             CheckBox { id: toggle; checked: true; Layout.preferredWidth: 330 }
                             RowLayout { id: choiceBox; enabled: toggle.checked; spacing: 3 }
                         }
-                        ChangeRow { id: betaRow; label: "Daño Beta/Burst"
+                        ChangeRow { id: betaRow; label: I18n.s.builder_damage_beta || "Beta/Burst damage"
                             CheckBox { id: combatBeta; checked: betaRow.selected; visible: false }
                             ButtonGroup { id: betaGroup } RadioButton { id: betaMild; text: "÷2"; ButtonGroup.group: betaGroup }
                             RadioButton { id: betaFull; text: "÷3"; checked: true; ButtonGroup.group: betaGroup } }
-                        ChangeRow { id: droneRow; label: "Daño de drones"
+                        ChangeRow { id: droneRow; label: I18n.s.builder_damage_drone || "Drone damage"
                             CheckBox { id: combatDrone; checked: droneRow.selected; visible: false }
                             ButtonGroup { id: droneGroup } RadioButton { id: droneMild; text: "÷2"; ButtonGroup.group: droneGroup }
                             RadioButton { id: droneFull; text: "÷3"; checked: true; ButtonGroup.group: droneGroup } }
-                        ChangeRow { id: dashRow; label: "Daño de dash cargado"
+                        ChangeRow { id: dashRow; label: I18n.s.builder_damage_dash || "Charged dash damage"
                             CheckBox { id: combatDash; checked: dashRow.selected; visible: false }
                             ButtonGroup { id: dashGroup } RadioButton { id: dashMild; text: "x0,75"; ButtonGroup.group: dashGroup }
                             RadioButton { id: dashFull; text: "÷2"; checked: true; ButtonGroup.group: dashGroup } }
-                        ChangeRow { id: eveRow; label: "Ataques normales de EVE"
+                        ChangeRow { id: eveRow; label: I18n.s.builder_damage_eve || "Regular EVE attack damage"
                             CheckBox { id: combatEve; checked: eveRow.selected; visible: false }
                             ButtonGroup { id: eveGroup } RadioButton { id: eveMild; text: "x1,5"; ButtonGroup.group: eveGroup }
                             RadioButton { id: eveFull; text: "x3"; checked: true; ButtonGroup.group: eveGroup } }
-                        ChangeRow { id: enemyRow; label: "Daño de enemigos"
+                        ChangeRow { id: enemyRow; label: I18n.s.builder_damage_enemy || "Enemy damage"
                             CheckBox { id: combatEnemy; checked: enemyRow.selected; visible: false }
                             ButtonGroup { id: enemyGroup } RadioButton { id: enemyMild; text: "x1,5"; ButtonGroup.group: enemyGroup }
                             RadioButton { id: enemyFull; text: "x3"; checked: true; ButtonGroup.group: enemyGroup } }
-                        CheckBox { id: combatDodge; checked: true; text: "Perfect dodge sin lock-on" }
-                        ChangeRow { id: tachyRow; label: "Duración de Tachy"
+                        CheckBox { id: combatDodge; checked: true; text: I18n.s.builder_dodge_unlock || "Perfect dodge without lock-on" }
+                        ChangeRow { id: tachyRow; label: I18n.s.builder_tachy_duration || "Tachy duration"
                             CheckBox { id: combatTachy; checked: tachyRow.selected; visible: false }
                             ButtonGroup { id: tachyGroup } RadioButton { id: tachyMild; text: "x0,75"; ButtonGroup.group: tachyGroup }
                             RadioButton { id: tachyFull; text: "÷2"; checked: true; ButtonGroup.group: tachyGroup } }
-                        ChangeRow { id: vulnRow; label: "Daño recibido por enemigos"
+                        ChangeRow { id: vulnRow; label: I18n.s.builder_enemy_damage_taken || "Damage taken by enemies"
                             CheckBox { id: combatVulnerability; checked: vulnRow.selected; visible: false }
                             ButtonGroup { id: vulnGroup } RadioButton { id: vulnMild; text: "x1,25"; ButtonGroup.group: vulnGroup }
                             RadioButton { id: vulnFull; text: "x1,5"; checked: true; ButtonGroup.group: vulnGroup } }
-                        ChangeRow { id: blasterRow; label: "Daño de Blaster Cell"
+                        ChangeRow { id: blasterRow; label: I18n.s.builder_blaster_damage || "Blaster Cell damage"
                             CheckBox { id: combatBlaster; checked: blasterRow.selected; visible: false }
                             ButtonGroup { id: blasterGroup } RadioButton { id: blaster2; text: "x2"; ButtonGroup.group: blasterGroup }
                             RadioButton { id: blaster3; text: "x3"; checked: true; ButtonGroup.group: blasterGroup } }
@@ -301,15 +301,15 @@ Item {
                             text: I18n.s.builder_combat_economy || "Economía Beta/Burst"
                             font.bold: true
                         }
-                        ChangeRow { id: gainRow; label: "Ganancia de Beta"
+                        ChangeRow { id: gainRow; label: I18n.s.builder_beta_gain || "Beta gain"
                             CheckBox { id: economyGain; checked: gainRow.selected; visible: false }
                             ButtonGroup { id: gainGroup } RadioButton { id: gain25; text: "-25%"; ButtonGroup.group: gainGroup }
                             RadioButton { id: gain50; text: "-50%"; checked: true; ButtonGroup.group: gainGroup } }
-                        ChangeRow { id: capacityRow; label: "Capacidad Beta/Burst"
+                        ChangeRow { id: capacityRow; label: I18n.s.builder_beta_capacity || "Beta/Burst capacity"
                             CheckBox { id: economyCapacity; checked: capacityRow.selected; visible: false }
                             ButtonGroup { id: capacityGroup } RadioButton { id: capacityFirst; text: "700 / 1200"; ButtonGroup.group: capacityGroup }
                             RadioButton { id: capacityFull; text: "400 / 800"; checked: true; ButtonGroup.group: capacityGroup } }
-                        ChangeRow { id: cooldownRow; label: "Cooldown Beta/Burst"
+                        ChangeRow { id: cooldownRow; label: I18n.s.builder_beta_cooldown || "Beta/Burst cooldown"
                             CheckBox { id: economyCooldown; checked: cooldownRow.selected; visible: false }
                             ButtonGroup { id: cooldownGroup } RadioButton { id: cooldown2; text: "2 s"; ButtonGroup.group: cooldownGroup }
                             RadioButton { id: cooldown3; text: "3 s"; checked: true; ButtonGroup.group: cooldownGroup } }
@@ -322,11 +322,11 @@ Item {
                         }
 
                         RowLayout {
-                            FieldLabel { text: "Mini-bosses por región"; font.bold: true; Layout.fillWidth: true }
-                            Button { text: "Aplicar preset NG+"; onClicked: root.setMiniBossPreset(true) }
-                            Button { text: "Desmarcar"; onClicked: root.setMiniBossPreset(false) }
+                            FieldLabel { text: I18n.s.builder_miniboss_regions || "Mini-bosses by region"; font.bold: true; Layout.fillWidth: true }
+                            Button { text: I18n.s.builder_miniboss_preset || "Apply NG+ preset"; onClicked: root.setMiniBossPreset(true) }
+                            Button { text: I18n.s.builder_clear || "Clear"; onClicked: root.setMiniBossPreset(false) }
                         }
-                        Text { text: "Cada región se activa por separado y acepta una densidad de 1% a 100%."
+                        Text { text: I18n.s.builder_region_hint || "Enable each region separately and set its density from 1% to 100%."
                                color: Theme.textDim; font.pixelSize: 11 }
                         component RegionRow: RowLayout {
                             property alias selected: regionCheck.checked
@@ -334,7 +334,7 @@ Item {
                             property alias density: regionPct.value
                             Layout.fillWidth: true
                             CheckBox { id: regionCheck; Layout.preferredWidth: 260 }
-                            FieldLabel { text: "Densidad" }
+                            FieldLabel { text: I18n.s.builder_density || "Density" }
                             SpinBox { id: regionPct; from: 1; to: 100; value: 10; enabled: regionCheck.checked }
                             FieldLabel { text: "%" }
                         }
@@ -350,29 +350,29 @@ Item {
                         ColumnLayout {
                             Layout.fillWidth: true; spacing: 6
                             visible: root.anyMiniBossRegion()
-                            FieldLabel { text: "Características de mini-boss"; font.bold: true }
-                            ChangeRow { id: mbHealthRow; label: "Aumentar vida"
+                            FieldLabel { text: I18n.s.builder_miniboss_traits || "Mini-boss attributes"; font.bold: true }
+                            ChangeRow { id: mbHealthRow; label: I18n.s.builder_mb_health || "Increase health"
                                 CheckBox { id: mbHealth; checked:mbHealthRow.selected; visible:false }
                                 ButtonGroup { id: mbHpGroup } RadioButton { id: mbHp15; text:"x1,5"; ButtonGroup.group:mbHpGroup }
                                 RadioButton { id: mbHp3; text:"x3"; ButtonGroup.group:mbHpGroup }
                                 RadioButton { id: mbHp45; text:"x4,5"; checked:true; ButtonGroup.group:mbHpGroup } }
-                            ChangeRow { id: mbAttackRow; label: "Aumentar ataque"
+                            ChangeRow { id: mbAttackRow; label: I18n.s.builder_mb_attack || "Increase attack"
                                 CheckBox { id: mbAttack; checked:mbAttackRow.selected; visible:false }
                                 ButtonGroup { id: mbAtkGroup } RadioButton { id: mbAtk13; text:"x1,3"; ButtonGroup.group:mbAtkGroup }
                                 RadioButton { id: mbAtk16; text:"x1,6"; checked:true; ButtonGroup.group:mbAtkGroup }
                                 RadioButton { id: mbAtk2; text:"x2"; ButtonGroup.group:mbAtkGroup }
                                 RadioButton { id: mbAtk3; text:"x3"; ButtonGroup.group:mbAtkGroup } }
-                            ChangeRow { id: mbScaleRow; label: "Aumentar tamaño"
+                            ChangeRow { id: mbScaleRow; label: I18n.s.builder_mb_scale || "Increase size"
                                 CheckBox { id: mbScale; checked:mbScaleRow.selected; visible:false }
                                 ButtonGroup { id: mbScaleGroup } RadioButton { id: mbScale12; text:"x1,2"; ButtonGroup.group:mbScaleGroup }
                                 RadioButton { id: mbScale16; text:"x1,6"; checked:true; ButtonGroup.group:mbScaleGroup }
                                 RadioButton { id: mbScale2; text:"x2"; ButtonGroup.group:mbScaleGroup } }
-                            CheckBox { id: mbShield; checked:true; text:"Quitar escudo" }
-                            CheckBox { id: mbRewards; checked:true; text:"Agregar recompensas y drops NG+" }
-                            CheckBox { id: mbXp; checked:true; text:"Aumentar XP" }
-                            CheckBox { id: mbPersistent; checked:true; text:"Persistencia de muerte" }
-                            CheckBox { id: mbBossType; checked:true; text:"Tratar como tipo Boss" }
-                            CheckBox { id: mbExecution; checked:true; text:"Inmunidad a ejecución instantánea" }
+                            CheckBox { id: mbShield; checked:true; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
+                            CheckBox { id: mbRewards; checked:true; text: I18n.s.builder_mb_rewards || "Add NG+ rewards and drops" }
+                            CheckBox { id: mbXp; checked:true; text: I18n.s.builder_mb_xp || "Increase XP" }
+                            CheckBox { id: mbPersistent; checked:true; text: I18n.s.builder_mb_persistent || "Persist death state" }
+                            CheckBox { id: mbBossType; checked:true; text: I18n.s.builder_mb_boss_type || "Treat as Boss type" }
+                            CheckBox { id: mbExecution; checked:true; text: I18n.s.builder_mb_execution || "Instant-execution immunity" }
                             Text {
                                 Layout.fillWidth: true; wrapMode: Text.Wrap
                                 text: "ⓘ " + (I18n.s.builder_beta_note || "Mejoras mini-boss (anti-farm + dificultad) — BETA, validá in-game.")
@@ -403,10 +403,10 @@ Item {
                                 Rectangle { radius: 4; color: Theme.warn; implicitWidth: xbeta.width+12; implicitHeight: 18
                                     Text { id: xbeta; anchors.centerIn: parent; text: "BETA"; color: Theme.warnText; font.pixelSize: 10; font.bold: true } }
                             }
-                            CheckBox { id: exAmmo; text: "Munición acumulable: 999" }
-                            CheckBox { id: exConsumables; text: "Consumibles acumulables: 99" }
-                            CheckBox { id: exShieldRegen; text: "Regeneración de escudo aumentada" }
-                            CheckBox { id: exAttackSpeed; text: "Velocidad de ataque x1,3" }
+                            CheckBox { id: exAmmo; text: I18n.s.builder_ex_ammo || "Ammo stack size: 999" }
+                            CheckBox { id: exConsumables; text: I18n.s.builder_ex_consumables || "Consumable stack size: 99" }
+                            CheckBox { id: exShieldRegen; text: I18n.s.builder_ex_shield_regen || "Increased shield regeneration" }
+                            CheckBox { id: exAttackSpeed; text: I18n.s.builder_ex_attack_speed || "Attack speed x1.3" }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTachy }
                                 Text { text: I18n.s.builder_ex_tachy || "Tachy más largo"
@@ -419,8 +419,8 @@ Item {
                                 CheckBox { id: exFall }
                                 Text { text: I18n.s.builder_ex_fall || "Sin daño de caída"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
-                            CheckBox { id: exWater; text: "Sin muerte por agua profunda" }
-                            CheckBox { id: exSand; text: "Sin muerte por arena" }
+                            CheckBox { id: exWater; text: I18n.s.builder_ex_water || "No deep-water death" }
+                            CheckBox { id: exSand; text: I18n.s.builder_ex_sand || "No sand death" }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTachyR }
                                 Text { text: I18n.s.builder_ex_tachyr || "Menos consumo de Tachy"
@@ -429,8 +429,8 @@ Item {
                                 CheckBox { id: exGear }
                                 Text { text: I18n.s.builder_ex_gear || "Engranajes más fuertes (x2)"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
-                            CheckBox { id: exBetaParry; text: "Beta al parry perfecto (sin skill tree)" }
-                            CheckBox { id: exBurstDodge; text: "Burst al dodge perfecto (sin skill tree)" }
+                            CheckBox { id: exBetaParry; text: I18n.s.builder_ex_beta_parry || "Beta on perfect parry (no skill tree)" }
+                            CheckBox { id: exBurstDodge; text: I18n.s.builder_ex_burst_dodge || "Burst on perfect dodge (no skill tree)" }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTumbler }
                                 Text { text: I18n.s.builder_ex_tumbler || "Tumbler: curación base 60%"
