@@ -160,7 +160,11 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             extras=a.get("gameplayExtras") or [],
             harder_mult=float(a.get("harderEnemiesMult", 2.0)),
             gear_mult=float(a.get("strongerGearMult", 2.0)),
-            toml_dir=a.get("customPatchesDir") or None)
+            toml_dir=a.get("customPatchesDir") or None,
+            area_densities=a.get("miniBossRegionDensity"),
+            miniboss_config=a.get("miniBossConfig"),
+            just_mult=float(a.get("forgivingJustMult", 1.5)),
+            air_count=int(a.get("airDodgeCount", 2)))
         for key in ("pak", "ucas", "utoc"):
             shutil.copy2(res[key], paks_dir / Path(res[key]).name)
         paks_out = [res["pakName"]]
@@ -170,6 +174,11 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
         # Multiplicadores de los extras BETA (leidos por los transforms).
         table_compiler.PARAMS["harder_mult"] = float(a.get("harderEnemiesMult", 2.0))
         table_compiler.PARAMS["gear_mult"] = float(a.get("strongerGearMult", 2.0))
+        table_compiler.PARAMS["combat_levels"] = a.get("combatFeatureLevels") or {}
+        table_compiler.PARAMS["economy_levels"] = a.get("combatEconomyLevels") or {}
+        table_compiler.PARAMS["blaster_mult"] = float(a.get("blasterMultiplier", 2.0))
+        table_compiler.PARAMS["just_mult"] = float(a.get("forgivingJustMult", 1.5))
+        table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
         if (set(a.get("gameplayExtras") or []) & build_specs._CT_EXTRAS) and a.get("combatProfile") != "full":
             plan["warnings"].append("ctExtrasNeedCombat")
         results = table_compiler.compile_targets(targets, out_dir / "compile",

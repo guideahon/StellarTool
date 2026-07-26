@@ -119,6 +119,44 @@ def test_miniboss_hp_formula():
     assert mb.gv(row, "ShieldBlock") == 0.0
 
 
+def test_miniboss_independent_stats_and_region_density():
+    import miniboss_builder as mb
+    row = {"Name": "X", "Value": [
+        {"Name": "MaxHP", "Value": 20000, "IsZero": False},
+        {"Name": "MaxShield", "Value": 999, "IsZero": False},
+        {"Name": "ShieldBlock", "Value": 50.0, "IsZero": False},
+        {"Name": "PhysicAttackPower", "Value": 100.0, "IsZero": False},
+        {"Name": "MeshScale", "Value": 1.0, "IsZero": False},
+    ]}
+    mb._buff(row, "ss_ngplus", {
+        "health": True, "healthMultiplier": 3, "attack": False,
+        "scale": True, "scaleMultiplier": 2, "removeShield": False,
+        "rewards": False, "persistent": False, "bossType": False,
+        "executionImmunity": False,
+    })
+    assert mb.gv(row, "MaxHP") == 60000
+    assert mb.gv(row, "MaxShield") == 999
+    assert mb.gv(row, "PhysicAttackPower") == 100.0
+    assert mb.gv(row, "MeshScale") == 2.0
+    rules = mb._area_rules("p20", "allRegions", area_densities={"WLA": 25, "WLB": 0})
+    assert rules["WLA"][0] == 4 and rules["WLB"] == (None, None)
+
+
+def test_qol_can_be_selected_property_group_by_property_group():
+    import extras
+    player = {"Name": "Player", "Value": [
+        {"Name": "StackBullet1", "Value": 1, "IsZero": False},
+        {"Name": "StackConsumable1", "Value": 1, "IsZero": False},
+        {"Name": "ShieldRegenPerSecond", "Value": 1.0, "IsZero": False},
+        {"Name": "ShieldRegenPerSecondWhenBattle", "Value": 1.0, "IsZero": False},
+        {"Name": "AttackSpeed", "Value": 1.0, "IsZero": False},
+    ]}
+    doc = {"Exports": [{"Table": {"Data": [player]}}]}
+    assert extras.ammo_stacks(doc) == 1
+    assert extras._get(player, "StackBullet1") == 999
+    assert extras._get(player, "StackConsumable1") == 1
+
+
 def test_miniboss_density_scales():
     import json
     import miniboss_builder as mb

@@ -38,10 +38,14 @@ COMBAT_FEATURE_TRANSFORMS = {
 
 
 # Extras BETA disponibles en el path combat-only (sin mini-boss).
-_CT_EXTRAS = {"playerQol", "longerTachy", "hpDrain", "harderEnemies"}
+_CT_EXTRAS = {
+    "playerQol", "ammoStacks", "consumableStacks", "shieldRegen", "attackSpeed",
+    "longerTachy", "hpDrain", "harderEnemies",
+}
 _ET_EXTRAS = {
     "noFallDamage", "noEnvDeath", "tachyReduce", "strongerGear",
-    "autoGaugeRecovery", "tumblerHeal",
+    "autoGaugeRecovery", "noWaterDeath", "noSandDeath", "betaParryRecovery",
+    "burstDodgeRecovery", "tumblerHeal",
 }
 _SK_EXTRAS = {"forgivingJust", "extraAirDodge"}   # SkillTable -> pak de combate
 

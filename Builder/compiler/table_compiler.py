@@ -164,7 +164,7 @@ def _blaster_x2(doc, vanilla):
             for field in ("AttackDamageRate", "ShieldAttackDamageRate"):
                 dp = prop(row, field)
                 if dp and numeric(dp.get("Value")):
-                    dp["Value"] = dp["Value"] * 2
+                    dp["Value"] = dp["Value"] * float(PARAMS.get("blaster_mult", 2.0))
                     dp["IsZero"] = False
                     n += 1
     doc.setdefault("_report", {})["blasterRailgunRows"] = n
@@ -172,7 +172,10 @@ def _blaster_x2(doc, vanilla):
 
 # ---- extras BETA como transforms (para el path combat-only / sin mini-boss) ----
 # Parametros mutables leidos por los transforms (los setea compile_targets/caller).
-PARAMS = {"harder_mult": 2.0, "gear_mult": 2.0}
+PARAMS = {
+    "harder_mult": 2.0, "gear_mult": 2.0, "combat_levels": {},
+    "economy_levels": {}, "blaster_mult": 2.0, "just_mult": 1.5, "air_count": 2,
+}
 
 
 # Cambios semánticos del mod histórico. A diferencia de combat.skill.full, estos
@@ -185,7 +188,7 @@ _DRONE_EXCEPTIONS = {
 }
 
 
-def _copy_changed(doc, source, row_pred, prop_pred, report_key):
+def _copy_changed(doc, source, row_pred, prop_pred, report_key, amount=1.0):
     source_rows = {r["Name"]: r for r in rows(source)}
     n = 0
     for row in rows(doc):
@@ -201,32 +204,37 @@ def _copy_changed(doc, source, row_pred, prop_pred, report_key):
                 continue
             source_prop = src_props.get(target_prop["Name"])
             if source_prop is not None and target_prop.get("Value") != source_prop.get("Value"):
-                target_prop["Value"] = source_prop.get("Value")
+                old, new = target_prop.get("Value"), source_prop.get("Value")
+                if numeric(old) and numeric(new) and amount != 1.0:
+                    value = old + (new - old) * amount
+                    new = int(round(value)) if isinstance(old, int) and not isinstance(old, bool) else value
+                target_prop["Value"] = new
                 target_prop["IsZero"] = source_prop.get("IsZero", False)
                 n += 1
     doc.setdefault("_report", {})[report_key] = n
 
 
-def _skill_feature(tid, row_pred, prop_pred=lambda _r, p: p["Name"] in _DAMAGE_PROPS):
+def _skill_feature(tid, key, row_pred, prop_pred=lambda _r, p: p["Name"] in _DAMAGE_PROPS):
     @transform(tid, table="SkillTable", base="vanilla")
     def apply(doc, _vanilla, _rp=row_pred, _pp=prop_pred, _tid=tid):
-        _copy_changed(doc, load_table("SkillTable", "full"), _rp, _pp, _tid)
+        amount = float(PARAMS.get("combat_levels", {}).get(key, 1.0))
+        _copy_changed(doc, load_table("SkillTable", "full"), _rp, _pp, _tid, amount)
 
 
-_skill_feature("combat.betaBurstDamage",
+_skill_feature("combat.betaBurstDamage", "betaBurstDamage",
                lambda r: str(r.get("Name", "")).startswith(("P_Eve_Sword_Beta_", "P_Eve_Sword_Burst_")))
-_skill_feature("combat.droneDamage",
+_skill_feature("combat.droneDamage", "droneDamage",
                lambda r: str(r.get("Name", "")).startswith("P_Eve_Gun_")
                and r.get("Name") not in _DRONE_EXCEPTIONS)
-_skill_feature("combat.dashDamage",
+_skill_feature("combat.dashDamage", "dashDamage",
                lambda r: get(r, "UseableCheckGroup") == "DashAttack")
-_skill_feature("combat.eveDamage",
+_skill_feature("combat.eveDamage", "eveDamage",
                lambda r: str(r.get("Name", "")).startswith("P_Eve_")
                and not str(r.get("Name", "")).startswith(("P_Eve_Gun_", "P_Eve_Sword_Beta_", "P_Eve_Sword_Burst_"))
                and get(r, "UseableCheckGroup") != "DashAttack")
-_skill_feature("combat.enemyDamage",
+_skill_feature("combat.enemyDamage", "enemyDamage",
                lambda r: not str(r.get("Name", "")).startswith("P_Eve_"))
-_skill_feature("combat.perfectDodge",
+_skill_feature("combat.perfectDodge", "perfectDodge",
                lambda r: r.get("Name") in {
                    "P_Eve_Sword_Normal_Evade2_1", "P_Eve_Tachy_Normal_Evade1_1",
                    "P_Eve_Fusion_Normal_Evade1_1",
@@ -242,7 +250,8 @@ def _anti_spam_skill(doc, _vanilla):
     for row_name, values in overrides.items():
         row = idx.get(row_name)
         if row and "CoolTime" in values and get(row, "CoolTime") != values["CoolTime"]:
-            setv(row, "CoolTime", values["CoolTime"])
+            setv(row, "CoolTime", float(PARAMS.get("economy_levels", {}).get(
+                "cooldown", values["CoolTime"])))
             n += 1
     doc.setdefault("_report", {})["combat.cooldown"] = n
 
@@ -251,7 +260,8 @@ def _anti_spam_skill(doc, _vanilla):
 def _tachy_duration(doc, _vanilla):
     _copy_changed(doc, load_table("CharacterTable", "full"),
                   lambda r: r.get("Name") == "Player",
-                  lambda _r, p: p["Name"] == "MaxTachyGauge", "combat.tachyDuration")
+                  lambda _r, p: p["Name"] == "MaxTachyGauge", "combat.tachyDuration",
+                  float(PARAMS.get("combat_levels", {}).get("tachyDuration", 1.0)))
 
 
 @transform("combat.enemyVulnerability", table="CharacterTable", base="vanilla")
@@ -259,7 +269,8 @@ def _enemy_vulnerability(doc, _vanilla):
     _copy_changed(doc, load_table("CharacterTable", "full"),
                   lambda r: r.get("Name") != "Player",
                   lambda _r, p: p["Name"] == "FinalHPDamageReduceRate",
-                  "combat.enemyVulnerability")
+                  "combat.enemyVulnerability",
+                  float(PARAMS.get("combat_levels", {}).get("enemyVulnerability", 1.0)))
 
 
 @transform("combat.antiSpamCharacter", table="CharacterTable", base="vanilla")
@@ -272,7 +283,8 @@ def _anti_spam_character(doc, _vanilla):
 @transform("combat.slowerGain", table="CharacterTable", base="vanilla")
 def _slower_gain(doc, _vanilla):
     player = find(rows(doc), "Player")
-    value = _load_overrides()["CharacterTable"]["Player"]["BetaGaugeAdditiveRate"]
+    value = float(PARAMS.get("economy_levels", {}).get(
+        "slowerGain", _load_overrides()["CharacterTable"]["Player"]["BetaGaugeAdditiveRate"]))
     changed = bool(player and get(player, "BetaGaugeAdditiveRate") != value)
     if changed:
         setv(player, "BetaGaugeAdditiveRate", value)
@@ -285,9 +297,11 @@ def _lower_capacity(doc, _vanilla):
     values = _load_overrides()["CharacterTable"]["Player"]
     n = 0
     if player:
+        selected = PARAMS.get("economy_levels", {}).get("lowerCapacity")
+        capacity = selected if isinstance(selected, dict) else values
         for field in ("MaxBetaGauge", "MaxBurstGauge"):
-            if get(player, field) != values[field]:
-                setv(player, field, values[field])
+            if get(player, field) != capacity[field]:
+                setv(player, field, capacity[field])
                 n += 1
     doc.setdefault("_report", {})["combat.lowerCapacity"] = n
 
@@ -301,6 +315,10 @@ def _reg_extra(tid, table, base, fn_name, module):
             n = fn(doc, PARAMS.get("harder_mult", 2.0))
         elif _f == "stronger_gear":
             n = fn(doc, PARAMS.get("gear_mult", 2.0))
+        elif _f == "forgiving_just":
+            n = fn(doc, PARAMS.get("just_mult", 1.5))
+        elif _f == "extra_air_dodge":
+            n = fn(doc, PARAMS.get("air_count", 2))
         else:
             n = fn(doc)
         doc.setdefault("_report", {})[_f] = n
@@ -309,13 +327,21 @@ def _reg_extra(tid, table, base, fn_name, module):
 
 # CharacterTable (van sobre el pak de combate)
 _reg_extra("extras.playerQol", "CharacterTable", "full", "player_qol", "extras")
+_reg_extra("extras.ammoStacks", "CharacterTable", "full", "ammo_stacks", "extras")
+_reg_extra("extras.consumableStacks", "CharacterTable", "full", "consumable_stacks", "extras")
+_reg_extra("extras.shieldRegen", "CharacterTable", "full", "shield_regen", "extras")
+_reg_extra("extras.attackSpeed", "CharacterTable", "full", "attack_speed", "extras")
 _reg_extra("extras.longerTachy", "CharacterTable", "full", "longer_tachy", "extras")
 _reg_extra("extras.hpDrain", "CharacterTable", "full", "hp_drain", "extras")
 _reg_extra("extras.harderEnemies", "CharacterTable", "full", "harder_enemies", "extras")
 # EffectTable (van sobre el pak de outfit, o sobre uno propio desde vanilla)
 for _tid, _fn in (("noFallDamage", "no_fall_damage"), ("noEnvDeath", "no_environment_death"),
+                  ("noWaterDeath", "no_water_death"), ("noSandDeath", "no_sand_death"),
                   ("tachyReduce", "tachy_reduce"), ("strongerGear", "stronger_gear"),
-                  ("autoGaugeRecovery", "auto_gauge_recovery"), ("tumblerHeal", "tumbler_heal")):
+                  ("autoGaugeRecovery", "auto_gauge_recovery"),
+                  ("betaParryRecovery", "beta_parry_recovery"),
+                  ("burstDodgeRecovery", "burst_dodge_recovery"),
+                  ("tumblerHeal", "tumbler_heal")):
     _reg_extra(f"extras.{_tid}", "EffectTable", "full", _fn, "effect_extras")
     _reg_extra(f"extrasVanilla.{_tid}", "EffectTable", "vanilla", _fn, "effect_extras")
 # SkillTable (sensacion de combate)

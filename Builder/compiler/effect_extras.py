@@ -66,6 +66,16 @@ def no_environment_death(et_doc) -> int:
     return n
 
 
+def no_water_death(et_doc) -> int:
+    row = _idx(et_doc).get("LV_Dead_Ocean")
+    return _neutralize_death(row) if row else 0
+
+
+def no_sand_death(et_doc) -> int:
+    row = _idx(et_doc).get("LV_Dead_DesertSandTrap")
+    return _neutralize_death(row) if row else 0
+
+
 def tachy_reduce(et_doc, value=0.6) -> bool:
     r = _idx(et_doc).get("P_Eve_SkillTree_TachyGaugeReduceConsumeRate")
     return bool(r and _set(r, "CalculationValue", value))
@@ -103,6 +113,18 @@ def auto_gauge_recovery(et_doc) -> int:
         if r and _set(r, "ConditionActive_ConstructorActorAcquisitionAlias", None):
             n += 1
     return n
+
+
+def beta_parry_recovery(et_doc) -> int:
+    idx = _idx(et_doc)
+    return sum(1 for name in ("P_Eve_SkillTree_JustParry_BetaGauge1", "P_Eve_SkillTree_JustParry_BetaGauge2")
+               if idx.get(name) and _set(idx[name], "ConditionActive_ConstructorActorAcquisitionAlias", None))
+
+
+def burst_dodge_recovery(et_doc) -> int:
+    idx = _idx(et_doc)
+    return sum(1 for name in ("P_Eve_SkillTree_JustEvade_BurstGauge1", "P_Eve_SkillTree_JustEvade_BurstGauge2")
+               if idx.get(name) and _set(idx[name], "ConditionActive_ConstructorActorAcquisitionAlias", None))
 
 
 def tumbler_heal(et_doc, value=60.0) -> bool:

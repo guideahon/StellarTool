@@ -53,12 +53,17 @@ Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
 
 ### Stellar Souls Builder
 
-La página **Build mod** compila un Stellar Souls personalizado por cambio:
+La página **Build Stellar Souls** compila un Stellar Souls personalizado por cambio:
 daño Beta/Burst, drones, dash, ataques de EVE, daño/vulnerabilidad de enemigos,
 perfect dodge, duración de Tachy, economía de gauges, Blaster Cell, outfit,
 mini-bosses y extras independientes. Los cambios que pisan la misma mecánica
 se presentan como radios visibles de selección exclusiva; los combinables usan
-checks. El cuestionario no usa menús desplegables.
+checks. **Full**, **First Run** y **NG+** son solamente presets que preseleccionan
+controles: no ocultan ni bloquean cambios. Daño, gauges y otros valores graduables
+ofrecen niveles visibles; los mini-bosses permiten densidad independiente por
+región y configuración separada de vida, ataque, tamaño, escudo, drops, XP,
+persistencia, tipo Boss e inmunidad a ejecución. El cuestionario no usa menús
+desplegables.
 La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicación.
 
 ## Modo headless (CLI)

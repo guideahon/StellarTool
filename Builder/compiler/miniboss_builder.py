@@ -89,7 +89,9 @@ def area_for_zone(zone):
     return s.split("_")[1] if s.startswith("Zone_") else None
 
 
-def _buff(r, reward_group):
+def _buff(r, reward_group, config=None):
+    legacy = config is None
+    config = config or {}
     def mul(n, m, i=False):
         p = prop(r, n)
         if p and isinstance(p.get("Value"), (int, float)):
@@ -98,27 +100,33 @@ def _buff(r, reward_group):
     # 1.31.1 (build_ngplus_corrected + remove_miniboss_shield_hp15):
     # HP = max(round(base*3), 40000), luego *1.5. El floor va ANTES del *1.5.
     p = prop(r, "MaxHP")
-    if p and isinstance(p.get("Value"), (int, float)):
+    if config.get("health", True) and p and isinstance(p.get("Value"), (int, float)):
         base_hp = p["Value"]
-        stepped = max(int(round(base_hp * 3)), HP_FLOOR)
-        p["Value"] = int(round(stepped * 1.5))
+        hp_mult = float(config.get("healthMultiplier", 4.5))
+        p["Value"] = (int(max(round(base_hp * 3), HP_FLOOR) * 1.5) if legacy
+                      else max(int(round(base_hp * hp_mult)), HP_FLOOR))
     # 1.31.1 (derivado empiricamente de datos shipped): shield y block a 0.
-    sv(r, "MaxShield", 0)
-    mul("PhysicAttackPower", 1.6)
-    mul("RangeAttackPower", 1.6)
-    sv(r, "ShieldBlock", 0.0)
+    if config.get("removeShield", True):
+        sv(r, "MaxShield", 0)
+        sv(r, "ShieldBlock", 0.0)
+    if config.get("attack", True):
+        attack_mult = float(config.get("attackMultiplier", 1.6))
+        mul("PhysicAttackPower", attack_mult)
+        mul("RangeAttackPower", attack_mult)
     p = prop(r, "MeshScale")
-    if p and isinstance(p.get("Value"), (int, float)):
-        p["Value"] = min(p["Value"] * 1.6, 3.0)
-    sv(r, "RewardGroupAlias", reward_group)
-    sv(r, "RewardSpawnBucketType", "ESBItemBucketType_World")
-    sv(r, "RewardFormationAssetPath", "None")
-    sv(r, "RewardOverrideSaveType", "ESBItemOverrideSaveType_Save")
+    if config.get("scale", True) and p and isinstance(p.get("Value"), (int, float)):
+        p["Value"] = min(p["Value"] * float(config.get("scaleMultiplier", 1.6)), 3.0)
+    if config.get("rewards", True):
+        sv(r, "RewardGroupAlias", reward_group)
+        sv(r, "RewardSpawnBucketType", "ESBItemBucketType_World")
+        sv(r, "RewardFormationAssetPath", "None")
+    if config.get("persistent", True):
+        sv(r, "RewardOverrideSaveType", "ESBItemOverrideSaveType_Save")
     p = prop(r, "ActorType")
-    if p:
+    if config.get("bossType", True) and p:
         p["Value"] = "ActorType_BossMonster"
     p = prop(r, "SpawnEffectList")
-    if p is not None:
+    if config.get("executionImmunity", True) and p is not None:
         if not isinstance(p.get("Value"), list):
             p["Value"] = []
         if not any(isinstance(e, dict) and e.get("Value") == MARK for e in p["Value"]):
@@ -140,7 +148,13 @@ def _progressive_factor(area):
     return 1.3 - 0.8 * frac  # 1.3 (early) -> 0.5 (late)
 
 
-def _area_rules(density, region, difficulty="flat"):
+def _area_rules(density, region, difficulty="flat", area_densities=None):
+    if area_densities is not None:
+        rules = {}
+        for area, (_denom, loot) in AREA_RULES_BASE.items():
+            pct = int(area_densities.get(area, 0) or 0)
+            rules[area] = ((max(1, int(round(100 / pct))), loot) if pct > 0 else (None, None))
+        return rules
     factor = DENSITY_FACTOR.get(density, 1.0)
     rules = {}
     for area, (denom, loot) in AREA_RULES_BASE.items():
@@ -252,7 +266,8 @@ def _apply_variety(esd, ES, ct_names, spawns, converted_ids, named):
 
 
 def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allRegions",
-               difficulty="flat", variety=False, extras=None, harder_mult=2.0):
+               difficulty="flat", variety=False, extras=None, harder_mult=2.0,
+               area_densities=None, miniboss_config=None):
     """Muta combat_ct y event_spawn con clones `<arch>_MB` + subset de spawns.
 
     Esquema 1.31.1: UN clone por arquetipo de combate distinto que aparece en
@@ -261,7 +276,7 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
     hace las zonas tardias mas densas. Spawns respawneables se EXCLUYEN (anti-farm).
     Devuelve reporte {clones, conv, byArea, skippedRespawn}.
     """
-    rules = _area_rules(density, region, difficulty)
+    rules = _area_rules(density, region, difficulty, area_densities)
     ctd, esd = combat_ct, event_spawn
     CT, ES = R(ctd), R(esd)
     ctnames = {r["Name"] for r in CT}
@@ -310,7 +325,7 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
         # 1.31.1: ss_ngplus por defecto; 74 arquetipos usan elite groups por area
         # (mapa exacto derivado de shipped en miniboss_reward_groups.json).
         group = _REWARD_GROUPS.get(a, "ss_ngplus")
-        _buff(nw, group)
+        _buff(nw, group, miniboss_config)
         CT.append(nw)
         clones[a] = mbn
         newnames.extend([mbn, group])
@@ -338,7 +353,7 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
             if i % denom == 0:
                 el["Value"] = clones[a]
                 converted_ids.add(id(el))
-                if area in AREA_XP_GROUP:
+                if (miniboss_config or {}).get("xpRewards", True) and area in AREA_XP_GROUP:
                     sv(r, "RewardGroup", AREA_XP_GROUP[area])
                 conv += 1
                 by_area[area] += 1
@@ -442,7 +457,7 @@ def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0):
     return rep
 
 
-def _apply_skill_extras_pass(data_dir, extras):
+def _apply_skill_extras_pass(data_dir, extras, just_mult=1.5, air_count=2):
     """tojson SkillTable.uasset -> skill_extras -> fromjson (solo si aplica)."""
     import json
     import subprocess
@@ -462,7 +477,7 @@ def _apply_skill_extras_pass(data_dir, extras):
     subprocess.run([str(uag), "tojson", str(sk), str(tj), "VER_UE4_26", str(usmap)],
                    capture_output=True, text=True, timeout=900)
     doc = json.loads(tj.read_text(encoding="utf-8"))
-    rep = skill_extras.apply_skill_extras(doc, sel)
+    rep = skill_extras.apply_skill_extras(doc, sel, just_mult, air_count)
     tj.write_text(json.dumps(doc), encoding="utf-8")
     subprocess.run([str(uag), "fromjson", str(tj), str(sk), "StellarBlade"],
                    capture_output=True, text=True, timeout=900)
@@ -587,7 +602,9 @@ def _repair_namemap(doc):
 
 def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result=True,
                      outfit=True, difficulty="flat", faithful=False, variety=False,
-                     extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0):
+                     extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0,
+                     area_densities=None, miniboss_config=None,
+                     just_mult=1.5, air_count=2):
     """Compila el pak mini-boss completo (10 tablas) a work_dir. Devuelve dict.
 
     Por defecto usa build_core -> incluye el fix anti-farm (excluye spawns
@@ -625,7 +642,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     ctd = json.loads((_SSMOD / "combatCT.json").read_text(encoding="utf-8"))
     esd = json.loads((_SSMOD / "EventSpawnTable.json").read_text(encoding="utf-8"))
     report = build_core(ctd, esd, density=density, region=region, difficulty=difficulty,
-                        variety=variety, extras=extras, harder_mult=harder_mult)
+                        variety=variety, extras=extras, harder_mult=harder_mult,
+                        area_densities=area_densities, miniboss_config=miniboss_config)
 
     import shutil
     uassets = []
@@ -647,7 +665,7 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     eff = _apply_effect_extras_pass(work_dir, extras, gear_mult)
     if eff:
         report["effectExtras"] = eff
-    skx = _apply_skill_extras_pass(work_dir, extras)
+    skx = _apply_skill_extras_pass(work_dir, extras, just_mult, air_count)
     if skx:
         report["skillExtras"] = skx
     if toml_dir:  # patches TOML del usuario (opcional) sobre los uassets

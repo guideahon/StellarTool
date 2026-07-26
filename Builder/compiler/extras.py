@@ -60,6 +60,29 @@ def player_qol(ct_doc) -> int:
     return n
 
 
+def _qol_fields(ct_doc, fields) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    if not player:
+        return 0
+    return sum(1 for name in fields if _set(player, name, _QOL_VALUES[name]))
+
+
+def ammo_stacks(ct_doc) -> int:
+    return _qol_fields(ct_doc, [x for x in _QOL_VALUES if x.startswith("StackBullet")])
+
+
+def consumable_stacks(ct_doc) -> int:
+    return _qol_fields(ct_doc, [x for x in _QOL_VALUES if x.startswith("StackConsumable")])
+
+
+def shield_regen(ct_doc) -> int:
+    return _qol_fields(ct_doc, ["ShieldRegenPerSecond", "ShieldRegenPerSecondWhenBattle"])
+
+
+def attack_speed(ct_doc) -> int:
+    return _qol_fields(ct_doc, ["AttackSpeed"])
+
+
 def longer_tachy(ct_doc, gauge=18000) -> bool:
     player = _find(_rows(ct_doc), "Player")
     return bool(player and _set(player, "MaxTachyGauge", gauge))
