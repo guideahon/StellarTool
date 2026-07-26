@@ -39,10 +39,27 @@ set ZIP=%OUTDIR%\StellarTool-%VERSION%.zip
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 if exist "%ZIP%" del /f /q "%ZIP%"
 
+REM Stage: exe+Qt (raiz) + Builder\ (motor + Python embebido + vendor). Se
+REM excluye oo2core (Oodle propietario; se toma del juego en runtime), pycache y
+REM la carpeta output temporal.
+set STAGE=%~dp0build\pkg_stage
+if exist "%STAGE%" rmdir /s /q "%STAGE%"
+mkdir "%STAGE%"
+echo [INFO] Copiando build\Release...
+robocopy "%SRC%" "%STAGE%" /E /NFL /NDL /NJH /NJS /NP ^
+   /XF qmlout.txt qmlerr.txt >nul
+if exist "%~dp0Builder" (
+  echo [INFO] Copiando Builder...
+  robocopy "%~dp0Builder" "%STAGE%\Builder" /E /NFL /NDL /NJH /NJS /NP ^
+     /XF oo2core_9_win64.dll *.pyc /XD __pycache__ output >nul
+) else (
+  echo [WARN] no existe Builder\; el zip saldra sin la pestana "Build mod".
+)
+
 echo [INFO] Comprimiendo %ZIP% ...
-REM Empaqueta el contenido de build\Release en la raiz del zip (bsdtar de Windows).
-tar -a -c -f "%ZIP%" -C "%SRC%" .
+tar -a -c -f "%ZIP%" -C "%STAGE%" .
 if errorlevel 1 ( echo [ERROR] zip fallo & goto :fail )
+rmdir /s /q "%STAGE%"
 
 for %%A in ("%ZIP%") do set ZSIZE=%%~zA
 echo.

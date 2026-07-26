@@ -1,0 +1,13 @@
+Version 0.3.8
+
+- Zen mods can now add complete DataTable rows. Nested empty FName values are
+  normalized safely and all new names are registered before serialization.
+- Scalar arrays can now be populated when the vanilla array is empty. Element
+  wrappers are reconstructed from the ArrayType metadata.
+- Zen mods can now remove rows intentionally. A safety guard blocks removals
+  when one mod unexpectedly loses more than 25% of a vanilla table, preventing
+  a truncated export from becoming a destructive merge.
+- Added regression coverage for new rows, empty-base arrays, normal row
+  removals and suspicious mass row loss.
+- Updated the Nexus documentation to reflect the expanded Zen write-back
+  support.

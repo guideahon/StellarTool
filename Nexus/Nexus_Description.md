@@ -26,7 +26,7 @@ Reading Zen/IoStore mods
 
 Most Stellar Blade mods ship as Zen containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (it auto-detects Steam) and it can analyze and diff Zen mods against vanilla. Legacy .pak, .zip and loose .uasset folders work too.
 
-When merging Zen mods, numbers, text, enums, arrays and object fields (HP, damage, shields, multipliers, skill aliases, actor states, combo lists...) are written back and verified. The one thing still skipped on write is adding or removing whole rows - those don't round-trip into a Zen container yet - and the tool reports exactly how many were skipped. Nothing is silent.
+When merging Zen mods, numbers, text, enums, arrays, object fields and whole rows are written back and verified. New rows are reconstructed safely, scalar arrays work even when vanilla starts empty, and intentional row removals are supported. As protection against a truncated CUE4Parse export, mass removals are blocked when one mod unexpectedly loses more than 25% of a vanilla table. Nothing is silent.
 
 If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version in one click, or load your own - no need to wait for a new release.
 

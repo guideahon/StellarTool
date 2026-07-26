@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
     if (headless) {
         attachParentConsole();
         QCoreApplication app(argc, argv);
+        app.setApplicationVersion(QStringLiteral(STELLAR_TOOL_VERSION));
         app.setOrganizationName(QStringLiteral("StellarTool"));
         app.setApplicationName(QStringLiteral("StellarTool"));
 
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless analyze --mod <ruta>... [--baseline <dir>]\n"
             "  StellarTool --headless merge   --mod <ruta>... --out <dir> [--baseline <dir>] [--prefer <mod>]"));
         parser.addHelpOption();
+        parser.addVersionOption();
         parser.addOption({QStringLiteral("headless"), QStringLiteral("Modo sin UI")});
         parser.addOption({QStringLiteral("mod"), QStringLiteral("Mod a cargar (.pak/.zip/carpeta); repetible. El primero tiene prioridad."), QStringLiteral("ruta")});
         parser.addOption({QStringLiteral("out"), QStringLiteral("Carpeta destino del pak mergeado"), QStringLiteral("dir")});
@@ -84,6 +86,7 @@ int main(int argc, char *argv[]) {
     }
 
     QGuiApplication app(argc, argv);
+    app.setApplicationVersion(QStringLiteral(STELLAR_TOOL_VERSION));
     app.setOrganizationName(QStringLiteral("StellarTool"));
     app.setApplicationName(QStringLiteral("StellarTool"));
     app.setWindowIcon(QIcon(QStringLiteral(":/assets/app_icon.png")));

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(StellarTool VERSION 0.3.7 LANGUAGES CXX)
+project(StellarTool VERSION 0.3.8 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -84,6 +84,7 @@ qt_add_resources(StellarTool "audio"
 
 target_include_directories(StellarTool PRIVATE src)
 target_link_libraries(StellarTool PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Multimedia Qt6::Network)
+target_compile_definitions(StellarTool PRIVATE STELLAR_TOOL_VERSION="${PROJECT_VERSION}")
 set_target_properties(StellarTool PROPERTIES WIN32_EXECUTABLE TRUE)
 
 if (BUILD_TESTS)

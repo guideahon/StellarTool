@@ -1,6 +1,6 @@
 # Pendientes y cosas probadas
 
-Estado al 2026-07-26 (v0.3.7). Qué falta, qué se intentó y con qué evidencia.
+Estado al 2026-07-26 (v0.3.8). Qué falta, qué se intentó y con qué evidencia.
 Para el problema de escritura de mods Zen en detalle:
 [ZEN_WRITE_BACK.md](ZEN_WRITE_BACK.md).
 
@@ -129,9 +129,9 @@ destrabó el problema fue instrumentar **qué difería exactamente** en el verif
 
 ## 6. Comunicación pendiente
 
-- Publicar **0.3.7** y avisar que los arrays ya se mergean (a **manakaiser**,
-  que lo pidió, y en el hilo de **MrZzzzzzzzzzzzz**).
-- Los textos de Nexus ya están actualizados para 0.3.7 (`Nexus/`).
+- Publicar **0.3.8** y avisar que filas nuevas/borradas y arrays con base vacía
+  ya se mergean (a **manakaiser** y en el hilo de **MrZzzzzzzzzzzzz**).
+- Los textos y el changelog de Nexus están actualizados para 0.3.8 (`Nexus/`).
 
 ---
 
