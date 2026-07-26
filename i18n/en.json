@@ -154,7 +154,7 @@
   "merge_ok": "OK: merged pak generated and verified in %1.",
   "merge_err": "Error: %1",
   "merge_skipped_note": "(%1 array/object changes from Zen mods were skipped: those don't round-trip reliably yet. Numbers, text and enums are merged.)",
-  "nav_builder": "Build mod",
+  "nav_builder": "Build Stellar Souls",
   "builder_title": "Build your mod",
   "builder_q_combat": "Combat profile",
   "builder_combat_full": "Full",
