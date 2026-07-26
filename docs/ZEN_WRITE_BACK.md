@@ -109,7 +109,7 @@ excluye del merge en vez de escribirse mal.
 
 ## Qué NO está resuelto
 
-### Filas enteras nuevas o quitadas (`RowAdded` / `RowRemoved`)
+### Filas enteras nuevas (`RowAdded`)
 
 Se reconstruyen correctamente (`buildRowFromTemplate`, usando otra fila de la
 tabla como plantilla — todas comparten el struct), pero UAssetAPI rechaza el
@@ -127,6 +127,21 @@ Impacto: ~63 de los 66 skipped restantes en el mod de prueba son filas nuevas.
 **Es el próximo objetivo obvio.** El siguiente paso concreto: instrumentar
 `fillTemplate` para volcar cada string vacío que se escriba junto con el `$type`
 de su propiedad, y ver dónde queda uno sin convertir a `null`.
+
+### Filas quitadas (`RowRemoved`)
+
+Se saltean, pero **no por una limitación real**: borrar una fila no requiere
+reconstruir nada. Sólo está bloqueado por el rechazo en bloque de todo lo que no
+sea `Modified`.
+
+Se creyó que era ambiguo ("¿el mod la borró o simplemente no la trae?") y **es
+falso**: un override de DataTable en UE reemplaza el asset entero, así que la
+tabla del mod viene completa. Verificado sobre el mod de prueba —
+SkillCommandTable 1440 filas vanilla → 1503 del mod, **0 faltantes**;
+EffectTable 4227 → 4227. Una fila ausente sería un borrado real.
+
+Salvedad al habilitarlo: si CUE4Parse fallara al exportar filas, se borrarían por
+error. Conviene un guard de cordura antes de aplicar borrados.
 
 ### Arrays con base vacía
 Si vanilla tiene `[]` y el mod agrega elementos, no hay elemento de molde del

@@ -8,7 +8,7 @@ Para el problema de escritura de mods Zen en detalle:
 
 ## 1. Bloqueante técnico abierto
 
-### Filas nuevas / quitadas en mods Zen  — **el pendiente principal**
+### Filas nuevas (`RowAdded`) en mods Zen  — **el pendiente principal**
 
 Es el grueso de lo que todavía se saltea: ~63 de los 66 `skipped` del mod de
 prueba.
@@ -27,13 +27,33 @@ prueba.
   cada string vacío que escriba junto al `$type` de su propiedad y su path;
   correr el merge; ver cuál queda sin convertir.
 
+### Filas borradas (`RowRemoved`) en mods Zen
+
+- **Estado**: se saltean. **Es el más fácil de los tres**: borrar una fila no
+  requiere reconstruir nada (`rows.removeAt`), sólo está bloqueado por el
+  rechazo en bloque de todo lo que no sea `Modified` en `writableClean`.
+- **No es ambiguo** (se creía que sí, y era falso). Verificado sobre el mod de
+  prueba: la tabla del mod trae **todas** las filas de vanilla más las nuevas
+  (SkillCommandTable 1440 → 1503, faltantes 0; EffectTable 4227 → 4227). En UE
+  un override de DataTable reemplaza el asset entero, así que una fila ausente
+  en la tabla del mod es un borrado real del autor.
+- **Salvedad**: eso asume que la tabla del mod siempre viene completa. Si
+  CUE4Parse fallara al exportar algunas filas, habilitarlo las borraría por
+  error. Conviene un guard de cordura (no aplicar borrados si al mod le falta
+  una fracción sospechosa de las filas de vanilla).
+- No aparece en el mod de prueba (0 casos), pero va a aparecer con otros.
+
 ### Arrays cuya base vanilla está vacía
 
-- **Estado**: se saltean (2 casos en el mod de prueba).
+- **Estado**: se saltean (3 casos: 1 en EffectTable, 2 en SkillCommandTable).
 - **Causa**: si vanilla tiene `[]` no hay elemento de molde del que sacar
   `$type` para los elementos nuevos.
 - **No intentado**: sintetizar el elemento desde el `ArrayType` del propio
-  `ArrayPropertyData` (p. ej. `"NameProperty"` → `NamePropertyData`).
+  `ArrayPropertyData` (p. ej. `"NameProperty"` → `NamePropertyData`) más los
+  campos estándar del wrapper (`ArrayIndex`, `PropertyGuid: null`,
+  `IsZero: false`, `PropertyTagFlags: "None"`, `PropertyTagExtensions:
+  "NoExtension"`). Si el `ArrayType` es `StructProperty` no alcanza: haría falta
+  además el layout del struct.
 
 ---
 
@@ -61,8 +81,6 @@ conflictos que no salta, scrollbars, botón de analizar.
 - **Import de TOML necesita baseline**: si la fila no existe en vanilla, el merge
   corta con "Fila no existe". Esperado.
 - **Export de TOML solo escalares**: arrays/objetos no se exportan como literal.
-- **`RowRemoved` de mods Zen**: no se soporta y probablemente no debería — no hay
-  forma de distinguir "el mod borró la fila" de "el mod no la trae".
 - **Una tabla con 0 cambios aplicados no se emite**: decisión deliberada, si no
   el pak mergeado (prioridad `zzz_`) pisaría al mod de origen con vanilla.
 
@@ -130,6 +148,6 @@ Referencia actual con `zzz_AllSpecialAllStepsBlockMoveFirst_V78_P` (2225 cambios
 CharacterTable:        2 applied,  0 skipped
 EffectTable:          44 applied,  1 skipped
 SkillActiveStepTable: 1937 applied, 0 skipped
-SkillCommandTable:    35 applied, 65 skipped   <- las 63 filas nuevas + 2 arrays vacíos
+SkillCommandTable:    35 applied, 65 skipped   <- 63 filas nuevas + 2 arrays de base vacía
 SkillTable:          141 applied,  0 skipped
 ```
