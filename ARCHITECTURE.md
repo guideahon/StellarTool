@@ -106,7 +106,9 @@ Componentes reutilizables en `qml/components` (Card, SectionHeader). `Theme.qml`
 Los cambios independientes son booleanos; las alternativas que modifican la
 misma mecánica (perfil, economía Beta/Burst, región/densidad/dificultad) son
 selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
-solamente los subconjuntos elegidos desde las bases autoritativas del mod.
+solamente los subconjuntos elegidos desde las bases autoritativas del mod. El
+idioma de la guía de instalación se toma de `I18n.language`; no se configura
+por separado dentro del Builder.
 
 ## 6. Manejo de errores
 

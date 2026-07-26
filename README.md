@@ -58,6 +58,7 @@ daño Beta/Burst, drones, dash, ataques de EVE, daño/vulnerabilidad de enemigos
 perfect dodge, duración de Tachy, economía de gauges, Blaster Cell, outfit,
 mini-bosses y extras independientes. Los cambios que pisan la misma mecánica
 se presentan como una única selección exclusiva; los combinables usan checks.
+La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicación.
 
 ## Modo headless (CLI)
 

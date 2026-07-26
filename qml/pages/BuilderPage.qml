@@ -65,7 +65,6 @@ Item {
         tomlField.text = a.customPatchesDir || ""
         if (a.helperMode) helper.currentIndex = helper.indexOfValue(a.helperMode)
         if (a.helperIntervalSeconds) interval.value = a.helperIntervalSeconds
-        if (a.lang) lang.currentIndex = Math.max(0, lang.find(a.lang))
     }
     function toFolderUrl(txt) {
         if (txt.length === 0) return ""
@@ -410,13 +409,6 @@ Item {
                             SpinBox { id: interval; from: 5; to: 600; value: 30; Layout.preferredWidth: 140 }
                         }
 
-                        FieldLabel { text: I18n.s.builder_q_lang || "Idioma" }
-                        FieldCombo {
-                            id: lang
-                            Layout.preferredWidth: 220
-                            model: ["es","en","fr","it","de","ja","ko","pt_BR","ru","zh_Hans"]
-                        }
-
                         FieldLabel { text: I18n.s.builder_out || "Carpeta de salida del ZIP" }
                         RowLayout {
                             spacing: 8; Layout.fillWidth: true
@@ -510,7 +502,7 @@ Item {
                             customPatchesDir: tomlField.text,
                             helperMode: helper.currentValue,
                             helperIntervalSeconds: interval.value,
-                            lang: lang.currentText
+                            lang: I18n.language
                         }
                         root.resultZip = ""
                         App.runBuilder(JSON.stringify(a), toFolderUrl(outField.text),
