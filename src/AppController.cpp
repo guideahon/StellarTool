@@ -486,9 +486,9 @@ QString AppController::runMerge(const QString &outDir) {
 
         // Aplica, escribe el JSON, genera el uasset y verifica el round-trip.
         // Devuelve vacío si salió bien, o el motivo del fallo.
-        auto tryBuild = [&](bool allowCleanRowAdd, MergeEngine::Result &res) -> QString {
+        auto tryBuild = [&](MergeEngine::Result &res) -> QString {
             base = vanilla;
-            res = MergeEngine::applyToTable(base, it.value(), allowCleanRowAdd);
+            res = MergeEngine::applyToTable(base, it.value());
             if (!res.ok) return res.error;
             if (res.applied == 0) return {};   // no se escribe nada (ver abajo)
             QFile jf(mergedJson);
@@ -513,18 +513,11 @@ QString AppController::runMerge(const QString &outDir) {
             return {};
         };
 
-        // 1er pase con las filas nuevas de mods Zen (reconstruidas desde una
-        // plantilla); si no sobreviven el round-trip, reintento sin ellas para
-        // no perder el resto de la tabla.
         MergeEngine::Result res;
-        if (!tryBuild(true, res).isEmpty()) {
-            const QString err2 = tryBuild(false, res);
-            if (!err2.isEmpty())
-                return tr("Verificación falló: %1 %2. Tabla excluida del merge; "
-                          "reportar el caso.").arg(gamePath, err2);
-            report << QStringLiteral("    -> first attempt did not round-trip; "
-                                     "retried without new rows from Zen mods");
-        }
+        const QString buildErr = tryBuild(res);
+        if (!buildErr.isEmpty())
+            return tr("Verificación falló: %1 %2. Tabla excluida del merge; "
+                      "reportar el caso.").arg(gamePath, buildErr);
         m_lastSkipped += res.skipped;
         report << QStringLiteral("  %1: %2 applied, %3 skipped")
                       .arg(tableBase).arg(res.applied).arg(res.skipped);

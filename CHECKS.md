@@ -60,3 +60,19 @@ Checklist de aceptación. Marcar al completar; cada ítem debe ser demostrable (
 - [ ] MergeEngine mantiene round-trip fiel (test de verificación pasa).
 - [ ] Tests unitarios corren sin binarios externos ni archivos del juego.
 - [ ] Ninguna operación escribe/borra archivos fuera de: dir temporal, cache LOCALAPPDATA, destino elegido por el usuario.
+- [ ] Ningún fallo de herramienta externa queda mudo: siempre hay motivo visible + log.
+- [ ] Ninguna tabla se emite al pak si no aplicó ningún cambio (pisaría al mod de origen con vanilla).
+
+## Al tocar la escritura de uassets (MergeEngine / UAssetService)
+
+Leer primero [ARCHITECTURE.md §7](ARCHITECTURE.md) — trampas ya pagadas.
+
+- [ ] **Matar instancias colgadas de UAssetGUI antes de cada prueba.** Una GUI
+      abierta hace fallar corridas válidas y vuelve los resultados no reproducibles.
+- [ ] Si `fromjson` falla: **leer el portapapeles**, ahí está el stack trace real.
+- [ ] Todo FName nuevo (texto/enum) queda registrado en el `NameMap` del asset.
+- [ ] Escribir un número sobre el `"+0"` de UAssetGUI sigue funcionando (test
+      `writesOverUAssetGuiFloatZero`).
+- [ ] Medir contra un mod Zen real **antes y después**: comparar
+      `applied`/`skipped` por tabla en `merge_report.txt`. Una mejora que no
+      mueve esos números no justifica su costo.

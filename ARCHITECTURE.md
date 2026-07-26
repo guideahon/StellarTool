@@ -107,7 +107,89 @@ Componentes reutilizables en `qml/components` (Card, SectionHeader, tema oscuro 
 - Cada paso externo (repak/UAssetGUI) reporta por-asset: un uasset que no convierte no aborta la ingesta; se lista como "no analizable" y se ofrece modo AssetReplaced.
 - Merge escribe siempre a pak nuevo `zzz_StellarTool_Merged.pak` (prefijo `zzz` gana por orden alfabético); nunca modifica los mods de origen.
 - Verificación post-merge: reabrir el pak generado, tojson, re-diff contra el MergePlan; discrepancia = error visible antes de instalar.
+- Las herramientas externas pueden fallar **sin imprimir nada**: ver §7. Todo
+  fallo de UAssetGUI deja un log en `%LOCALAPPDATA%/StellarTool/logs/` con
+  comando, código de salida, salida de consola y el error real; en `fromjson`
+  también se guarda el JSON de entrada al lado. Es lo primero que hay que pedir
+  en un reporte de usuario.
+- El importador **encola** los mods: agregar varios llama `addMod` en ráfaga y
+  descartar los que llegan mientras hay otra importación en curso perdía mods en
+  silencio.
 
-## 7. Build
+## 7. Escribir uassets: lo que aprendimos a los golpes
+
+Todo esto salió de depurar fallos reales reportados por usuarios. Son trampas
+que no están documentadas en ningún lado y que cuestan horas si se re-descubren.
+
+### UAssetGUI reporta sus errores por el PORTAPAPELES
+
+No los imprime. Ante una excepción **copia el stack trace al clipboard y sale
+con código 0 sin generar el archivo**. Por eso todo fallo se veía mudo
+("UAssetGUI no produjo el uasset esperado", sin más). `UAssetService` recupera
+ese texto (solo si parece un stack trace de UAssetAPI) y lo mete en el error y
+en el log de `%LOCALAPPDATA%/StellarTool/logs/`.
+
+Corolario para depurar a mano: si `fromjson` falla, **leé el portapapeles**.
+
+### Los FName nuevos deben estar en el NameMap
+
+UAssetAPI trata cualquier FName ausente del `NameMap` del asset como "dummy" y
+al escribir tira `DummyFNameSerializationException`. Cualquier valor de texto o
+enum nuevo lo dispara. `MergeEngine::registerFNames` agrega los que falten de
+las filas tocadas. Agregar nombres de más es inocuo: UAssetGUI recalcula
+`NamesReferencedFromExportDataCount` al escribir (verificado).
+
+### El float cero se serializa como el STRING `"+0"`
+
+UAssetGUI escribe el cero flotante como `"+0"`/`"-0"`, no como `0`. La
+normalización del diff lo pasa a `0`, así que al escribir un número encima los
+tipos no coinciden y el cambio se rechazaba. Era **la causa dominante** de los
+cambios "no escribibles": bloqueaba a todo mod que activa algo que en vanilla
+vale cero (HP drain, bonuses). Ver `isFloatZeroString`.
+
+### Pasar el usmap por RUTA, no por nombre
+
+`fromjson <json> <uasset> <mappings>` acepta un nombre sólo si el `.usmap` está
+en `%LOCALAPPDATA%/UAssetGUI/Mappings`. Pasar la ruta del archivo evita esa
+dependencia por completo (`tojson` siempre lo hizo así).
+
+### Una tabla sin cambios aplicados NO se emite
+
+El pak mergeado carga con prioridad máxima (`zzz_`). Si una tabla termina con 0
+cambios aplicados, empaquetarla significa escribir una copia de vanilla que
+**pisa al mod de origen**: para el usuario la tabla "desaparece". `runMerge` la
+deja fuera y lo dice en el resultado y en `merge_report.txt`.
+
+### Lo que no round-tripea (limitación abierta)
+
+Para mods **Zen** (leídos con CUE4Parse, `clean=true`) se escriben números,
+strings y enums. Siguen sin soportarse:
+
+- **Filas enteras nuevas o quitadas.**
+- **Arrays y referencias a objetos.**
+
+Se intentó reconstruir la forma cruda usando otra fila/propiedad de la misma
+tabla como plantilla (`fillTemplate`, `buildRowFromTemplate`,
+`addPropFromTemplate` — el código quedó porque `addPropFromTemplate` sí sirve
+para propiedades que vanilla omite). La reconstrucción **se aplica bien y
+produce JSON válido**, pero el uasset resultante no sobrevive el verify
+round-trip. La causa está dentro del serializador de UAssetAPI y no se
+identificó. Medido sobre un mod Zen real: habilitarlo daba **cero** cambios
+aplicados de más y costaba un pase completo de `fromjson`+verify sobre tablas de
+cientos de MB, así que está deshabilitado a propósito.
+
+Dato adicional sin explicar: el asset vanilla referencia ~325 FName que **no
+están** en su propio NameMap y aun así se escribe bien, o sea que UAssetAPI
+resuelve nombres por otra vía además del NameMap local.
+
+### Trampa al depurar: instancias colgadas de UAssetGUI
+
+Es una app GUI. Si queda una instancia abierta (por ejemplo al ejecutarla sin
+argumentos), las corridas siguientes fallan **incluso con entradas válidas** y
+los resultados no son reproducibles. Matá el proceso antes de cada prueba. Sus
+`qWarning`/stderr tampoco se capturan desde el modo headless: para depurar hay
+que escribir a archivo.
+
+## 8. Build
 
 CMake + Qt 6.4+ (Core, Quick, Concurrent, Widgets), C++17, mismo esqueleto de `build.bat Release NOPAUSE` / `tests.bat` que LlamaCode. Tests con QtTest sobre `TableDiffEngine` y `MergeEngine` usando fixtures JSON (sin depender de binarios del juego).

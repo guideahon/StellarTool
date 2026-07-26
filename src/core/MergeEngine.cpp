@@ -321,8 +321,7 @@ bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth
     return false;
 }
 
-MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<ChangeItem> &items,
-                                              bool allowCleanRowAdd) {
+MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<ChangeItem> &items) {
     Result res;
     QJsonArray rows = dataTableRows(root);
 
@@ -336,12 +335,12 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
     // Un valor "clean" (leído con CUE4Parse) solo es escribible sobre el JSON
     // real de UAssetGUI si es escalar; arrays/objetos/filas completas tienen
     // representación distinta y romperían fromjson. Se saltean y se cuentan.
-    auto writableClean = [allowCleanRowAdd](const ChangeItem &c) {
+    auto writableClean = [](const ChangeItem &c) {
         if (!c.clean) return true;
-        // Filas nuevas de un mod Zen: se reconstruyen usando otra fila de la
-        // tabla como plantilla (ver buildRowFromTemplate). Quitar filas no se
-        // soporta: no hay forma de distinguirlo de "el mod no la trae".
-        if (c.type == ChangeItem::RowAdded) return allowCleanRowAdd;
+        // Filas enteras nuevas o quitadas de un mod Zen: se pueden reconstruir
+        // desde una plantilla (buildRowFromTemplate), pero el uasset resultante
+        // no sobrevive el round-trip de UAssetGUI, así que no se emiten. Ver
+        // ARCHITECTURE.md ("Lo que no round-tripea").
         if (c.type != ChangeItem::Modified) return false;
         // Escalares: numéricos, bool y strings (Name/Enum/Str). Los strings se
         // reconcilian contra el leaf real de UAssetGUI en applyPath (enum
@@ -358,14 +357,7 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
         touchedRows.insert(item.rowName);
         switch (item.type) {
         case ChangeItem::RowAdded: {
-            QJsonValue row = item.newValue;
-            if (item.clean) {
-                // Fila normalizada de CUE4Parse: reconstruirla con la forma
-                // cruda que UAssetGUI espera, usando otra fila como plantilla.
-                if (rows.isEmpty()) { ++res.skipped; break; }
-                row = buildRowFromTemplate(rows.first(), item.newValue, item.rowName);
-                if (row.isUndefined()) { ++res.skipped; break; }
-            }
+            const QJsonValue row = item.newValue;
             const int at = findRow(item.rowName);
             if (at >= 0) rows.replace(at, row);
             else rows.append(row);

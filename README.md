@@ -71,10 +71,17 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
   juego (Ajustes) — usa el `global.utoc` del juego para resolver tipos.
 - **Salida**: contenedor **Zen/IoStore** (`zzz_StellarTool_Merged_P.utoc/.ucas/.pak`,
   verificado) — formato nativo del juego. Sin retoc, pak legacy V11.
-- **Merge de mods Zen**: los valores **numéricos** (HP, daño, multiplicadores, etc.)
-  se mergean y round-tripean confiable. Los cambios **no numéricos** de mods Zen
-  (texto/enums/arrays/objetos) se muestran en el diff pero se **saltean** al escribir
-  (no round-tripean fiel a un contenedor Zen); la tool los cuenta y avisa.
+- **Merge de mods Zen**: se mergean **números, texto y enums** (HP, daño,
+  multiplicadores, alias de skills, actor states...). Siguen sin soportarse los
+  **arrays / referencias a objetos** y las **filas enteras nuevas o quitadas**:
+  se muestran en el diff, se saltean al escribir y la tool los cuenta y avisa.
+  El porqué, y qué se intentó, está en [ARCHITECTURE.md §7](ARCHITECTURE.md).
+- **Una tabla sin cambios aplicados no se emite**: el pak mergeado carga con
+  prioridad máxima, así que empaquetar una copia de vanilla pisaría al mod de
+  origen. Se deja fuera y se avisa (`merge_report.txt`).
+- **Diagnóstico de fallos**: UAssetGUI no imprime sus errores (los copia al
+  portapapeles). La tool los recupera y escribe un log por fallo en
+  `%LOCALAPPDATA%\StellarTool\logs\` — pedilo siempre en un reporte de bug.
 - **Baseline vanilla**: se construye con un clic desde Ajustes (lee todas las tablas
   del juego con CUE4Parse). También extraíble manualmente del juego con
   `retoc to-legacy -f "<Tabla>" --version UE4_26 "<StellarBlade>\SB\Content\Paks" <out>`

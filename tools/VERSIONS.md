@@ -14,7 +14,13 @@ También se pueden apuntar con variables de entorno `ST_REPAK` / `ST_UASSETGUI`.
 
 `setup.bat` lo descarga automáticamente a esta carpeta desde el archivo público de
 la comunidad: https://github.com/TheNaeem/Unreal-Mappings-Archive
-(ruta `Stellar Blade/1.4.1/Mappings.usmap`). También se puede apuntar con env `ST_USMAP`.
+(ruta `Stellar Blade/1.4.1/Mappings.usmap`). También se puede apuntar con env `ST_USMAP`,
+o cargar/descargar uno desde **Ajustes → Mappings** (queda en QSettings `usmapOverride`;
+la descarga por versión pega contra el mismo archivo de la comunidad).
+
+Al invocar UAssetGUI se pasa la **ruta** del `.usmap`, no su nombre: resolver por
+nombre exige que el archivo esté en `%LOCALAPPDATA%/UAssetGUI/Mappings` y falla en
+silencio si no está. Ver ARCHITECTURE.md §7.
 
 Sin él, UAssetGUI decodifica las DataTables de Stellar Blade sin nombres de
 propiedades (aparecen como RawExport) y el diff no funciona. **No se versiona en
