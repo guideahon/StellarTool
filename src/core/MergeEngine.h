@@ -17,7 +17,10 @@ public:
 
     // baseRoot: JSON completo de la tabla de partida (baseline, o tabla del
     // mod de mayor prioridad si no hay baseline). items: solo los de esta tabla.
-    static Result applyToTable(QJsonObject &root, const QList<ChangeItem> &items);
+    // allowCleanRowAdd=false salta las filas nuevas de mods Zen. Se usa como
+    // reintento cuando el primer pase no produce un uasset que round-tripee.
+    static Result applyToTable(QJsonObject &root, const QList<ChangeItem> &items,
+                               bool allowCleanRowAdd = true);
 
     // Aplica un path sobre una fila; expuesto para tests. allowCreate=false
     // impide crear propiedades/entradas inexistentes (para valores "clean" de

@@ -475,8 +475,56 @@ QString AppController::runMerge(const QString &outDir) {
             return tr("No hay base de escritura para %1. Configurá la carpeta del juego "
                       "para poder mergear mods Zen.").arg(gamePath);
 
-        const auto res = MergeEngine::applyToTable(base, it.value());
-        if (!res.ok) return res.error;
+        const QString mergedJson = jsonDir + QLatin1Char('/')
+            + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
+        const QString outUasset = contentDir + QLatin1Char('/') + gamePath;
+        const QJsonObject vanilla = base;   // base prístina para el reintento
+
+        QMetaObject::invokeMethod(this, [this, gamePath] {
+            setStatus(t(QStringLiteral("core_generating")).arg(QFileInfo(gamePath).fileName()));
+        }, Qt::QueuedConnection);
+
+        // Aplica, escribe el JSON, genera el uasset y verifica el round-trip.
+        // Devuelve vacío si salió bien, o el motivo del fallo.
+        auto tryBuild = [&](bool allowCleanRowAdd, MergeEngine::Result &res) -> QString {
+            base = vanilla;
+            res = MergeEngine::applyToTable(base, it.value(), allowCleanRowAdd);
+            if (!res.ok) return res.error;
+            if (res.applied == 0) return {};   // no se escribe nada (ver abajo)
+            QFile jf(mergedJson);
+            if (!jf.open(QIODevice::WriteOnly))
+                return tr("No se pudo escribir %1").arg(mergedJson);
+            jf.write(QJsonDocument(base).toJson(QJsonDocument::Indented));
+            jf.close();
+            QString err;
+            if (!m_uasset->fromJson(mergedJson, outUasset, &err)) return err;
+            const QString verifyJson = mergedJson + QStringLiteral(".verify.json");
+            if (!m_uasset->toJson(outUasset, verifyJson, &err))
+                return tr("Verificación falló en %1: %2").arg(gamePath, err);
+            QFile vf(verifyJson);
+            if (!vf.open(QIODevice::ReadOnly))
+                return tr("Verificación: no se pudo leer %1").arg(verifyJson);
+            const QJsonObject verifyRoot = QJsonDocument::fromJson(vf.readAll()).object();
+            // Comparar por VALORES (normalizado): UAssetGUI puede reordenar la
+            // metadata de serialización sin cambiar el contenido real.
+            if (!jsonValueEquals(dataTableRows(normalizeDataTableDoc(base)),
+                                 dataTableRows(normalizeDataTableDoc(verifyRoot))))
+                return tr("no round-tripea fiel");
+            return {};
+        };
+
+        // 1er pase con las filas nuevas de mods Zen (reconstruidas desde una
+        // plantilla); si no sobreviven el round-trip, reintento sin ellas para
+        // no perder el resto de la tabla.
+        MergeEngine::Result res;
+        if (!tryBuild(true, res).isEmpty()) {
+            const QString err2 = tryBuild(false, res);
+            if (!err2.isEmpty())
+                return tr("Verificación falló: %1 %2. Tabla excluida del merge; "
+                          "reportar el caso.").arg(gamePath, err2);
+            report << QStringLiteral("    -> first attempt did not round-trip; "
+                                     "retried without new rows from Zen mods");
+        }
         m_lastSkipped += res.skipped;
         report << QStringLiteral("  %1: %2 applied, %3 skipped")
                       .arg(tableBase).arg(res.applied).arg(res.skipped);
@@ -489,39 +537,7 @@ QString AppController::runMerge(const QString &outDir) {
             m_lastDroppedTables << tableBase;
             report << QStringLiteral("    -> not written (would have been vanilla, "
                                      "overriding the source mod)");
-            continue;
         }
-
-        const QString mergedJson = jsonDir + QLatin1Char('/')
-            + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
-        QFile jf(mergedJson);
-        if (!jf.open(QIODevice::WriteOnly))
-            return tr("No se pudo escribir %1").arg(mergedJson);
-        jf.write(QJsonDocument(base).toJson(QJsonDocument::Indented));
-        jf.close();
-
-        const QString outUasset = contentDir + QLatin1Char('/') + gamePath;
-        QString err;
-        QMetaObject::invokeMethod(this, [this, gamePath] {
-            setStatus(t(QStringLiteral("core_generating")).arg(QFileInfo(gamePath).fileName()));
-        }, Qt::QueuedConnection);
-        if (!m_uasset->fromJson(mergedJson, outUasset, &err))
-            return err;
-
-        // Verificación: reconvertir a JSON y comparar filas contra lo planificado.
-        const QString verifyJson = mergedJson + QStringLiteral(".verify.json");
-        if (!m_uasset->toJson(outUasset, verifyJson, &err))
-            return tr("Verificación falló en %1: %2").arg(gamePath, err);
-        QFile vf(verifyJson);
-        if (!vf.open(QIODevice::ReadOnly))
-            return tr("Verificación: no se pudo leer %1").arg(verifyJson);
-        const QJsonObject verifyRoot = QJsonDocument::fromJson(vf.readAll()).object();
-        // Comparar por VALORES (normalizado): UAssetGUI puede reordenar/reformatear
-        // metadata de serialización sin cambiar el contenido real de la tabla.
-        if (!jsonValueEquals(dataTableRows(normalizeDataTableDoc(base)),
-                             dataTableRows(normalizeDataTableDoc(verifyRoot))))
-            return tr("Verificación falló: %1 no round-tripea fiel. Tabla excluida del merge; "
-                      "reportar el caso.").arg(gamePath);
     }
 
     if (QDir(contentDir).isEmpty())

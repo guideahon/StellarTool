@@ -15,6 +15,7 @@ private slots:
     void roundTripDiffMergeVerify();
     void cleanStringEnumMerge();
     void newFNamesRegisteredInNameMap();
+    void writesOverUAssetGuiFloatZero();
 };
 
 static QJsonObject baseTable() {
@@ -182,6 +183,26 @@ void TestMergeEngine::newFNamesRegisteredInNameMap() {
     QVERIFY2(names.contains(QStringLiteral("BrandNewName")),
              qPrintable(names.join(QLatin1Char(','))));
     QVERIFY(names.contains(QStringLiteral("OldName"))); // no se pierden los previos
+}
+
+// UAssetGUI serializa el float cero como el string "+0": escribir un numero
+// encima debe funcionar (es el caso comun de "activar algo que vale 0").
+void TestMergeEngine::writesOverUAssetGuiFloatZero() {
+    const QJsonObject base = table({
+        row(QStringLiteral("Player"), {prop(QStringLiteral("DrainHp"), QStringLiteral("+0"))}),
+    });
+    const QJsonObject mod = table({
+        row(QStringLiteral("Player"), {prop(QStringLiteral("DrainHp"), 600.0)}),
+    });
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;   // simular lectura CUE4Parse
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 1);
+    QCOMPARE(res.skipped, 0);
+    QCOMPARE(leafValue(out, QStringLiteral("Player"), QStringLiteral("DrainHp")), 600.0);
 }
 
 #include "TestMergeEngine.moc"

@@ -25,9 +25,20 @@ static bool sameLeafType(const QJsonValue &a, const QJsonValue &b) {
 // ¿Se puede escribir 'nv' (valor clean normalizado) sobre el leaf real 'base'
 // de UAssetGUI? Igual tipo, o un string sobre un FName None (null en UAssetGUI):
 // ej. NextStepAlias null -> "P_Eve_...". base Undefined = sin base (no chequear).
+// UAssetGUI serializa el float cero como el STRING "+0"/"-0". El diff lo
+// normaliza a 0, así que al escribir un número sobre él los tipos no coinciden
+// aunque el cambio sea perfectamente válido (y es el caso más común: activar
+// algo que en vanilla vale cero).
+static bool isFloatZeroString(const QJsonValue &v) {
+    if (!v.isString()) return false;
+    const QString s = v.toString();
+    return s == QLatin1String("+0") || s == QLatin1String("-0");
+}
+
 static bool writableLeaf(const QJsonValue &base, const QJsonValue &nv) {
     return base.isUndefined() || sameLeafType(base, nv)
-        || (base.isNull() && nv.isString());
+        || (base.isNull() && nv.isString())
+        || (isFloatZeroString(base) && nv.isDouble());
 }
 
 // Reconciliar un string clean (normalizado por el diff) a la forma real de
@@ -44,6 +55,132 @@ static QJsonValue reconcileLeaf(const QJsonValue &base, const QJsonValue &nv) {
             return QJsonValue(b.left(sep + 2) + s);
     }
     return nv;
+}
+
+// ¿Objeto-propiedad de UAssetGUI? ({Name, Value} + metadata de serialización)
+static bool isWrapperObj(const QJsonObject &o) {
+    return o.contains(QLatin1String("Name")) && o.contains(QLatin1String("Value"));
+}
+
+// Copia los valores normalizados de 'clean' sobre la ESTRUCTURA de 'tmpl' (una
+// fila real de la tabla, con su $type y metadata). Las propiedades que 'clean'
+// no traiga conservan el valor de la plantilla; las que la plantilla no tenga
+// se ignoran (no hay forma de inventar su forma cruda).
+static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) {
+    if (tmpl.isObject()) {
+        const QJsonObject to = tmpl.toObject();
+        // Wrapper {Name,Value,...}: el clean trae el valor pelado.
+        if (isWrapperObj(to)
+            && !(clean.isObject() && clean.toObject().contains(QLatin1String("Name")))) {
+            QJsonObject out = to;
+            out.insert(QLatin1String("Value"),
+                       fillTemplate(to.value(QLatin1String("Value")), clean));
+            return out;
+        }
+    }
+    if (tmpl.isArray() && clean.isArray()) {
+        const QJsonArray ta = tmpl.toArray(), ca = clean.toArray();
+        // Array de propiedades con nombre: matchear por Name.
+        bool named = !ta.isEmpty();
+        for (const QJsonValue &e : ta)
+            if (!e.isObject() || !isWrapperObj(e.toObject())) { named = false; break; }
+        if (named) {
+            QHash<QString, QJsonValue> byName;
+            for (const QJsonValue &e : ca) {
+                const QJsonObject co = e.toObject();
+                if (co.contains(QLatin1String("Name")))
+                    byName.insert(co.value(QLatin1String("Name")).toString(),
+                                  co.value(QLatin1String("Value")));
+            }
+            QJsonArray out;
+            for (const QJsonValue &e : ta) {
+                QJsonObject po = e.toObject();
+                const QString nm = po.value(QLatin1String("Name")).toString();
+                if (byName.contains(nm))
+                    po.insert(QLatin1String("Value"),
+                              fillTemplate(po.value(QLatin1String("Value")), byName.value(nm)));
+                out.append(po);
+            }
+            return out;
+        }
+        // Array indexado: clonar el último elemento como molde y reindexar.
+        if (ta.isEmpty()) return ca.isEmpty() ? tmpl : QJsonValue();
+        QJsonArray out;
+        for (int i = 0; i < ca.size(); ++i) {
+            QJsonValue e = fillTemplate(i < ta.size() ? ta.at(i) : ta.last(), ca.at(i));
+            if (e.isUndefined()) return {};
+            if (e.isObject()) {
+                QJsonObject eo = e.toObject();
+                const QString nm = eo.value(QLatin1String("Name")).toString();
+                bool numeric = !nm.isEmpty();
+                for (const QChar ch : nm) if (!ch.isDigit()) { numeric = false; break; }
+                if (numeric) {
+                    eo.insert(QLatin1String("Name"), QString::number(i));
+                    if (eo.contains(QLatin1String("ArrayIndex")))
+                        eo.insert(QLatin1String("ArrayIndex"), i);
+                    e = eo;
+                }
+            }
+            out.append(e);
+        }
+        return out;
+    }
+    if (clean.isString()) return reconcileLeaf(tmpl, clean);
+    if (clean.isUndefined()) return tmpl;
+    return clean;
+}
+
+// Construye una fila cruda nueva a partir de otra fila de la MISMA tabla como
+// plantilla: todas las filas de una DataTable comparten el struct, así que
+// cualquiera sirve para obtener $type y metadata. Vacío si no se puede.
+static QJsonValue buildRowFromTemplate(const QJsonValue &tmpl, const QJsonValue &cleanRow,
+                                       const QString &rowName) {
+    if (!tmpl.isObject() || !cleanRow.isObject()) return {};
+    QJsonObject out = tmpl.toObject();
+    const QJsonValue filled = fillTemplate(out.value(QLatin1String("Value")),
+                                           cleanRow.toObject().value(QLatin1String("Value")));
+    if (filled.isUndefined()) return {};
+    out.insert(QLatin1String("Value"), filled);
+    out.insert(QLatin1String("Name"), rowName);
+    return out;
+}
+
+// Vanilla no serializa las propiedades que valen el default (0, vacío...), así
+// que un mod que las activa apunta a una propiedad que no existe en la fila
+// base. Se busca la misma propiedad en cualquier otra fila de la tabla (mismo
+// struct) para usarla de plantilla, se le pone el valor del mod y se agrega.
+// Devuelve false si ninguna fila la tiene (no hay forma de deducir su forma).
+static bool addPropFromTemplate(QJsonValue &row, const QStringList &path,
+                                const QJsonValue &newValue, const QJsonArray &rows) {
+    // Propiedad de primer nivel de la fila: el diff la referencia como
+    // ["K:Value", "N:<prop>#0"] (o solo ["N:<prop>#0"]). Los paths más
+    // profundos (dentro de structs anidados) no se reconstruyen.
+    if (path.isEmpty() || path.size() > 2) return false;
+    if (path.size() == 2 && path.first() != QLatin1String("K:Value")) return false;
+    const QString last = path.last();
+    if (!last.startsWith(QLatin1String("N:"))) return false;
+    int occurrence = 0;
+    const QString name = segName(last, &occurrence);
+    if (occurrence != 0) return false;
+
+    QJsonObject tmplProp;
+    for (const QJsonValue &r : rows) {
+        for (const QJsonValue &p : r.toObject().value(QLatin1String("Value")).toArray()) {
+            const QJsonObject po = p.toObject();
+            if (po.value(QLatin1String("Name")).toString() == name) { tmplProp = po; break; }
+        }
+        if (!tmplProp.isEmpty()) break;
+    }
+    if (tmplProp.isEmpty()) return false;
+
+    tmplProp.insert(QLatin1String("Value"),
+                    fillTemplate(tmplProp.value(QLatin1String("Value")), newValue));
+    QJsonObject ro = row.toObject();
+    QJsonArray props = ro.value(QLatin1String("Value")).toArray();
+    props.append(tmplProp);
+    ro.insert(QLatin1String("Value"), props);
+    row = ro;
+    return true;
 }
 
 // Recolecta recursivamente los FName usados por 'v': el Value (string) de las
@@ -184,7 +321,8 @@ bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth
     return false;
 }
 
-MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<ChangeItem> &items) {
+MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<ChangeItem> &items,
+                                              bool allowCleanRowAdd) {
     Result res;
     QJsonArray rows = dataTableRows(root);
 
@@ -198,9 +336,13 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
     // Un valor "clean" (leído con CUE4Parse) solo es escribible sobre el JSON
     // real de UAssetGUI si es escalar; arrays/objetos/filas completas tienen
     // representación distinta y romperían fromjson. Se saltean y se cuentan.
-    auto writableClean = [](const ChangeItem &c) {
+    auto writableClean = [allowCleanRowAdd](const ChangeItem &c) {
         if (!c.clean) return true;
-        if (c.type != ChangeItem::Modified) return false; // RowAdded/Removed clean: no
+        // Filas nuevas de un mod Zen: se reconstruyen usando otra fila de la
+        // tabla como plantilla (ver buildRowFromTemplate). Quitar filas no se
+        // soporta: no hay forma de distinguirlo de "el mod no la trae".
+        if (c.type == ChangeItem::RowAdded) return allowCleanRowAdd;
+        if (c.type != ChangeItem::Modified) return false;
         // Escalares: numéricos, bool y strings (Name/Enum/Str). Los strings se
         // reconcilian contra el leaf real de UAssetGUI en applyPath (enum
         // namespace, None) + el verify round-trip descarta la tabla si no cuadra.
@@ -216,9 +358,17 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
         touchedRows.insert(item.rowName);
         switch (item.type) {
         case ChangeItem::RowAdded: {
+            QJsonValue row = item.newValue;
+            if (item.clean) {
+                // Fila normalizada de CUE4Parse: reconstruirla con la forma
+                // cruda que UAssetGUI espera, usando otra fila como plantilla.
+                if (rows.isEmpty()) { ++res.skipped; break; }
+                row = buildRowFromTemplate(rows.first(), item.newValue, item.rowName);
+                if (row.isUndefined()) { ++res.skipped; break; }
+            }
             const int at = findRow(item.rowName);
-            if (at >= 0) rows.replace(at, item.newValue);
-            else rows.append(item.newValue);
+            if (at >= 0) rows.replace(at, row);
+            else rows.append(row);
             ++res.applied;
             break;
         }
@@ -237,10 +387,19 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
             }
             QJsonValue row = rows.at(at);
             if (!applyPath(row, item.propPath, 0, item.newValue, !item.clean)) {
-                if (item.clean) { ++res.skipped; break; } // prop inexistente en base UAssetGUI
-                res.error = QStringLiteral("No se pudo aplicar %1 en %2/%3")
-                                .arg(item.displayPath(), item.tablePath, item.rowName);
-                return res;
+                // Prop inexistente en la fila base de UAssetGUI: vanilla no la
+                // serializa por valer el default. Intentar agregarla copiando su
+                // forma de otra fila antes de darla por perdida.
+                if (item.clean) {
+                    if (!addPropFromTemplate(row, item.propPath, item.newValue, rows)) {
+                        ++res.skipped;
+                        break;
+                    }
+                } else {
+                    res.error = QStringLiteral("No se pudo aplicar %1 en %2/%3")
+                                    .arg(item.displayPath(), item.tablePath, item.rowName);
+                    return res;
+                }
             }
             rows.replace(at, row);
             ++res.applied;
