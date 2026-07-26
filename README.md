@@ -72,11 +72,10 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
   juego (Ajustes) — usa el `global.utoc` del juego para resolver tipos.
 - **Salida**: contenedor **Zen/IoStore** (`zzz_StellarTool_Merged_P.utoc/.ucas/.pak`,
   verificado) — formato nativo del juego. Sin retoc, pak legacy V11.
-- **Merge de mods Zen**: se mergean **números, texto, enums, arrays y objetos**
-  (HP, daño, multiplicadores, alias de skills, actor states, listas de combo...).
-  Sigue sin soportarse agregar o quitar **filas enteras**: se muestran en el diff,
-  se saltean al escribir y la tool los cuenta y avisa. El porqué, los errores
-  exactos y lo que se intentó: [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md).
+- **Merge de mods Zen**: se mergean **números, texto, enums, arrays, objetos y
+  filas nuevas**. Los arrays escalares se reconstruyen incluso si la base está
+  vacía. Sigue sin soportarse quitar filas ni crear arrays de structs sin una
+  plantilla de layout; se cuentan y avisan en el reporte.
 - **Una tabla sin cambios aplicados no se emite**: el pak mergeado carga con
   prioridad máxima, así que empaquetar una copia de vanilla pisaría al mod de
   origen. Se deja fuera y se avisa (`merge_report.txt`).

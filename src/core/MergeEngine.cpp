@@ -62,6 +62,50 @@ static bool isWrapperObj(const QJsonObject &o) {
     return o.contains(QLatin1String("Name")) && o.contains(QLatin1String("Value"));
 }
 
+static QString propertyDataType(const QString &propertyType) {
+    static const QSet<QString> supported{
+        QStringLiteral("BoolProperty"), QStringLiteral("ByteProperty"),
+        QStringLiteral("DoubleProperty"), QStringLiteral("EnumProperty"),
+        QStringLiteral("FloatProperty"), QStringLiteral("Int16Property"),
+        QStringLiteral("Int64Property"), QStringLiteral("Int8Property"),
+        QStringLiteral("IntProperty"), QStringLiteral("NameProperty"),
+        QStringLiteral("ObjectProperty"), QStringLiteral("SoftObjectProperty"),
+        QStringLiteral("StrProperty"), QStringLiteral("TextProperty"),
+        QStringLiteral("UInt16Property"), QStringLiteral("UInt32Property"),
+        QStringLiteral("UInt64Property")
+    };
+    if (!supported.contains(propertyType)) return {};
+    return QStringLiteral("UAssetAPI.PropertyTypes.%1Data, UAssetAPI").arg(propertyType);
+}
+
+// Un ArrayPropertyData vacío no ofrece un elemento para usar de molde. Para
+// tipos escalares, ArrayType alcanza para construir el wrapper estándar.
+// StructProperty queda fuera: además del tipo necesita el layout del struct.
+static QJsonValue fillEmptyArray(const QJsonObject &arrayProperty,
+                                 const QJsonArray &clean) {
+    const QString dataType =
+        propertyDataType(arrayProperty.value(QLatin1String("ArrayType")).toString());
+    if (dataType.isEmpty()) return QJsonValue(QJsonValue::Undefined);
+
+    QJsonArray out;
+    for (int i = 0; i < clean.size(); ++i) {
+        QJsonValue value = clean.at(i);
+        if (dataType.contains(QLatin1String("NameProperty"))
+            && value.isString() && value.toString().isEmpty())
+            value = QJsonValue(QJsonValue::Null);
+        out.append(QJsonObject{
+            {QStringLiteral("$type"), dataType},
+            {QStringLiteral("ArrayIndex"), i},
+            {QStringLiteral("PropertyGuid"), QJsonValue(QJsonValue::Null)},
+            {QStringLiteral("IsZero"), false},
+            {QStringLiteral("PropertyTagFlags"), QStringLiteral("None")},
+            {QStringLiteral("PropertyTagExtensions"), QStringLiteral("NoExtension")},
+            {QStringLiteral("Value"), value},
+        });
+    }
+    return out;
+}
+
 // Copia los valores normalizados de 'clean' sobre la ESTRUCTURA de 'tmpl' (una
 // fila real de la tabla, con su $type y metadata). Las propiedades que 'clean'
 // no traiga conservan el valor de la plantilla; las que la plantilla no tenga
@@ -73,7 +117,15 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
         if (isWrapperObj(to)
             && !(clean.isObject() && clean.toObject().contains(QLatin1String("Name")))) {
             QJsonObject out = to;
-            QJsonValue v = fillTemplate(to.value(QLatin1String("Value")), clean);
+            QJsonValue v;
+            const QJsonValue templateValue = to.value(QLatin1String("Value"));
+            if (to.value(QLatin1String("$type")).toString()
+                    .contains(QLatin1String("ArrayPropertyData"))
+                && templateValue.isArray() && templateValue.toArray().isEmpty()
+                && clean.isArray() && !clean.toArray().isEmpty())
+                v = fillEmptyArray(to, clean.toArray());
+            else
+                v = fillTemplate(templateValue, clean);
             // El diff canoniza el FName None como "". Escribir "" en un
             // NameProperty hace que UAssetAPI tire "Cannot add an empty FString
             // to the name map": hay que devolverlo a null.
@@ -137,6 +189,28 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
     return clean;
 }
 
+// Defensa final para filas reconstruidas: cualquier NameProperty anidado cuyo
+// valor normalizado sea "" representa FName None y UAssetAPI exige null.
+static QJsonValue normalizeEmptyFNames(const QJsonValue &value) {
+    if (value.isArray()) {
+        QJsonArray out;
+        for (const QJsonValue &element : value.toArray())
+            out.append(normalizeEmptyFNames(element));
+        return out;
+    }
+    if (!value.isObject()) return value;
+
+    QJsonObject out = value.toObject();
+    for (auto it = out.begin(); it != out.end(); ++it)
+        it.value() = normalizeEmptyFNames(it.value());
+    if (out.value(QLatin1String("$type")).toString()
+            .contains(QLatin1String("NameProperty"))
+        && out.value(QLatin1String("Value")).isString()
+        && out.value(QLatin1String("Value")).toString().isEmpty())
+        out.insert(QLatin1String("Value"), QJsonValue(QJsonValue::Null));
+    return out;
+}
+
 // Construye una fila cruda nueva a partir de otra fila de la MISMA tabla como
 // plantilla: todas las filas de una DataTable comparten el struct, así que
 // cualquiera sirve para obtener $type y metadata. Vacío si no se puede.
@@ -149,7 +223,7 @@ static QJsonValue buildRowFromTemplate(const QJsonValue &tmpl, const QJsonValue 
     if (filled.isUndefined()) return QJsonValue(QJsonValue::Undefined);
     out.insert(QLatin1String("Value"), filled);
     out.insert(QLatin1String("Name"), rowName);
-    return out;
+    return normalizeEmptyFNames(out);
 }
 
 // Vanilla no serializa las propiedades que valen el default (0, vacío...), así
@@ -217,7 +291,7 @@ static void collectFNames(const QJsonValue &v, QStringList &out) {
 static void registerFNames(QJsonObject &root, const QJsonArray &rows,
                            const QSet<QString> &touchedRows) {
     if (touchedRows.isEmpty()) return;
-    QStringList used;
+    QStringList used = touchedRows.values();
     for (const QJsonValue &r : rows) {
         if (touchedRows.contains(r.toObject().value(QLatin1String("Name")).toString()))
             collectFNames(r, used);
@@ -286,6 +360,15 @@ bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth
         QJsonValue child = obj.contains(key) ? obj.value(key) : QJsonValue(QJsonValue::Undefined);
         if (depth + 1 == path.size() && newValue.isUndefined()) {
             obj.remove(key);
+        } else if (depth + 1 == path.size()
+                   && key == QLatin1String("Value")
+                   && child.isArray() && child.toArray().isEmpty()
+                   && newValue.isArray() && !newValue.toArray().isEmpty()
+                   && obj.value(QLatin1String("$type")).toString()
+                          .contains(QLatin1String("ArrayPropertyData"))) {
+            child = fillEmptyArray(obj, newValue.toArray());
+            if (child.isUndefined()) return false;
+            obj.insert(key, child);
         } else {
             if (!applyPath(child, path, depth + 1, newValue, allowCreate)) return false;
             obj.insert(key, child);
@@ -348,24 +431,11 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
         return -1;
     };
 
-    // Un valor "clean" (leído con CUE4Parse) solo es escribible sobre el JSON
-    // real de UAssetGUI si es escalar; arrays/objetos/filas completas tienen
-    // representación distinta y romperían fromjson. Se saltean y se cuentan.
+    // RowAdded se reconstruye desde una fila cruda de la misma tabla. RowRemoved
+    // queda bloqueado hasta tener un guard contra tablas clean incompletas.
     auto writableClean = [](const ChangeItem &c) {
         if (!c.clean) return true;
-        // Filas enteras nuevas/quitadas de un mod Zen: se reconstruyen bien,
-        // pero UAssetAPI rechaza el uasset ("Cannot add an empty FString to the
-        // name map"). Ver ARRAYS_Y_FILAS.md. No se emiten.
-        if (c.type != ChangeItem::Modified) return false;
-        // Escalares: numéricos, bool y strings (Name/Enum/Str). Los strings se
-        // reconcilian contra el leaf real de UAssetGUI en applyPath (enum
-        // namespace, None) + el verify round-trip descarta la tabla si no cuadra.
-        // Arrays/objetos clean siguen sin soportarse (representación distinta).
-        // Escalares, y también arrays/objetos: applyPath los reconstruye con
-        // fillTemplate a la forma cruda que UAssetAPI espera, y el verify
-        // round-trip descarta la tabla si algo no cuadra.
-        Q_UNUSED(c);
-        return true;
+        return c.type == ChangeItem::Modified || c.type == ChangeItem::RowAdded;
     };
 
     QSet<QString> touchedRows;
@@ -375,7 +445,22 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
         touchedRows.insert(item.rowName);
         switch (item.type) {
         case ChangeItem::RowAdded: {
-            const QJsonValue row = item.newValue;
+            QJsonValue row = item.newValue;
+            if (item.clean) {
+                QJsonValue tmpl(QJsonValue::Undefined);
+                for (const QJsonValue &candidate : rows) {
+                    if (candidate.toObject().value(QLatin1String("Name")).toString()
+                        != item.rowName) {
+                        tmpl = candidate;
+                        break;
+                    }
+                }
+                row = buildRowFromTemplate(tmpl, item.newValue, item.rowName);
+                if (row.isUndefined()) {
+                    ++res.skipped;
+                    break;
+                }
+            }
             const int at = findRow(item.rowName);
             if (at >= 0) rows.replace(at, row);
             else rows.append(row);

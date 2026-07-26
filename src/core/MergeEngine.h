@@ -12,7 +12,7 @@ public:
         bool ok = false;
         QString error;
         int applied = 0;
-        int skipped = 0;   // cambios "clean" de tipo complejo no escribibles
+        int skipped = 0;   // cambios clean sin plantilla/layout escribible
     };
 
     // baseRoot: JSON completo de la tabla de partida (baseline, o tabla del

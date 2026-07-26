@@ -163,27 +163,17 @@ deja fuera y lo dice en el resultado y en `merge_report.txt`.
 Bitácora completa del problema, con los errores exactos, lo que se probó y lo
 que quedó pendiente: [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md).
 
-### Lo que no round-tripea (limitación abierta)
+### Reconstrucción de JSON clean (mods Zen)
 
-Para mods **Zen** (leídos con CUE4Parse, `clean=true`) se escriben números,
-strings y enums. Siguen sin soportarse:
+`fillTemplate` reconstruye arrays/objetos desde la forma cruda vanilla y
+`buildRowFromTemplate` hace lo mismo para filas nuevas. Antes de escribir una
+fila reconstruida se convierten recursivamente los FName vacíos de `""` a
+`null`; el nombre de la fila y sus FName nuevos se registran en `NameMap`.
 
-- **Filas enteras nuevas o quitadas.**
-- **Arrays y referencias a objetos.**
-
-Se intentó reconstruir la forma cruda usando otra fila/propiedad de la misma
-tabla como plantilla (`fillTemplate`, `buildRowFromTemplate`,
-`addPropFromTemplate` — el código quedó porque `addPropFromTemplate` sí sirve
-para propiedades que vanilla omite). La reconstrucción **se aplica bien y
-produce JSON válido**, pero el uasset resultante no sobrevive el verify
-round-trip. La causa está dentro del serializador de UAssetAPI y no se
-identificó. Medido sobre un mod Zen real: habilitarlo daba **cero** cambios
-aplicados de más y costaba un pase completo de `fromjson`+verify sobre tablas de
-cientos de MB, así que está deshabilitado a propósito.
-
-Dato adicional sin explicar: el asset vanilla referencia ~325 FName que **no
-están** en su propio NameMap y aun así se escribe bien, o sea que UAssetAPI
-resuelve nombres por otra vía además del NameMap local.
+Si un array vanilla está vacío, su `ArrayType` permite sintetizar wrappers para
+tipos escalares. Un `StructProperty` vacío sigue requiriendo un layout de
+plantilla y se saltea. `RowRemoved` clean permanece bloqueado hasta poder
+detectar con seguridad una exportación CUE4Parse incompleta.
 
 ### Trampa al depurar: instancias colgadas de UAssetGUI
 

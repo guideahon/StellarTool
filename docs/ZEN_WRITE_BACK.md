@@ -107,28 +107,36 @@ Red de seguridad: cada tabla se verifica con round-trip real
 (`fromjson` → `tojson` → comparar normalizado). Si no cierra, la tabla se
 excluye del merge en vez de escribirse mal.
 
-## Qué NO está resuelto
+## Estado de las reconstrucciones
 
-### Filas enteras nuevas (`RowAdded`)
+> Nota 2026-07-26: las descripciones históricas de fallos que siguen en esta
+> sección quedan como bitácora. El estado vigente es: `RowAdded` habilitado con
+> normalización recursiva de FName vacío; arrays escalares vacíos sintetizados
+> desde `ArrayType`; tests unitarios aprobados y medición real aún pendiente.
+
+### Filas enteras nuevas (`RowAdded`) — implementado
 
 Se reconstruyen correctamente (`buildRowFromTemplate`, usando otra fila de la
-tabla como plantilla — todas comparten el struct), pero UAssetAPI rechaza el
-resultado:
+tabla como plantilla — todas comparten el struct). El error histórico que
+bloqueaba su habilitación era:
 ```
 System.ArgumentException: Cannot add an empty FString to the name map
    at UAssetAPI.UAsset.AddNameReference(FString name, ...)
 ```
 La normalización canoniza el FName `None` como `""`, y escribir `""` en un
 `NameProperty` dispara eso. Se corrigió el caso de las propiedades de primer
-nivel (devolver `null`), **pero el error persiste**: quedan FNames vacíos en
-algún punto más profundo que no se localizó.
+nivel no alcanzaba; la implementación actual hace la conversión recursiva en
+toda la fila reconstruida.
 
-Impacto: ~63 de los 66 skipped restantes en el mod de prueba son filas nuevas.
-**Es el próximo objetivo obvio.** El siguiente paso concreto: instrumentar
-`fillTemplate` para volcar cada string vacío que se escriba junto con el `$type`
-de su propiedad, y ver dónde queda uno sin convertir a `null`.
+Impacto histórico: ~63 de los 66 skipped del mod de prueba eran filas nuevas.
+Falta repetir esa medición con la implementación actual.
 
-### Filas quitadas (`RowRemoved`)
+La implementación actual habilita `buildRowFromTemplate`, convierte
+recursivamente los `NameProperty` vacíos de `""` a `null` y registra en
+`NameMap` tanto los FName anidados como el nombre de la fila. Tiene test de
+regresión; falta repetir la medición real del mod de referencia.
+
+### Filas quitadas (`RowRemoved`) — pendiente
 
 Se saltean, pero **no por una limitación real**: borrar una fila no requiere
 reconstruir nada. Sólo está bloqueado por el rechazo en bloque de todo lo que no
@@ -143,10 +151,10 @@ EffectTable 4227 → 4227. Una fila ausente sería un borrado real.
 Salvedad al habilitarlo: si CUE4Parse fallara al exportar filas, se borrarían por
 error. Conviene un guard de cordura antes de aplicar borrados.
 
-### Arrays con base vacía
-Si vanilla tiene `[]` y el mod agrega elementos, no hay elemento de molde del
-cual sacar `$type`. Se saltea. Se podría sintetizar desde el `ArrayType` del
-propio `ArrayPropertyData` (`"NameProperty"`), no intentado.
+### Arrays con base vacía — escalares implementados
+Si vanilla tiene `[]`, ahora se sintetizan los wrappers escalares desde el
+`ArrayType` del propio `ArrayPropertyData`. `StructProperty` sigue requiriendo
+un layout de plantilla.
 
 ## Callejones sin salida / notas
 

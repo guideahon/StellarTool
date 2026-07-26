@@ -16,6 +16,8 @@ private slots:
     void cleanStringEnumMerge();
     void newFNamesRegisteredInNameMap();
     void writesOverUAssetGuiFloatZero();
+    void cleanEmptyNameArrayMerge();
+    void cleanRowAddedNormalizesNestedEmptyFNames();
 };
 
 static QJsonObject baseTable() {
@@ -203,6 +205,76 @@ void TestMergeEngine::writesOverUAssetGuiFloatZero() {
     QCOMPARE(res.applied, 1);
     QCOMPARE(res.skipped, 0);
     QCOMPARE(leafValue(out, QStringLiteral("Player"), QStringLiteral("DrainHp")), 600.0);
+}
+
+void TestMergeEngine::cleanEmptyNameArrayMerge() {
+    QJsonObject arrayProp = prop(QStringLiteral("ChainEffectAliasArray"), QJsonArray{},
+                                 QStringLiteral("ArrayPropertyData"));
+    arrayProp.insert(QStringLiteral("ArrayType"), QStringLiteral("NameProperty"));
+    const QJsonObject base = table({row(QStringLiteral("Skill1"), {arrayProp})});
+    QJsonObject modArrayProp = prop(
+        QStringLiteral("ChainEffectAliasArray"),
+        QJsonArray{QStringLiteral("P_Eve_Gun_Missile_TimeScaleEnd")},
+        QStringLiteral("ArrayPropertyData"));
+    modArrayProp.insert(QStringLiteral("ArrayType"), QStringLiteral("NameProperty"));
+    const QJsonObject mod = table({row(QStringLiteral("Skill1"), {modArrayProp})});
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 1);
+    QCOMPARE(res.skipped, 0);
+
+    const QJsonObject written = dataTableRows(out).first().toObject()
+        .value(QStringLiteral("Value")).toArray().first().toObject()
+        .value(QStringLiteral("Value")).toArray().first().toObject();
+    QVERIFY(written.value(QStringLiteral("$type")).toString()
+            .contains(QStringLiteral("NamePropertyData")));
+    QCOMPARE(written.value(QStringLiteral("ArrayIndex")).toInt(), 0);
+    QCOMPARE(written.value(QStringLiteral("Value")).toString(),
+             QStringLiteral("P_Eve_Gun_Missile_TimeScaleEnd"));
+}
+
+void TestMergeEngine::cleanRowAddedNormalizesNestedEmptyFNames() {
+    QJsonObject nestedName = prop(QStringLiteral("NestedAlias"), QJsonValue(QJsonValue::Null),
+                                  QStringLiteral("NamePropertyData"));
+    const QJsonObject base = table({row(QStringLiteral("Existing"), {
+        prop(QStringLiteral("Alias"), QStringLiteral("Old"), QStringLiteral("NamePropertyData")),
+        prop(QStringLiteral("Nested"), QJsonArray{nestedName},
+             QStringLiteral("StructPropertyData"))
+    })});
+    QJsonObject mod = table({row(QStringLiteral("Existing"), {
+        prop(QStringLiteral("Alias"), QStringLiteral("Old"), QStringLiteral("NamePropertyData")),
+        prop(QStringLiteral("Nested"), QJsonArray{nestedName},
+             QStringLiteral("StructPropertyData"))
+    }), row(QStringLiteral("Added"), {
+        prop(QStringLiteral("Alias"), QStringLiteral("New"), QStringLiteral("NamePropertyData")),
+        prop(QStringLiteral("Nested"),
+             QJsonArray{prop(QStringLiteral("NestedAlias"), QStringLiteral(""),
+                             QStringLiteral("NamePropertyData"))},
+             QStringLiteral("StructPropertyData"))
+    })});
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 1);
+    QCOMPARE(res.skipped, 0);
+
+    const QJsonObject added = dataTableRows(out).last().toObject();
+    QCOMPARE(added.value(QStringLiteral("Name")).toString(), QStringLiteral("Added"));
+    const QJsonArray props = added.value(QStringLiteral("Value")).toArray();
+    const QJsonArray nested = props.at(1).toObject().value(QStringLiteral("Value")).toArray();
+    QVERIFY(nested.first().toObject().value(QStringLiteral("Value")).isNull());
+    QStringList names;
+    for (const QJsonValue &name : out.value(QStringLiteral("NameMap")).toArray())
+        names << name.toString();
+    QVERIFY(names.contains(QStringLiteral("Added")));
+    QVERIFY(names.contains(QStringLiteral("New")));
 }
 
 #include "TestMergeEngine.moc"

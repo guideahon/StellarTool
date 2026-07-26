@@ -8,24 +8,27 @@ Para el problema de escritura de mods Zen en detalle:
 
 ## 1. Bloqueante técnico abierto
 
-### Filas nuevas (`RowAdded`) en mods Zen  — **el pendiente principal**
+### Medición real de `RowAdded` y arrays vacíos
 
-Es el grueso de lo que todavía se saltea: ~63 de los 66 `skipped` del mod de
-prueba.
+> Estado vigente: `RowAdded` y arrays escalares con base vacía están
+> implementados y cubiertos por tests. Las cifras y el error listados debajo
+> son la referencia histórica previa; falta repetir el round-trip real.
 
-- **Estado**: reconstrucción implementada (`buildRowFromTemplate`) pero
-  **deshabilitada** — UAssetAPI rechaza el uasset.
+Históricamente eran ~63 de los 66 `skipped` del mod de prueba.
+
+- **Estado histórico**: `buildRowFromTemplate` estaba deshabilitado porque
+  UAssetAPI rechazaba el uasset. Hoy está habilitado con sanitización recursiva.
 - **Error exacto**:
   `System.ArgumentException: Cannot add an empty FString to the name map`
   en `UAssetAPI.UAsset.AddNameReference`.
 - **Causa**: la normalización canoniza el FName `None` como `""`; escribir `""`
   en un `NameProperty` explota.
-- **Probado**: convertir `""` → `null` en las propiedades de primer nivel
-  (mirando el `$type` del wrapper). **No alcanzó**: queda algún string vacío más
-  adentro (arrays anidados, structs) que no se localizó.
-- **Próximo paso concreto**: instrumentar `fillTemplate` para volcar a archivo
-  cada string vacío que escriba junto al `$type` de su propiedad y su path;
-  correr el merge; ver cuál queda sin convertir.
+- **Solución implementada**: convertir `""` → `null` recursivamente en cada
+  `NameProperty`, incluidos arrays y structs anidados.
+
+La implementación actual habilita filas nuevas, normaliza recursivamente FName
+vacíos y sintetiza arrays escalares desde `ArrayType`. Los tests unitarios
+pasan; falta repetir el merge real para reemplazar la medición histórica.
 
 ### Filas borradas (`RowRemoved`) en mods Zen
 
@@ -43,12 +46,13 @@ prueba.
   una fracción sospechosa de las filas de vanilla).
 - No aparece en el mod de prueba (0 casos), pero va a aparecer con otros.
 
-### Arrays cuya base vanilla está vacía
+### Arrays de structs cuya base vanilla está vacía
 
-- **Estado**: se saltean (3 casos: 1 en EffectTable, 2 en SkillCommandTable).
+- **Estado histórico**: eran 3 casos (1 en EffectTable, 2 en
+  SkillCommandTable); los escalares ya están implementados.
 - **Causa**: si vanilla tiene `[]` no hay elemento de molde del que sacar
   `$type` para los elementos nuevos.
-- **No intentado**: sintetizar el elemento desde el `ArrayType` del propio
+- **Implementado para escalares**: sintetizar el elemento desde el `ArrayType` del propio
   `ArrayPropertyData` (p. ej. `"NameProperty"` → `NamePropertyData`) más los
   campos estándar del wrapper (`ArrayIndex`, `PropertyGuid: null`,
   `IsZero: false`, `PropertyTagFlags: "None"`, `PropertyTagExtensions:
@@ -142,7 +146,8 @@ Comparar `applied` / `skipped` por tabla en `<dir>\merge_report.txt` antes y
 después. **Matar UAssetGUI primero** (una instancia GUI colgada hace fallar
 corridas válidas e invalida la medición — ya pasó una vez con una tanda entera).
 
-Referencia actual con `zzz_AllSpecialAllStepsBlockMoveFirst_V78_P` (2225 cambios):
+Referencia histórica previa a esta implementación con
+`zzz_AllSpecialAllStepsBlockMoveFirst_V78_P` (2225 cambios):
 
 ```
 CharacterTable:        2 applied,  0 skipped
