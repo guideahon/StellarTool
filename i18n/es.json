@@ -274,5 +274,6 @@
   "builder_ex_beta_parry": "Beta al parry perfecto (sin skill tree)",
   "builder_ex_burst_dodge": "Burst al dodge perfecto (sin skill tree)",
   "needs_analyze": "%1 mod(s) cargados pero sin analizar — ejecutá el análisis para verlos acá.",
-  "merge_dropped_note": "%1 quedó fuera del pak mergeado: no se pudo escribir ninguno de sus cambios, así que incluirla habría reemplazado esa tabla por vanilla y pisado al mod de origen. Mantené ese mod habilitado."
+  "merge_dropped_note": "%1 quedó fuera del pak mergeado: no se pudo escribir ninguno de sus cambios, así que incluirla habría reemplazado esa tabla por vanilla y pisado al mod de origen. Mantené ese mod habilitado.",
+  "merge_failed_note": "%1 quedó fuera del pak mergeado: la tabla generada no pasó la verificación, así que se excluyó en vez de meter un archivo corrupto. Mantené habilitado el mod que cambia esa tabla y reportá el caso con el merge_report.txt."
 }

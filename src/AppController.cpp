@@ -404,6 +404,7 @@ QString AppController::runMerge(const QString &outDir) {
     report << QString() << QStringLiteral("Tables:");
     // Tablas cuyos cambios se saltearon por completo: no se emiten (ver abajo).
     m_lastDroppedTables.clear();
+    m_lastFailedTables.clear();
 
     const QString mergeRoot = workRoot() + QStringLiteral("/merged");
     QDir(mergeRoot).removeRecursively();
@@ -523,7 +524,7 @@ QString AppController::runMerge(const QString &outDir) {
             const QString stem = outUasset.left(outUasset.size() - 7);
             QFile::remove(stem + QStringLiteral(".uexp"));
             QFile::remove(stem + QStringLiteral(".ubulk"));
-            m_lastDroppedTables << tableBase;
+            m_lastFailedTables << tableBase;
             report << QStringLiteral("  %1: EXCLUDED — verification failed: %2")
                           .arg(tableBase, buildErr);
             continue;
@@ -636,6 +637,12 @@ void AppController::merge(const QUrl &outDirUrl) {
                     m_lastMergeResult += QStringLiteral("\n\n⚠ ")
                         + t(QStringLiteral("merge_dropped_note"))
                               .arg(m_lastDroppedTables.join(QStringLiteral(", ")));
+                // Distinto motivo, distinto aviso: acá el merge sí tenía cambios
+                // para escribir pero el uasset no verificó.
+                if (!m_lastFailedTables.isEmpty())
+                    m_lastMergeResult += QStringLiteral("\n\n⚠ ")
+                        + t(QStringLiteral("merge_failed_note"))
+                              .arg(m_lastFailedTables.join(QStringLiteral(", ")));
             } else {
                 m_lastMergeOk = false;
                 m_lastMergeResult = t(QStringLiteral("merge_err")).arg(error);

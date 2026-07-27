@@ -57,6 +57,20 @@ static QJsonValue reconcileLeaf(const QJsonValue &base, const QJsonValue &nv) {
     return nv;
 }
 
+// Cómo se escribe un FName vacío (FName None) en el JSON de UAssetGUI.
+// Las tres formas posibles NO son equivalentes al generar el uasset:
+//   ""     -> UAssetAPI tira "Cannot add an empty FString to the name map",
+//             muere sin escribir nada y sin imprimir el error.
+//   null   -> escribe, pero al releer vuelve como " " (un espacio): la tabla
+//             deja de round-tripear y queda excluida del merge.
+//   "None" -> única forma que sobrevive fromjson + tojson intacta.
+static const QLatin1String kEmptyFName("None");
+
+// ¿Es un NameProperty? (su $type es "...NamePropertyData, UAssetAPI")
+static bool isNameProperty(const QJsonObject &o) {
+    return o.value(QLatin1String("$type")).toString().contains(QLatin1String("NameProperty"));
+}
+
 // ¿Objeto-propiedad de UAssetGUI? ({Name, Value} + metadata de serialización)
 static bool isWrapperObj(const QJsonObject &o) {
     return o.contains(QLatin1String("Name")) && o.contains(QLatin1String("Value"));
@@ -92,7 +106,7 @@ static QJsonValue fillEmptyArray(const QJsonObject &arrayProperty,
         QJsonValue value = clean.at(i);
         if (dataType.contains(QLatin1String("NameProperty"))
             && value.isString() && value.toString().isEmpty())
-            value = QJsonValue(QJsonValue::Null);
+            value = QJsonValue(kEmptyFName);
         out.append(QJsonObject{
             {QStringLiteral("$type"), dataType},
             {QStringLiteral("ArrayIndex"), i},
@@ -126,13 +140,9 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
                 v = fillEmptyArray(to, clean.toArray());
             else
                 v = fillTemplate(templateValue, clean);
-            // El diff canoniza el FName None como "". Escribir "" en un
-            // NameProperty hace que UAssetAPI tire "Cannot add an empty FString
-            // to the name map": hay que devolverlo a null.
-            if (v.isString() && v.toString().isEmpty()
-                && to.value(QLatin1String("$type")).toString()
-                     .contains(QLatin1String("NameProperty")))
-                v = QJsonValue(QJsonValue::Null);
+            // El diff canoniza el FName None como "": ver kEmptyFName.
+            if (v.isString() && v.toString().isEmpty() && isNameProperty(to))
+                v = QJsonValue(kEmptyFName);
             out.insert(QLatin1String("Value"), v);
             return out;
         }
@@ -189,8 +199,9 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
     return clean;
 }
 
-// Defensa final para filas reconstruidas: cualquier NameProperty anidado cuyo
-// valor normalizado sea "" representa FName None y UAssetAPI exige null.
+// Defensa final: cualquier NameProperty (anidado o no) cuyo valor normalizado
+// sea "" representa FName None y hay que escribirlo como kEmptyFName. Los que
+// ya venían null de vanilla se dejan como están: round-tripean bien.
 static QJsonValue normalizeEmptyFNames(const QJsonValue &value) {
     if (value.isArray()) {
         QJsonArray out;
@@ -203,11 +214,9 @@ static QJsonValue normalizeEmptyFNames(const QJsonValue &value) {
     QJsonObject out = value.toObject();
     for (auto it = out.begin(); it != out.end(); ++it)
         it.value() = normalizeEmptyFNames(it.value());
-    if (out.value(QLatin1String("$type")).toString()
-            .contains(QLatin1String("NameProperty"))
-        && out.value(QLatin1String("Value")).isString()
-        && out.value(QLatin1String("Value")).toString().isEmpty())
-        out.insert(QLatin1String("Value"), QJsonValue(QJsonValue::Null));
+    const QJsonValue v = out.value(QLatin1String("Value"));
+    if (isNameProperty(out) && v.isString() && v.toString().isEmpty())
+        out.insert(QLatin1String("Value"), QJsonValue(kEmptyFName));
     return out;
 }
 
@@ -512,7 +521,11 @@ MergeEngine::Result MergeEngine::applyToTable(QJsonObject &root, const QList<Cha
                     return res;
                 }
             }
-            rows.replace(at, row);
+            // El diff canoniza el FName None como "": si el mod vacía un
+            // NameProperty que en vanilla tenía valor, ese "" llega hasta el
+            // JSON y UAssetAPI muere al escribirlo ("Cannot add an empty
+            // FString to the name map"), sin uasset y sin mensaje.
+            rows.replace(at, normalizeEmptyFNames(row));
             ++res.applied;
             break;
         }

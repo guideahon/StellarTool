@@ -18,6 +18,7 @@ private slots:
     void writesOverUAssetGuiFloatZero();
     void cleanEmptyNameArrayMerge();
     void cleanRowAddedNormalizesNestedEmptyFNames();
+    void cleanModifiedClearedFNameBecomesNull();
     void cleanRowRemoved();
     void cleanRowRemovedMassLossGuard();
 };
@@ -271,12 +272,36 @@ void TestMergeEngine::cleanRowAddedNormalizesNestedEmptyFNames() {
     QCOMPARE(added.value(QStringLiteral("Name")).toString(), QStringLiteral("Added"));
     const QJsonArray props = added.value(QStringLiteral("Value")).toArray();
     const QJsonArray nested = props.at(1).toObject().value(QStringLiteral("Value")).toArray();
-    QVERIFY(nested.first().toObject().value(QStringLiteral("Value")).isNull());
+    // "None" y no null: null se escribe pero vuelve como " " al releer.
+    QCOMPARE(nested.first().toObject().value(QStringLiteral("Value")).toString(),
+             QStringLiteral("None"));
     QStringList names;
     for (const QJsonValue &name : out.value(QStringLiteral("NameMap")).toArray())
         names << name.toString();
     QVERIFY(names.contains(QStringLiteral("Added")));
     QVERIFY(names.contains(QStringLiteral("New")));
+}
+
+// Un mod que VACÍA un FName que en vanilla tenía valor: el diff lo canoniza a
+// "" y escribirlo tal cual mata a UAssetAPI al generar el uasset.
+void TestMergeEngine::cleanModifiedClearedFNameBecomesNull() {
+    const QJsonObject base = table({row(QStringLiteral("Hit1"), {
+        prop(QStringLiteral("Alias"), QStringLiteral("P_Eve_Target"),
+             QStringLiteral("NamePropertyData"))})});
+    const QJsonObject mod = table({row(QStringLiteral("Hit1"), {
+        prop(QStringLiteral("Alias"), QStringLiteral(""),
+             QStringLiteral("NamePropertyData"))})});
+    auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
+                                            QStringLiteral("m1"), QStringLiteral("Mod 1"));
+    for (auto &c : items) c.clean = true;
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 1);
+    const QJsonObject changed = dataTableRows(out).first().toObject();
+    QCOMPARE(changed.value(QStringLiteral("Value")).toArray().first().toObject()
+                 .value(QStringLiteral("Value")).toString(),
+             QStringLiteral("None"));
 }
 
 void TestMergeEngine::cleanRowRemoved() {

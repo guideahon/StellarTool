@@ -132,9 +132,25 @@ Impacto histórico: ~63 de los 66 skipped del mod de prueba eran filas nuevas.
 Falta repetir esa medición con la implementación actual.
 
 La implementación actual habilita `buildRowFromTemplate`, convierte
-recursivamente los `NameProperty` vacíos de `""` a `null` y registra en
+recursivamente los `NameProperty` vacíos de `""` a `"None"` y registra en
 `NameMap` tanto los FName anidados como el nombre de la fila. Tiene test de
 regresión; falta repetir la medición real del mod de referencia.
+
+#### Las tres formas del FName vacío no son equivalentes
+
+Medido contra UAssetGUI 1.1.1 sobre `SkillResultTable` y `SkillActiveStepTable`:
+
+| Se escribe | `fromjson` | Al releer con `tojson` |
+|---|---|---|
+| `""` | muere sin generar el uasset y sin imprimir nada | — |
+| `null` | genera el uasset | devuelve otro FName (`" "`, o el nombre del propio asset) |
+| `"None"` | genera el uasset | `"None"` |
+
+Por eso la única forma válida es `"None"` (`kEmptyFName`). Con `null` el uasset
+sale, pero la verificación de round-trip detecta el valor cambiado y la tabla
+queda excluida del merge — que es como se manifestaba el bug: un mod que
+**vacía** un FName que en vanilla tenía valor tiraba abajo la tabla entera.
+Los `null` que ya vienen de vanilla se dejan como están: esos sí round-tripean.
 
 ### Filas quitadas (`RowRemoved`) — implementado
 

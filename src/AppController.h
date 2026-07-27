@@ -186,6 +186,7 @@ private:
     QString m_statusText;
     QString m_lastMergeResult;
     QStringList m_lastDroppedTables;  // tablas no emitidas (0 cambios aplicados)
+    QStringList m_lastFailedTables;   // tablas excluidas por fallar la verificación
     int m_lastSkipped = 0;
 };
 

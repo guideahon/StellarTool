@@ -1,0 +1,20 @@
+Version 0.3.11
+
+- Fixed the bug behind "SkillResultTable ... does not round-trip faithfully".
+  When a mod CLEARS a name field that the vanilla table had set, that empty
+  value was written in a form UAssetGUI does not read back the same way: the
+  table was generated with a different value, failed verification and was
+  dropped from the merge. Empty name fields are now written as "None", the
+  only form that survives the write/read cycle intact. Reported by
+  MrZzzzzzzzzzzzz with a merge of Scarlet Moveset and EVE Ultimate Version.
+- Same fix applies to tables that were failing silently while being generated:
+  SkillActiveStepTable now merges completely instead of being excluded.
+- The warning shown when a table is excluded now matches the actual reason.
+  A table that failed verification no longer reports "none of its changes
+  could be written"; it says the generated table did not pass verification and
+  asks for the merge_report.txt.
+
+Note: if a table still gets excluded, that is UAssetGUI refusing to rebuild
+that specific table, not the merge. The rest of the tables are still packaged
+and verified, and the source mod stays in charge of the excluded one - keep it
+enabled.
