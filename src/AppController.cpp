@@ -515,9 +515,19 @@ QString AppController::runMerge(const QString &outDir) {
 
         MergeEngine::Result res;
         const QString buildErr = tryBuild(res);
-        if (!buildErr.isEmpty())
-            return tr("Verificación falló: %1 %2. Tabla excluida del merge; "
-                      "reportar el caso.").arg(gamePath, buildErr);
+        if (!buildErr.isEmpty()) {
+            // Una tabla problemática no debe abortar ni invalidar las demás.
+            // Se elimina cualquier salida parcial y se deja fuera del contenedor;
+            // el aviso final indica que el mod de origen debe seguir habilitado.
+            QFile::remove(outUasset);
+            const QString stem = outUasset.left(outUasset.size() - 7);
+            QFile::remove(stem + QStringLiteral(".uexp"));
+            QFile::remove(stem + QStringLiteral(".ubulk"));
+            m_lastDroppedTables << tableBase;
+            report << QStringLiteral("  %1: EXCLUDED — verification failed: %2")
+                          .arg(tableBase, buildErr);
+            continue;
+        }
         m_lastSkipped += res.skipped;
         report << QStringLiteral("  %1: %2 applied, %3 skipped")
                       .arg(tableBase).arg(res.applied).arg(res.skipped);

@@ -111,6 +111,9 @@ StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <d
 - **Una tabla sin cambios aplicados no se emite**: el pak mergeado carga con
   prioridad máxima, así que empaquetar una copia de vanilla pisaría al mod de
   origen. Se deja fuera y se avisa (`merge_report.txt`).
+- **Una tabla que falla la verificación no cancela las demás**: se elimina su
+  salida parcial, se registra el motivo en `merge_report.txt` y el resultado
+  indica que el mod de origen debe permanecer habilitado para aportar esa tabla.
 - **Diagnóstico de fallos**: UAssetGUI no imprime sus errores (los copia al
   portapapeles). La tool los recupera y escribe un log por fallo en
   `%LOCALAPPDATA%\StellarTool\logs\` — pedilo siempre en un reporte de bug.

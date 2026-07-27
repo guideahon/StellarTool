@@ -1,0 +1,12 @@
+Version 0.3.10
+
+- A DataTable that fails the UAsset round-trip check no longer aborts the whole
+  merge. Its partial files are removed, the exact failure is written to
+  merge_report.txt, and Stellar Tool tells you to keep the source mod enabled
+  for that excluded table. Other verified tables are still packaged safely.
+- Improved the Changes toolbar layout so the page title can no longer cover
+  the search field at narrower window sizes.
+- Improved long conflict titles and mod names so they wrap or elide instead of
+  covering candidate values.
+- Kept the visible dark-theme All/None controls and per-row conflict updates
+  introduced in v0.3.4.

@@ -11,50 +11,57 @@ Item {
         anchors.margins: 18
         spacing: 10
 
-        RowLayout {
-            spacing: 10
+        ColumnLayout {
+            Layout.fillWidth: true
+            spacing: 8
             Label {
                 text: I18n.s.changes_title + " (" + App.changeModel.totalCount + ")"
                 color: Theme.text
                 font.pixelSize: 22
                 font.bold: true
+                Layout.fillWidth: true
             }
-            Item { Layout.fillWidth: true }
-            CheckBox {
-                id: onlyConflicts
-                text: I18n.s.changes_only_conflicts
-                onCheckedChanged: App.changeModel.onlyConflicts = checked
-                contentItem: Label {
-                    text: onlyConflicts.text
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 10
+                CheckBox {
+                    id: onlyConflicts
+                    text: I18n.s.changes_only_conflicts
+                    onCheckedChanged: App.changeModel.onlyConflicts = checked
+                    contentItem: Label {
+                        text: onlyConflicts.text
+                        color: Theme.text
+                        leftPadding: onlyConflicts.indicator.width + 6
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+                TextField {
+                    id: search
+                    placeholderText: I18n.s.changes_search
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 140
+                    Layout.preferredWidth: 280
+                    onTextChanged: App.changeModel.filterText = text
                     color: Theme.text
-                    leftPadding: onlyConflicts.indicator.width + 6
-                    verticalAlignment: Text.AlignVCenter
+                    background: Rectangle {
+                        color: Theme.panel; border.color: Theme.border; radius: Theme.radius
+                    }
                 }
-            }
-            TextField {
-                id: search
-                placeholderText: I18n.s.changes_search
-                Layout.preferredWidth: 240
-                onTextChanged: App.changeModel.filterText = text
-                color: Theme.text
-                background: Rectangle {
-                    color: Theme.panel; border.color: Theme.border; radius: Theme.radius
+                Button {
+                    text: I18n.s.bulk_title
+                    enabled: App.analyzed
+                    onClicked: bulkDialog.open()
                 }
-            }
-            Button {
-                text: I18n.s.bulk_title
-                enabled: App.analyzed
-                onClicked: bulkDialog.open()
-            }
-            Button {
-                text: I18n.s.toml_import
-                enabled: !App.busy
-                onClicked: tomlImportDialog.open()
-            }
-            Button {
-                text: I18n.s.toml_export
-                enabled: App.analyzed
-                onClicked: tomlExportDialog.open()
+                Button {
+                    text: I18n.s.toml_import
+                    enabled: !App.busy
+                    onClicked: tomlImportDialog.open()
+                }
+                Button {
+                    text: I18n.s.toml_export
+                    enabled: App.analyzed
+                    onClicked: tomlExportDialog.open()
+                }
             }
         }
 

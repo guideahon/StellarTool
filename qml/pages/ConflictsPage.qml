@@ -110,7 +110,14 @@ Item {
                     anchors.margins: 12
                     spacing: 6
 
-                    Label { text: title; color: Theme.text; font.bold: true; font.pixelSize: 15 }
+                    Label {
+                        text: title
+                        color: Theme.text
+                        font.bold: true
+                        font.pixelSize: 15
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                    }
                     Label {
                         visible: App.hasBaseline
                         text: I18n.s.conflicts_vanilla.replace("%1", baseText)
@@ -126,7 +133,13 @@ Item {
                                 checked: modelData.chosen
                                 onClicked: App.resolveConflict(groupId, modelData.modId)
                             }
-                            Label { text: modelData.modName; color: Theme.accent; font.bold: true }
+                            Label {
+                                text: modelData.modName
+                                color: Theme.accent
+                                font.bold: true
+                                Layout.maximumWidth: Math.max(120, content.width * 0.3)
+                                elide: Text.ElideRight
+                            }
                             Label {
                                 text: modelData.valueText
                                 color: Theme.text
