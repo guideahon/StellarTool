@@ -228,6 +228,14 @@ QString AppController::vanillaUAssetJsonPath(const QString &tableBase) {
     return cached;
 }
 
+const QHash<QString, QStringList> &AppController::usmapEnums() {
+    if (!m_usmapEnumsLoaded) {
+        m_usmapEnums = UsmapService::loadEnums(UAssetService::usmapPath());
+        m_usmapEnumsLoaded = true;
+    }
+    return m_usmapEnums;
+}
+
 void AppController::runAnalysis() {
     QList<ChangeItem> items;
     for (const ModPackage &mod : m_mods) {
@@ -476,6 +484,11 @@ QString AppController::runMerge(const QString &outDir) {
             return tr("No hay base de escritura para %1. Configurá la carpeta del juego "
                       "para poder mergear mods Zen.").arg(gamePath);
 
+        // Antes de tocar nada: sanear los enums con FName numerado que vienen
+        // así de vanilla. Si quedan como están, UAssetGUI no puede reescribir
+        // la tabla y se pierde entera (pasa con CharacterStanceTable).
+        MergeEngine::rewriteNumberedEnums(base, usmapEnums());
+
         const QString mergedJson = jsonDir + QLatin1Char('/')
             + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
         const QString outUasset = contentDir + QLatin1Char('/') + gamePath;
@@ -505,7 +518,11 @@ QString AppController::runMerge(const QString &outDir) {
             QFile vf(verifyJson);
             if (!vf.open(QIODevice::ReadOnly))
                 return tr("Verificación: no se pudo leer %1").arg(verifyJson);
-            const QJsonObject verifyRoot = QJsonDocument::fromJson(vf.readAll()).object();
+            QJsonObject verifyRoot = QJsonDocument::fromJson(vf.readAll()).object();
+            // UAssetGUI vuelve a leer los enums de FName numerado expandidos
+            // ("Valor_3"); del lado escrito son el índice numérico. Pasar la
+            // relectura por la misma reescritura deja ambos lados comparables.
+            MergeEngine::rewriteNumberedEnums(verifyRoot, usmapEnums());
             // Comparar por VALORES (normalizado): UAssetGUI puede reordenar la
             // metadata de serialización sin cambiar el contenido real.
             if (!jsonValueEquals(dataTableRows(normalizeDataTableDoc(base)),

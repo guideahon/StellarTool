@@ -1,0 +1,13 @@
+Version 0.3.12
+
+- Tables that could not be rebuilt at all are now merged too. Some game tables
+  store an enum value as a numbered name internally; Stellar Tool could read
+  those but not write them back, so the whole table was dropped from the merge
+  with a "verification failed" notice. Those values are now written in a form
+  that survives the round-trip intact.
+- Real effect on the reported case: CharacterStanceTable went from excluded to
+  24 changes applied, and the merge finished with every table included and
+  verified. Checked against the untouched game table: the merged output is
+  identical to vanilla except for the mod's own changes.
+- If a table still gets excluded, the merge report says exactly which one.
+  Please send that report - it is a case worth looking at, not a dead end.

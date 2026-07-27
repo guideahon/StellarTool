@@ -159,6 +159,8 @@ private:
     QString ensureVanillaStage();
     // JSON UAssetGUI real de la tabla vanilla (cacheado en disco); vacío si no hay juego.
     QString vanillaUAssetJsonPath(const QString &tableBase);
+    // Enums del usmap (nombre -> valores en orden), leídos una sola vez.
+    const QHash<QString, QStringList> &usmapEnums();
 
     Translator *m_i18n;
     PakService *m_pak;
@@ -185,6 +187,8 @@ private:
     bool m_downloadingUsmap = false;
     QString m_statusText;
     QString m_lastMergeResult;
+    QHash<QString, QStringList> m_usmapEnums;
+    bool m_usmapEnumsLoaded = false;
     QStringList m_lastDroppedTables;  // tablas no emitidas (0 cambios aplicados)
     QStringList m_lastFailedTables;   // tablas excluidas por fallar la verificación
     int m_lastSkipped = 0;

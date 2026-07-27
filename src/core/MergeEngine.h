@@ -2,6 +2,8 @@
 
 #include "ModTypes.h"
 
+#include <QHash>
+
 namespace st {
 
 // Aplica ChangeItems seleccionados sobre el JSON base de cada tabla.
@@ -18,6 +20,16 @@ public:
     // baseRoot: JSON completo de la tabla de partida (baseline, o tabla del
     // mod de mayor prioridad si no hay baseline). items: solo los de esta tabla.
     static Result applyToTable(QJsonObject &root, const QList<ChangeItem> &items);
+
+    // UE guarda "Valor_3" como el FName "Valor" con número, y UAssetGUI lo lee
+    // expandido ("Valor_3") pero no sabe volver a escribirlo: el uasset no se
+    // genera y la tabla entera queda fuera del merge. Se detectan por no estar
+    // en el NameMap del asset y se reescriben como ByteProperty numérica (el
+    // índice dentro del enum), forma que sí round-tripea al mismo valor.
+    // 'enums' viene de UsmapService::loadEnums; vacío = no se toca nada.
+    // Devuelve cuántas propiedades se reescribieron.
+    static int rewriteNumberedEnums(QJsonObject &root,
+                                    const QHash<QString, QStringList> &enums);
 
     // Aplica un path sobre una fila; expuesto para tests. allowCreate=false
     // impide crear propiedades/entradas inexistentes (para valores "clean" de

@@ -1,7 +1,9 @@
 #pragma once
 
+#include <QHash>
 #include <QObject>
 #include <QString>
+#include <QStringList>
 
 class QNetworkAccessManager;
 
@@ -19,6 +21,12 @@ public:
     // Intenta detectar la versión del juego desde el exe (FileVersion). Vacío
     // si no hay juego o no se pudo leer. Best-effort (para prefilling en la UI).
     static QString detectGameVersion();
+
+    // Lee la tabla de enums del .usmap: nombre del enum -> valores EN ORDEN
+    // (el índice es el valor numérico). Solo soporta usmap v0 sin comprimir,
+    // que es el formato del archivo de la comunidad; con cualquier otro
+    // devuelve vacío y quien llama sigue sin el dato.
+    static QHash<QString, QStringList> loadEnums(const QString &usmapPath);
 
     // Descarga async el usmap para 'version' (ej "1.4.1"). Al terminar emite
     // finished(). Guarda en <AppData>/mappings/StellarBlade_<version>.usmap.

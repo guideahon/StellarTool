@@ -320,6 +320,59 @@ static void registerFNames(QJsonObject &root, const QJsonArray &rows,
     if (added) root.insert(QLatin1String("NameMap"), nameMap);
 }
 
+// Reescribe in-place las EnumProperty con FName numerado. Devuelve cuántas.
+static int rewriteEnumsIn(QJsonValue &value, const QSet<QString> &nameMap,
+                          const QHash<QString, QStringList> &enums) {
+    if (value.isArray()) {
+        QJsonArray arr = value.toArray();
+        int n = 0;
+        for (int i = 0; i < arr.size(); ++i) {
+            QJsonValue e = arr.at(i);
+            n += rewriteEnumsIn(e, nameMap, enums);
+            arr.replace(i, e);
+        }
+        value = arr;
+        return n;
+    }
+    if (!value.isObject()) return 0;
+
+    QJsonObject obj = value.toObject();
+    int n = 0;
+    QJsonValue inner = obj.value(QLatin1String("Value"));
+    n += rewriteEnumsIn(inner, nameMap, enums);
+    obj.insert(QLatin1String("Value"), inner);
+
+    const QJsonValue v = obj.value(QLatin1String("Value"));
+    if (obj.value(QLatin1String("$type")).toString().contains(QLatin1String("EnumPropertyData"))
+        && v.isString() && !nameMap.contains(v.toString())) {
+        const QStringList values = enums.value(obj.value(QLatin1String("EnumType")).toString());
+        const int ordinal = values.indexOf(v.toString());
+        if (ordinal >= 0) {
+            obj.insert(QLatin1String("$type"),
+                       QStringLiteral("UAssetAPI.PropertyTypes.Objects.BytePropertyData, UAssetAPI"));
+            obj.insert(QLatin1String("ByteType"), QStringLiteral("Byte"));
+            obj.insert(QLatin1String("Value"), ordinal);
+            obj.remove(QLatin1String("EnumType"));
+            obj.remove(QLatin1String("InnerType"));
+            ++n;
+        }
+    }
+    value = obj;
+    return n;
+}
+
+int MergeEngine::rewriteNumberedEnums(QJsonObject &root,
+                                      const QHash<QString, QStringList> &enums) {
+    if (enums.isEmpty()) return 0;
+    QSet<QString> nameMap;
+    for (const QJsonValue &n : root.value(QLatin1String("NameMap")).toArray())
+        nameMap.insert(n.toString());
+    QJsonValue rows = dataTableRows(root);
+    const int n = rewriteEnumsIn(rows, nameMap, enums);
+    if (n > 0) root = withDataTableRows(root, rows.toArray());
+    return n;
+}
+
 bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth,
                             const QJsonValue &newValue, bool allowCreate) {
     if (depth == path.size()) {

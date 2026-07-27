@@ -19,6 +19,7 @@ private slots:
     void cleanEmptyNameArrayMerge();
     void cleanRowAddedNormalizesNestedEmptyFNames();
     void cleanModifiedClearedFNameBecomesNull();
+    void numberedEnumsRewrittenAsByte();
     void cleanRowRemoved();
     void cleanRowRemovedMassLossGuard();
 };
@@ -302,6 +303,45 @@ void TestMergeEngine::cleanModifiedClearedFNameBecomesNull() {
     QCOMPARE(changed.value(QStringLiteral("Value")).toArray().first().toObject()
                  .value(QStringLiteral("Value")).toString(),
              QStringLiteral("None"));
+}
+
+// Un enum cuyo valor NO está en el NameMap es un FName numerado ("Valor_3"
+// guardado como "Valor" + número): UAssetGUI lo lee pero no lo sabe escribir.
+void TestMergeEngine::numberedEnumsRewrittenAsByte() {
+    QJsonObject numbered = prop(QStringLiteral("BoneBlendType"),
+                                QStringLiteral("BoneBlendType_2"),
+                                QStringLiteral("Objects.EnumPropertyData"));
+    numbered.insert(QStringLiteral("EnumType"), QStringLiteral("ESBBoneBlendType"));
+    QJsonObject normal = prop(QStringLiteral("CombatType"),
+                              QStringLiteral("ESBCombatType_Melee"),
+                              QStringLiteral("Objects.EnumPropertyData"));
+    normal.insert(QStringLiteral("EnumType"), QStringLiteral("ESBActorCombatType"));
+
+    QJsonObject root = table({row(QStringLiteral("Eve"), {numbered, normal})});
+    root.insert(QStringLiteral("NameMap"),
+                QJsonArray{QStringLiteral("BoneBlendType"), QStringLiteral("ESBBoneBlendType"),
+                           QStringLiteral("ESBCombatType_Melee")});
+    const QHash<QString, QStringList> enums{
+        {QStringLiteral("ESBBoneBlendType"),
+         {QStringLiteral("BoneBlendType_0"), QStringLiteral("BoneBlendType_1"),
+          QStringLiteral("BoneBlendType_2")}},
+        {QStringLiteral("ESBActorCombatType"), {QStringLiteral("ESBCombatType_Melee")}},
+    };
+
+    QCOMPARE(MergeEngine::rewriteNumberedEnums(root, enums), 1);
+    const QJsonArray props = dataTableRows(root).first().toObject()
+                                 .value(QStringLiteral("Value")).toArray();
+    const QJsonObject rewritten = props.at(0).toObject();
+    QVERIFY(rewritten.value(QStringLiteral("$type")).toString()
+                .contains(QStringLiteral("BytePropertyData")));
+    QCOMPARE(rewritten.value(QStringLiteral("Value")).toInt(), 2);
+    QVERIFY(!rewritten.contains(QStringLiteral("EnumType")));
+    // El enum cuyo valor sí está en el NameMap se deja intacto.
+    QCOMPARE(props.at(1).toObject().value(QStringLiteral("Value")).toString(),
+             QStringLiteral("ESBCombatType_Melee"));
+    // Sin enums del usmap no se toca nada.
+    QJsonObject untouched = table({row(QStringLiteral("Eve"), {numbered})});
+    QCOMPARE(MergeEngine::rewriteNumberedEnums(untouched, {}), 0);
 }
 
 void TestMergeEngine::cleanRowRemoved() {

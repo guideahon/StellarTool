@@ -20,6 +20,73 @@ namespace st {
 UsmapService::UsmapService(QObject *parent)
     : QObject(parent), m_net(new QNetworkAccessManager(this)) {}
 
+namespace {
+
+// Lector secuencial con chequeo de límites: cualquier lectura fuera del buffer
+// marca 'bad' y devuelve 0, así un usmap raro no lee memoria ajena.
+class UsmapReader {
+public:
+    explicit UsmapReader(const QByteArray &data) : m_data(data) {}
+    bool bad() const { return m_bad; }
+    quint8 u8() { return read<quint8>(); }
+    quint16 u16() { return read<quint16>(); }
+    quint32 u32() { return read<quint32>(); }
+    QString str() {
+        const int len = u8();
+        if (m_bad || m_pos + len > m_data.size()) { m_bad = true; return {}; }
+        const QString s = QString::fromUtf8(m_data.constData() + m_pos, len);
+        m_pos += len;
+        return s;
+    }
+
+private:
+    template <typename T> T read() {
+        if (m_bad || m_pos + int(sizeof(T)) > m_data.size()) { m_bad = true; return 0; }
+        T v = 0;
+        memcpy(&v, m_data.constData() + m_pos, sizeof(T)); // usmap es little-endian
+        m_pos += int(sizeof(T));
+        return v;
+    }
+    QByteArray m_data;
+    int m_pos = 0;
+    bool m_bad = false;
+};
+
+} // namespace
+
+QHash<QString, QStringList> UsmapService::loadEnums(const QString &usmapPath) {
+    QFile f(usmapPath);
+    if (usmapPath.isEmpty() || !f.open(QIODevice::ReadOnly)) return {};
+    UsmapReader r(f.readAll());
+    if (r.u16() != 0x30C4) return {};              // magic
+    const quint8 version = r.u8(), compression = r.u8();
+    if (version != 0 || compression != 0) return {};  // comprimido: no soportado
+    r.u32(); r.u32();                              // tamaños
+
+    QStringList names;
+    const quint32 nameCount = r.u32();
+    names.reserve(int(nameCount));
+    for (quint32 i = 0; i < nameCount && !r.bad(); ++i) names << r.str();
+    if (r.bad()) return {};
+
+    auto nameAt = [&names](quint32 i) {
+        return i < quint32(names.size()) ? names.at(int(i)) : QString();
+    };
+
+    QHash<QString, QStringList> enums;
+    const quint32 enumCount = r.u32();
+    enums.reserve(int(enumCount));
+    for (quint32 i = 0; i < enumCount && !r.bad(); ++i) {
+        const QString name = nameAt(r.u32());
+        const quint8 valueCount = r.u8();
+        QStringList values;
+        values.reserve(valueCount);
+        for (quint8 v = 0; v < valueCount && !r.bad(); ++v) values << nameAt(r.u32());
+        if (!name.isEmpty()) enums.insert(name, values);
+    }
+    return r.bad() ? QHash<QString, QStringList>{} : enums;
+}
+
 QString UsmapService::detectGameVersion() {
 #ifdef Q_OS_WIN
     const QString root = GamePaths::gameRoot();
