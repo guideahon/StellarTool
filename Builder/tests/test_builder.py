@@ -255,6 +255,8 @@ def test_builder_template_restores_every_granular_answer_group():
         "forgivingJustMult", "airDodgeCount", "helperIntervalSeconds",
     ):
         assert f"a.{answer}" in restore
+    assert "App.builderTemplate(id)" in qml
+    assert "root.applyHistoryTemplate(modelData.id)" in qml
 
 
 def test_miniboss_density_scales():
@@ -408,7 +410,25 @@ def test_effect_extras_apply():
     assert rep["noFallDamage"] > 0 and rep["noEnvDeath"] > 0 and rep["strongerGear"] > 0 and rep["tachyReduce"]
     idx = ee._idx(doc)
     assert ee._prop(idx["LV_Dead_Falling"], "Action1")["Value"] == "EffectAction_None"
+    assert ee._prop(idx["LV_Dead_Falling_KeepTheater"], "Action1")["Value"] == "EffectAction_None"
+    assert ee._prop(idx["LV_Dead_Falling_HPRateDamage"], "CalculationValue")["Value"] == 0
     assert ee._prop(idx["P_Eve_SkillTree_TachyGaugeReduceConsumeRate"], "CalculationValue")["Value"] == 0.6
+
+
+def test_no_fall_damage_neutralizes_lethal_action_in_any_slot():
+    import effect_extras as ee
+    row = {"Value": [
+        {"Name": "Action1", "Value": "EffectAction_StopTheater", "IsZero": False},
+        {"Name": "Action2", "Value": "EffectAction_ImmediateDeath", "IsZero": False},
+        {"Name": "ActionValue2", "Value": "fatal", "IsZero": False},
+        {"Name": "ActorState1", "Value": "ActorState_BlockRevival", "IsZero": False},
+        {"Name": "CalculationValue", "Value": -10.0, "IsZero": False},
+    ]}
+    assert ee._neutralize_death(row) == 1
+    assert ee._prop(row, "Action1")["Value"] == "EffectAction_StopTheater"
+    assert ee._prop(row, "Action2")["Value"] == "EffectAction_None"
+    assert ee._prop(row, "ActionValue2")["Value"] is None
+    assert ee._prop(row, "CalculationValue")["Value"] == 0
 
 
 def test_auto_gauge_recovery_ungates():

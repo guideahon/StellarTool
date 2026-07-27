@@ -1,0 +1,10 @@
+Version 0.3.9
+
+- Fixed "Use as template" after restarting Stellar Tool. Gameplay Extras,
+  mini-boss regions, densities, attributes and their selected levels are now
+  restored from the complete persisted build configuration.
+- Fixed "No fall damage". All five vanilla fall-death variants are covered,
+  including KeepTheater; immediate-death and safe-location warp actions are
+  neutralized in every action slot and HP-rate fall damage is set to zero.
+- Added regression tests and verified the generated EffectTable after a full
+  UAsset round-trip.

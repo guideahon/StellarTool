@@ -34,9 +34,15 @@ def _set(row, name, value):
 
 def _neutralize_death(row):
     n = 0
-    if _set(row, "Action1", "EffectAction_None"):
-        n += 1
-    _set(row, "ActionValue1", None)
+    # Los efectos de caída pueden encadenar la muerte o el warp en cualquiera
+    # de los cinco slots. Conservamos acciones inocuas (p. ej. StopTheater).
+    for slot in range(1, 6):
+        action = _prop(row, f"Action{slot}")
+        if action and action.get("Value") in (
+                "EffectAction_ImmediateDeath", "EffectAction_WarpToSafeLocation"):
+            _set(row, f"Action{slot}", "EffectAction_None")
+            _set(row, f"ActionValue{slot}", None)
+            n += 1
     _set(row, "ActorState1", "ActorState_None")
     # dano por HP-rate (caida): a 0
     p = _prop(row, "CalculationValue")
@@ -49,7 +55,8 @@ def no_fall_damage(et_doc) -> int:
     idx = _idx(et_doc)
     n = 0
     for name in ("LV_Dead_Falling", "LV_Dead_Falling_HPRateDamage",
-                 "LV_Dead_Falling_DonotWarp", "LV_Dead_Falling_HPRateDamage_NoSound"):
+                 "LV_Dead_Falling_DonotWarp", "LV_Dead_Falling_HPRateDamage_NoSound",
+                 "LV_Dead_Falling_KeepTheater"):
         r = idx.get(name)
         if r:
             n += _neutralize_death(r)

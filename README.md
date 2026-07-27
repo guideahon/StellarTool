@@ -68,6 +68,12 @@ El pak combinado de mini-bosses aplica la misma selección granular sobre
 `CharacterTable` y `SkillTable`: activar mini-bosses no reemplaza silenciosamente
 la economía Beta/Burst ni el resto del perfil por un preset fijo. El
 `build_manifest.json` registra los transforms aplicados por tabla.
+**Usar de plantilla** vuelve a leer la configuración completa por ID desde el
+historial persistente, por lo que también restaura extras BETA, densidades y
+atributos de mini-bosses después de cerrar y abrir la aplicación.
+**Sin daño por caída** neutraliza las cinco variantes vanilla de caída
+(`ImmediateDeath`, warp y daño porcentual), incluida la variante que conserva
+la secuencia cinemática.
 El helper CNS aleatorio espera el flanco confirmado de escudo completo
 (detach de BS_102/salida de SkinSuit). Antes de elegir o escribir un outfit
 vuelve a leer la malla actual y cancela si EVE todavía usa SkinSuit, Tachy o

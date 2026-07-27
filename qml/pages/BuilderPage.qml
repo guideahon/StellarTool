@@ -29,6 +29,15 @@ Item {
         try { installed = JSON.parse(App.installedStatus() || "{}") }
         catch (e) { installed = { paks: [], helper: false } }
     }
+    function applyHistoryTemplate(id) {
+        try {
+            var answers = JSON.parse(App.builderTemplate(id) || "{}")
+            applyTemplate(answers)
+            builderScroll.contentItem.contentY = 0
+        } catch (e) {
+            console.warn("Could not load builder template " + id + ": " + e)
+        }
+    }
     function applyTemplate(a) {
         var cf = a.combatFeatures
         function hasCombatFeature(name) { return !cf || cf.indexOf(name) >= 0 }
@@ -230,6 +239,7 @@ Item {
     }
 
     ScrollView {
+        id: builderScroll
         anchors.fill: parent
         contentWidth: availableWidth
         clip: true
@@ -754,7 +764,7 @@ Item {
                                 Text { Layout.fillWidth: true
                                        text: modelData.label + "  ·  " + modelData.timestamp; color: Theme.text }
                                 Button { text: I18n.s.builder_use_template || "Usar de plantilla"
-                                         onClicked: root.applyTemplate(modelData.answers) }
+                                         onClicked: root.applyHistoryTemplate(modelData.id) }
                                 Button { text: I18n.s.builder_reexport || "Re-exportar ZIP"
                                          enabled: !App.busy && outField.text.length > 0
                                          onClicked: App.reexportBuild(modelData.id, toFolderUrl(outField.text)) }
