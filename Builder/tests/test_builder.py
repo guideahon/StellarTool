@@ -476,6 +476,17 @@ def test_builder_exposes_quantities_and_named_presets():
         assert f"AppController::{method}" in cpp
 
 
+def test_builder_long_option_groups_do_not_use_a_single_overflowing_row():
+    qml = (Path(__file__).resolve().parents[2] / "qml" / "pages" / "BuilderPage.qml").read_text(
+        encoding="utf-8")
+    tumbler = qml.split("id: tumblerGroup", 1)[0].rsplit("GridLayout {", 1)[1]
+    assert "columns: 5" in tumbler
+    assert "Layout.fillWidth: true" in tumbler
+    for control in ("exJust", "exAirDodge", "exHarder"):
+        block = qml.split(f"id: {control}", 1)[0].rsplit("ColumnLayout {", 1)[1]
+        assert "Layout.fillWidth: true" in block
+
+
 def test_miniboss_density_scales():
     import json
     import miniboss_builder as mb

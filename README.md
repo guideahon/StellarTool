@@ -88,6 +88,8 @@ numérico sincronizados; **Vanilla** desactiva el cambio y restaura sus valores
 originales.
 La curación base del Tumbler se activa por separado y permite elegir cualquier
 nivel de 10% a 100% en pasos de 10%; los proyectos anteriores conservan 60%.
+Los grupos largos se distribuyen en varias filas para mantenerse dentro de la
+tarjeta también en ventanas angostas.
 Las configuraciones completas también se pueden guardar como presets con nombre,
 cargar y eliminar independientemente del historial de compilaciones.
 El perfil nativo de Stellar Souls modifica sólo enemigos normales. Los

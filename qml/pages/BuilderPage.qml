@@ -955,9 +955,12 @@ Item {
                                 CheckBox { id: exTumbler }
                                 Text { text: I18n.s.builder_ex_tumbler || "Tumbler base healing"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
-                            RowLayout {
+                            GridLayout {
                                 Layout.leftMargin: 36
-                                spacing: 4
+                                Layout.fillWidth: true
+                                columns: 5
+                                columnSpacing: 4
+                                rowSpacing: 2
                                 enabled: exTumbler.checked
                                 ButtonGroup { id: tumblerGroup }
                                 RadioButton { id: tumbler10; text:"10%"; ButtonGroup.group:tumblerGroup }
@@ -971,29 +974,48 @@ Item {
                                 RadioButton { id: tumbler90; text:"90%"; ButtonGroup.group:tumblerGroup }
                                 RadioButton { id: tumbler100; text:"100%"; ButtonGroup.group:tumblerGroup }
                             }
-                            RowLayout { spacing: 10
-                                CheckBox { id: exJust }
-                                Text { text: I18n.s.builder_ex_just || "Ventana de parry/dodge perfecto más amplia (x1.5)"
-                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                                ButtonGroup { id: justGroup }
-                                RadioButton { id: just15; checked:true; text:"x1,5"; ButtonGroup.group:justGroup; enabled:exJust.checked }
-                                RadioButton { id: just2; text:"x2"; ButtonGroup.group:justGroup; enabled:exJust.checked }
-                                RadioButton { id: just3; text:"x3"; ButtonGroup.group:justGroup; enabled:exJust.checked } }
-                            RowLayout { spacing: 10
-                                CheckBox { id: exAirDodge }
-                                Text { text: I18n.s.builder_ex_airdodge || "Doble esquive aéreo"
-                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                                ButtonGroup { id: airGroup }
-                                RadioButton { id: air2; checked:true; text:"x2"; ButtonGroup.group:airGroup; enabled:exAirDodge.checked }
-                                RadioButton { id: air3; text:"x3"; ButtonGroup.group:airGroup; enabled:exAirDodge.checked } }
-                            RowLayout { spacing: 10
-                                CheckBox { id: exHarder }
-                                Text { text: I18n.s.builder_ex_harder || "Bosses más duros (sólo Hardcore)"
-                                       color: Theme.text; Layout.fillWidth: true; wrapMode: Text.Wrap }
-                                ButtonGroup { id: harderGroup }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 2
+                                CheckBox {
+                                    id: exJust
+                                    Layout.fillWidth: true
+                                    text: I18n.s.builder_ex_just || "Ventana de parry/dodge perfecto más amplia (x1.5)"
+                                }
                                 RowLayout {
+                                    Layout.leftMargin: 36
+                                    enabled: exJust.checked
+                                    ButtonGroup { id: justGroup }
+                                    RadioButton { id: just15; checked:true; text:"x1,5"; ButtonGroup.group:justGroup }
+                                    RadioButton { id: just2; text:"x2"; ButtonGroup.group:justGroup }
+                                    RadioButton { id: just3; text:"x3"; ButtonGroup.group:justGroup }
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 2
+                                CheckBox {
+                                    id: exAirDodge
+                                    Layout.fillWidth: true
+                                    text: I18n.s.builder_ex_airdodge || "Doble esquive aéreo"
+                                }
+                                RowLayout {
+                                    Layout.leftMargin: 36
+                                    enabled: exAirDodge.checked
+                                    ButtonGroup { id: airGroup }
+                                    RadioButton { id: air2; checked:true; text:"x2"; ButtonGroup.group:airGroup }
+                                    RadioButton { id: air3; text:"x3"; ButtonGroup.group:airGroup }
+                                }
+                            }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 2
+                                CheckBox {
+                                    id: exHarder
+                                    Layout.fillWidth: true
+                                    text: I18n.s.builder_ex_harder || "Bosses más duros (sólo Hardcore)"
+                                }
+                                RowLayout {
+                                    Layout.leftMargin: 36
                                     visible: exHarder.checked
-                                    spacing: 4
+                                    ButtonGroup { id: harderGroup }
                                     RadioButton { id: harderMain; checked: true; ButtonGroup.group: harderGroup
                                         text: I18n.s.builder_hardcore_main || "Main" }
                                     RadioButton { id: harderInsane; ButtonGroup.group: harderGroup
