@@ -234,8 +234,10 @@ void TestMergeEngine::cleanEmptyNameArrayMerge() {
     const QJsonObject written = dataTableRows(out).first().toObject()
         .value(QStringLiteral("Value")).toArray().first().toObject()
         .value(QStringLiteral("Value")).toArray().first().toObject();
-    QVERIFY(written.value(QStringLiteral("$type")).toString()
-            .contains(QStringLiteral("NamePropertyData")));
+    // El namespace importa: UAssetAPI resuelve el $type por nombre completo y
+    // sin ".Objects" tira JsonSerializationException al leer el JSON.
+    QCOMPARE(written.value(QStringLiteral("$type")).toString(),
+             QStringLiteral("UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI"));
     QCOMPARE(written.value(QStringLiteral("ArrayIndex")).toInt(), 0);
     QCOMPARE(written.value(QStringLiteral("Value")).toString(),
              QStringLiteral("P_Eve_Gun_Missile_TimeScaleEnd"));

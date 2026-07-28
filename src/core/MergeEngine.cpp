@@ -89,7 +89,7 @@ static QString propertyDataType(const QString &propertyType) {
         QStringLiteral("UInt64Property")
     };
     if (!supported.contains(propertyType)) return {};
-    return QStringLiteral("UAssetAPI.PropertyTypes.%1Data, UAssetAPI").arg(propertyType);
+    return QStringLiteral("UAssetAPI.PropertyTypes.Objects.%1Data, UAssetAPI").arg(propertyType);
 }
 
 // Un ArrayPropertyData vacío no ofrece un elemento para usar de molde. Para

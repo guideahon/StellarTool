@@ -10,7 +10,7 @@ namespace fixtures {
 inline QJsonObject prop(const QString &name, const QJsonValue &value,
                         const QString &type = QStringLiteral("FloatPropertyData")) {
     return QJsonObject{
-        {QStringLiteral("$type"), QStringLiteral("UAssetAPI.PropertyTypes.%1, UAssetAPI").arg(type)},
+        {QStringLiteral("$type"), QStringLiteral("UAssetAPI.PropertyTypes.Objects.%1, UAssetAPI").arg(type)},
         {QStringLiteral("Name"), name},
         {QStringLiteral("Value"), value},
     };
@@ -18,7 +18,7 @@ inline QJsonObject prop(const QString &name, const QJsonValue &value,
 
 inline QJsonObject row(const QString &name, const QJsonArray &props) {
     return QJsonObject{
-        {QStringLiteral("$type"), QStringLiteral("UAssetAPI.PropertyTypes.StructPropertyData, UAssetAPI")},
+        {QStringLiteral("$type"), QStringLiteral("UAssetAPI.PropertyTypes.Objects.StructPropertyData, UAssetAPI")},
         {QStringLiteral("Name"), name},
         {QStringLiteral("Value"), props},
     };
