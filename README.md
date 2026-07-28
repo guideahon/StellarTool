@@ -87,7 +87,9 @@ regeneración, gauges, pesca y velocidad de ataque incluyen slider y campo
 numérico sincronizados; **Vanilla** desactiva el cambio y restaura sus valores
 originales. **Selección avanzada** despliega las propiedades internas agrupadas:
 las seis capacidades de munición y los siete stacks de consumibles se pueden
-ajustar por separado, y esa granularidad también se conserva en los presets.
+ajustar por separado usando los nombres de cada objeto traducidos al idioma
+seleccionado; el identificador interno sigue disponible al posar el cursor.
+Esa granularidad también se conserva en los presets.
 La curación base del Tumbler se activa por separado y permite elegir cualquier
 nivel de 10% a 100% en pasos de 10%; los proyectos anteriores conservan 60%.
 Los grupos largos se distribuyen en varias filas para mantenerse dentro de la

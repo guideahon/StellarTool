@@ -3,6 +3,7 @@
 void runTestDiffEngine(int &failures, int argc, char **argv);
 void runTestMergeEngine(int &failures, int argc, char **argv);
 void runTestUpdateService(int &failures, int argc, char **argv);
+void runTestBuilderUi(int &failures, int argc, char **argv);
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
@@ -27,6 +28,13 @@ int main(int argc, char **argv) {
         char updateLog[] = "test_update.txt,txt";
         char *args[] = {arg0, argOut, updateLog};
         runTestUpdateService(failures, 3, args);
+    }
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char builderLog[] = "test_builder_ui.txt,txt";
+        char *args[] = {arg0, argOut, builderLog};
+        runTestBuilderUi(failures, 3, args);
     }
     return failures;
 }

@@ -97,6 +97,7 @@ if (BUILD_TESTS)
         tests/TestDiffEngine.cpp
         tests/TestMergeEngine.cpp
         tests/TestUpdateService.cpp
+        tests/TestBuilderUi.cpp
         src/core/UpdateService.cpp
         src/core/UpdateService.h
         ${CORE_SOURCES}
@@ -105,7 +106,8 @@ if (BUILD_TESTS)
     target_include_directories(StellarToolTests PRIVATE src tests)
     target_link_libraries(StellarToolTests PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Test Qt6::Network)
     target_compile_definitions(StellarToolTests PRIVATE
-        ST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+        ST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures"
+        ST_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
     set_target_properties(StellarToolTests PROPERTIES WIN32_EXECUTABLE FALSE)
     add_test(NAME StellarToolTests COMMAND StellarToolTests)
 endif()

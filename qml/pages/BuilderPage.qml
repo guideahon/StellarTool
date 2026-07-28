@@ -565,6 +565,7 @@ Item {
                         component NumericEditor: RowLayout {
                             id: numericEditorRoot
                             property string label: ""
+                            property string technicalName: ""
                             property int scaledValue: 0
                             property int factor: 1
                             property int minimum: 0
@@ -578,6 +579,12 @@ Item {
                                 text: numericEditorRoot.label
                                 color: Theme.textDim
                                 Layout.preferredWidth: 145
+                                elide: Text.ElideRight
+                                ToolTip.delay: 500
+                                ToolTip.visible: labelHover.hovered
+                                                     && numericEditorRoot.technicalName.length > 0
+                                ToolTip.text: numericEditorRoot.technicalName
+                                HoverHandler { id: labelHover }
                             }
                             Slider {
                                 Layout.fillWidth: true
@@ -858,12 +865,12 @@ Item {
                                     ammoStack5.scaledValue = 60; ammoStack6.scaledValue = 8
                                 }
                                 NumericEditor { id: ammoStacksValue; visible: !advancedQuantities.checked; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 9999; scaledValue: 999 }
-                                NumericEditor { id: ammoStack1; visible: advancedQuantities.checked; label: "StackBullet1"; minimum: 1; maximum: 9999; scaledValue: 999 }
-                                NumericEditor { id: ammoStack2; visible: advancedQuantities.checked; label: "StackBullet2"; minimum: 1; maximum: 9999; scaledValue: 999 }
-                                NumericEditor { id: ammoStack3; visible: advancedQuantities.checked; label: "StackBullet3"; minimum: 1; maximum: 9999; scaledValue: 999 }
-                                NumericEditor { id: ammoStack4; visible: advancedQuantities.checked; label: "StackBullet4"; minimum: 1; maximum: 9999; scaledValue: 999 }
-                                NumericEditor { id: ammoStack5; visible: advancedQuantities.checked; label: "StackBullet5"; minimum: 1; maximum: 9999; scaledValue: 999 }
-                                NumericEditor { id: ammoStack6; visible: advancedQuantities.checked; label: "StackBullet6"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack1; visible: advancedQuantities.checked; label: I18n.s.builder_item_slug || "Slug"; technicalName: "StackBullet1"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack2; visible: advancedQuantities.checked; label: I18n.s.builder_item_blaster_cell || "Blaster Cell"; technicalName: "StackBullet2"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack3; visible: advancedQuantities.checked; label: I18n.s.builder_item_stinger || "Stinger"; technicalName: "StackBullet3"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack4; visible: advancedQuantities.checked; label: I18n.s.builder_item_shotgun_shell || "Shotgun Shell"; technicalName: "StackBullet4"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack5; visible: advancedQuantities.checked; label: I18n.s.builder_item_nikke_ammo || "NIKKE ammunition"; technicalName: "StackBullet5"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack6; visible: advancedQuantities.checked; label: I18n.s.builder_item_explosive_shell || "Explosive Shell"; technicalName: "StackBullet6"; minimum: 1; maximum: 9999; scaledValue: 999 }
                             }
                             QuantifiedExtra {
                                 id: exAmmo100x
@@ -879,12 +886,12 @@ Item {
                                     ammoCapacity5.scaledValue = 60; ammoCapacity6.scaledValue = 8
                                 }
                                 NumericEditor { id: ammoMultiplier; visible: !advancedQuantities.checked; label: I18n.s.builder_value_multiplier || "Multiplicador"; minimum: 1; maximum: 500; scaledValue: 100 }
-                                NumericEditor { id: ammoCapacity1; visible: advancedQuantities.checked; label: "StackBullet1"; minimum: 1; maximum: 30000; scaledValue: 3000 }
-                                NumericEditor { id: ammoCapacity2; visible: advancedQuantities.checked; label: "StackBullet2"; minimum: 1; maximum: 30000; scaledValue: 300 }
-                                NumericEditor { id: ammoCapacity3; visible: advancedQuantities.checked; label: "StackBullet3"; minimum: 1; maximum: 30000; scaledValue: 1600 }
-                                NumericEditor { id: ammoCapacity4; visible: advancedQuantities.checked; label: "StackBullet4"; minimum: 1; maximum: 30000; scaledValue: 1200 }
-                                NumericEditor { id: ammoCapacity5; visible: advancedQuantities.checked; label: "StackBullet5"; minimum: 1; maximum: 30000; scaledValue: 6000 }
-                                NumericEditor { id: ammoCapacity6; visible: advancedQuantities.checked; label: "StackBullet6"; minimum: 1; maximum: 30000; scaledValue: 800 }
+                                NumericEditor { id: ammoCapacity1; visible: advancedQuantities.checked; label: I18n.s.builder_item_slug || "Slug"; technicalName: "StackBullet1"; minimum: 1; maximum: 30000; scaledValue: 3000 }
+                                NumericEditor { id: ammoCapacity2; visible: advancedQuantities.checked; label: I18n.s.builder_item_blaster_cell || "Blaster Cell"; technicalName: "StackBullet2"; minimum: 1; maximum: 30000; scaledValue: 300 }
+                                NumericEditor { id: ammoCapacity3; visible: advancedQuantities.checked; label: I18n.s.builder_item_stinger || "Stinger"; technicalName: "StackBullet3"; minimum: 1; maximum: 30000; scaledValue: 1600 }
+                                NumericEditor { id: ammoCapacity4; visible: advancedQuantities.checked; label: I18n.s.builder_item_shotgun_shell || "Shotgun Shell"; technicalName: "StackBullet4"; minimum: 1; maximum: 30000; scaledValue: 1200 }
+                                NumericEditor { id: ammoCapacity5; visible: advancedQuantities.checked; label: I18n.s.builder_item_nikke_ammo || "NIKKE ammunition"; technicalName: "StackBullet5"; minimum: 1; maximum: 30000; scaledValue: 6000 }
+                                NumericEditor { id: ammoCapacity6; visible: advancedQuantities.checked; label: I18n.s.builder_item_explosive_shell || "Explosive Shell"; technicalName: "StackBullet6"; minimum: 1; maximum: 30000; scaledValue: 800 }
                             }
                             QuantifiedExtra {
                                 id: exConsumables
@@ -897,13 +904,13 @@ Item {
                                     consumableStack7.scaledValue = 10
                                 }
                                 NumericEditor { id: consumableStacksValue; visible: !advancedQuantities.checked; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack1; visible: advancedQuantities.checked; label: "StackConsumable1"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack2; visible: advancedQuantities.checked; label: "StackConsumable2"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack3; visible: advancedQuantities.checked; label: "StackConsumable3"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack4; visible: advancedQuantities.checked; label: "StackConsumable4"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack5; visible: advancedQuantities.checked; label: "StackConsumable5"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack6; visible: advancedQuantities.checked; label: "StackConsumable6"; minimum: 1; maximum: 999; scaledValue: 99 }
-                                NumericEditor { id: consumableStack7; visible: advancedQuantities.checked; label: "StackConsumable7"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack1; visible: advancedQuantities.checked; label: I18n.s.builder_item_shock_grenade || "Shock Grenade"; technicalName: "StackConsumable1"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack2; visible: advancedQuantities.checked; label: I18n.s.builder_item_lingering_potion || "Lingering Potion"; technicalName: "StackConsumable2"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack3; visible: advancedQuantities.checked; label: I18n.s.builder_item_smart_mine || "Smart Mine"; technicalName: "StackConsumable3"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack4; visible: advancedQuantities.checked; label: I18n.s.builder_item_concentrated_potion || "Highly Concentrated Potion"; technicalName: "StackConsumable4"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack5; visible: advancedQuantities.checked; label: I18n.s.builder_item_pulse_grenade || "Pulse Grenade"; technicalName: "StackConsumable5"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack6; visible: advancedQuantities.checked; label: I18n.s.builder_item_wb_pump || "WB Pump"; technicalName: "StackConsumable6"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack7; visible: advancedQuantities.checked; label: I18n.s.builder_item_sonic_grenade || "Sonic Grenade"; technicalName: "StackConsumable7"; minimum: 1; maximum: 999; scaledValue: 99 }
                             }
                             QuantifiedExtra {
                                 id: exShieldRegen
