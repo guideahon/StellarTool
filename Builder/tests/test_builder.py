@@ -949,6 +949,97 @@ def test_installer_installs_every_helper_folder(tmp_path=None):
         == ["StellarSoulsVanillaRestore"]
 
 
+def _effect_row(name, props):
+    """Fila EffectTable minima en formato UAssetAPI."""
+    def p(pname, value, ptype="FloatPropertyData"):
+        return {"$type": f"UAssetAPI.PropertyTypes.Objects.{ptype}, UAssetAPI",
+                "Name": pname, "ArrayIndex": 0, "PropertyGuid": None,
+                "IsZero": value in (0, 0.0, "+0", None), "PropertyTagFlags": "None",
+                "PropertyTypeName": None, "PropertyTagExtensions": "NoExtension",
+                "Value": value}
+    return {"Name": name, "Value": [p(*args) for args in props]}
+
+
+def _alias(index, value):
+    return {"$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
+            "Name": str(index), "ArrayIndex": 0, "PropertyGuid": None, "IsZero": False,
+            "PropertyTagFlags": "None", "PropertyTypeName": None,
+            "PropertyTagExtensions": "NoExtension", "Value": value}
+
+
+def _outfit_effect_doc():
+    """Las dos filas vanilla que el swap Skin-Suit-on-break engancha, tal como
+    quedan en la EffectTable del pak de outfit (DR)."""
+    rest = _effect_row("P_Eve_InteractCamp_RestFX", [
+        ("ActiveTargetEffectAliasArray", [_alias(0, "breakDispel")], "ArrayPropertyData"),
+        ("ActiveShowPath", None, "StrPropertyData"),
+    ])
+    block = _effect_row("BlockShieldRegenWhenShieldZero_PC", [
+        ("LifeTime", "+0"),
+        ("ChainEffectAliasArray", [_alias(0, "breakFX"), _alias(1, "shield_break")],
+         "ArrayPropertyData"),
+        ("ActorState1", "ActorState_None", "EnumPropertyData"),
+    ])
+    return {"Exports": [{"Table": {"Data": [rest, block]}}]}
+
+
+def test_outfit_fix_restores_camp_rest_fx_keeping_the_swap():
+    """Devuelve el FX de campamento sin soltar el disparo del outfit."""
+    import effect_extras
+    doc = _outfit_effect_doc()
+    assert effect_extras.restore_camp_rest_fx(doc) is True
+    row = effect_extras._idx(doc)["P_Eve_InteractCamp_RestFX"]
+    assert effect_extras._prop(row, "ActiveShowPath")["Value"] == \
+        "Common/InteractCamp_LevelReset_FX"
+    assert effect_extras._prop(row, "ActiveShowPath")["IsZero"] is False
+    # el enganche del swap vive en otra propiedad y queda intacto
+    aliases = [e["Value"] for e in effect_extras._prop(
+        row, "ActiveTargetEffectAliasArray")["Value"]]
+    assert aliases == ["breakDispel"]
+
+
+def test_outfit_fix_restores_shield_regen_block_keeping_break_chain():
+    import effect_extras
+    doc = _outfit_effect_doc()
+    assert effect_extras.restore_shield_regen_block(doc) == 3
+    row = effect_extras._idx(doc)["BlockShieldRegenWhenShieldZero_PC"]
+    assert effect_extras._prop(row, "LifeTime")["Value"] == 4.0
+    assert effect_extras._prop(row, "ActorState1")["Value"] == "ActorState_BlockShieldRegen"
+    aliases = [e["Value"] for e in effect_extras._prop(row, "ChainEffectAliasArray")["Value"]]
+    assert aliases == ["breakFX", "shield_break", "ShieldRecover_PC"]
+    # indices consecutivos (UAssetAPI) y sin duplicar al reaplicar
+    assert [e["Name"] for e in effect_extras._prop(
+        row, "ChainEffectAliasArray")["Value"]] == ["0", "1", "2"]
+    effect_extras.restore_shield_regen_block(doc)
+    assert [e["Value"] for e in effect_extras._prop(
+        row, "ChainEffectAliasArray")["Value"]] == aliases
+
+
+def test_outfit_fix_transforms_defaults():
+    """Ambos arreglos ON por default; cada uno se puede apagar por separado."""
+    import build_specs
+    import table_compiler
+    a = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off"})
+    targets = build_specs.combo_to_targets(a)
+    transforms = targets[0]["transforms"]
+    assert "outfit.vanillaRestFX" in transforms
+    assert "outfit.vanillaShieldRegenBlock" in transforms
+    no_shield = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off",
+                              "outfitVanillaShieldRegen": False})
+    shield_off = build_specs.combo_to_targets(no_shield)[0]["transforms"]
+    assert "outfit.vanillaShieldRegenBlock" not in shield_off
+    assert "outfit.vanillaRestFX" in shield_off
+    no_fx = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off",
+                          "outfitVanillaRestFX": False})
+    assert "outfit.vanillaRestFX" not in build_specs.combo_to_targets(no_fx)[0]["transforms"]
+    for tid in transforms:
+        assert tid in table_compiler.REGISTRY, tid
+    # los paths de staging (mini-boss / First Run) usan los mismos arreglos
+    assert build_specs.outfit_fix_extras(no_shield) == ["vanillaRestFX"]
+    import effect_extras
+    assert set(build_specs.outfit_fix_extras(a)) <= effect_extras.EFFECT_EXTRAS
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

@@ -104,6 +104,9 @@ def resolve(a: dict) -> dict:
         warnings.append("densityIgnored")
     if a.get("forcePreset") and a.get("gaugeTweaks"):
         warnings.append("gaugeTweaksIgnored")
+    # Los paks precompilados traen los colaterales del swap de outfit tal cual.
+    if a.get("forcePreset") and a["outfitSkinSuit"] and build_specs.outfit_fix_extras(a):
+        warnings.append("outfitFixesIgnored")
     # Helper base: preferir el vendorizado (Builder autocontenido en Stellar
     # Tool); si no, la ruta de preset_map (dev, apunta a Stellar Souls/Release).
     vendor_helper = BUILDER_DIR / "vendor" / "helper" / "StellarSoulsOutfitRestore" / "Scripts" / "config.lua"
@@ -213,7 +216,11 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     if a.get("combatProfile") == "firstRun" and not a.get("forcePreset"):
         # First Run = variante fija (repack del staging legacy).
         import miniboss_builder
-        res = miniboss_builder.compile_from_staging("firstRun", out_dir / "compile_fr")
+        # El staging trae la EffectTable con el swap de outfit: los colaterales
+        # sobre filas vanilla se restauran con el mismo pase de effect_extras.
+        res = miniboss_builder.compile_from_staging(
+            "firstRun", out_dir / "compile_fr",
+            extras=build_specs.outfit_fix_extras(a))
         for key in ("pak", "ucas", "utoc"):
             shutil.copy2(res[key], paks_dir / Path(res[key]).name)
         paks_out = [res["pakName"]]
@@ -228,7 +235,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             outfit=bool(a.get("outfitSkinSuit", True)),
             difficulty=a.get("miniBossDifficulty", "flat"),
             variety=bool(a.get("enemyVariety", False)),
-            extras=a.get("gameplayExtras") or [],
+            extras=(a.get("gameplayExtras") or []) + build_specs.outfit_fix_extras(a),
             harder_mult=float(a.get("harderEnemiesMult", 2.0)),
             gear_mult=float(a.get("strongerGearMult", 2.0)),
             tumbler_value=float(a.get("tumblerHealPercent", 60)),

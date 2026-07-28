@@ -110,6 +110,16 @@ atributos de mini-bosses después de cerrar y abrir la aplicación.
 **Sin daño por caída** neutraliza las cinco variantes vanilla de caída
 (`ImmediateDeath`, warp y daño porcentual), incluida la variante que conserva
 la secuencia cinemática.
+El swap Skin-Suit-al-romper-escudo engancha dos filas vanilla de `EffectTable` y
+de paso pisa lo que esas filas ya hacían. Dos checks lo devuelven sin soltar el
+enganche: **Conservar el FX vanilla de descanso en campamento**
+(`P_Eve_InteractCamp_RestFX.ActiveShowPath`) y **Conservar el bloqueo vanilla de
+regen de escudo (4 s)** (`BlockShieldRegenWhenShieldZero_PC`: `LifeTime`,
+`ActorState_BlockShieldRegen` y `ShieldRecover_PC`). Los dos vienen activados y
+se verificaron en juego: el swap y el restore del outfit siguen funcionando
+igual. Aplican tanto
+al pak de outfit compilado como al combinado con mini-bosses y a First Run; el
+fallback a paks precompilados los ignora y avisa (`outfitFixesIgnored`).
 El helper CNS aleatorio espera el flanco confirmado de escudo completo
 (detach de BS_102/salida de SkinSuit). Antes de elegir o escribir un outfit
 vuelve a leer la malla actual y cancela si EVE todavía usa SkinSuit, Tachy o

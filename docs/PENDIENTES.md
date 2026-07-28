@@ -74,8 +74,23 @@ unitarios, **no** ejercitándolo en la UI:
   solo se revisaron en/es a ojo. Se detectó y corrigió un carácter mal escapado
   en coreano, así que puede haber más.
 
+
 Lo que sí se verificó en vivo (por el usuario): cola de importación, scroll de
-conflictos que no salta, scrollbars, botón de analizar.
+conflictos que no salta, scrollbars, botón de analizar, y los **arreglos de
+colaterales del outfit** (2026-07-28, los dos activados por defecto):
+
+- `outfit.vanillaRestFX`: contra vanilla puro el FX de campamento aparece, con el
+  pak shipped desaparece, y con el arreglo vuelve **sin** perder el swap ni el
+  restore. `ActiveShowPath` y `ActiveTargetEffectAliasArray` conviven en la misma
+  fila.
+- `outfit.vanillaShieldRegenBlock`: con la fila trigger restaurada el swap sigue
+  ocurriendo al romper el escudo y vuelven los 4 s sin regeneración.
+
+> Trampa de este test: `~mods` se carga **recursivamente**. Dos carpetas de build
+> (`compile_mb\`, `stage\Paks\`) habían quedado adentro con el pak de mini-bosses
+> y su propia EffectTable, tapando el pak de prueba. Tres rondas dieron el mismo
+> resultado por eso. Antes de cualquier A/B in-game: verificar que el pak bajo
+> prueba sea el único `.utoc` cargable con esa tabla.
 
 ---
 

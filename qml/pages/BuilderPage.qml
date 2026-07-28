@@ -90,6 +90,9 @@ Item {
         cooldown2.checked = Number(economyLevels.cooldown || 3) === 2
         cooldown3.checked = !cooldown2.checked
         outfit.checked = a.outfitSkinSuit !== false
+        // Proyectos previos a los arreglos: mismo default que el builder.
+        outfitRestFx.checked = a.outfitVanillaRestFX !== false
+        outfitShieldRegen.checked = a.outfitVanillaShieldRegen !== false
         var densities = a.miniBossRegionDensity || {}
         function loadRegionRow(row, code) {
             var value = Number(densities[code] || 0); row.selected = value > 0
@@ -701,6 +704,21 @@ Item {
                             CheckBox { id: outfit; checked: true }
                             Text { text: I18n.s.builder_q_outfit || "Skin Suit al romper escudo (necesita helper)"
                                    color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                        }
+
+                        // El swap engancha dos filas vanilla de EffectTable y de
+                        // paso pisa lo que ya hacian. Cada arreglo las devuelve.
+                        ColumnLayout {
+                            Layout.fillWidth: true; Layout.leftMargin: 26; spacing: 2
+                            visible: outfit.checked
+                            CheckBox { id: outfitRestFx; checked: true
+                                text: I18n.s.builder_q_rest_fx || "Conservar el FX vanilla de descanso en campamento" }
+                            CheckBox { id: outfitShieldRegen; checked: true
+                                text: I18n.s.builder_q_shield_regen || "Conservar el bloqueo vanilla de regen de escudo (4 s)" }
+                            Text { text: I18n.s.builder_outfit_fix_hint
+                                         || "El swap de outfit engancha dos filas vanilla. Esto devuelve lo que pisa: el FX visual del campamento y los 4 s sin regen de escudo tras romperlo."
+                                   color: Theme.textDim; font.pixelSize: 11
+                                   wrapMode: Text.Wrap; Layout.fillWidth: true }
                         }
 
                         // El comportamiento del outfit CNS depende del check de
@@ -1326,6 +1344,8 @@ Item {
                             gaugeTweaks: blasterRow.selected ? ["blasterCellX2"] : [],
                             blasterMultiplier: blaster2.checked ? 2 : 3,
                             outfitSkinSuit: outfit.checked,
+                            outfitVanillaRestFX: outfitRestFx.checked,
+                            outfitVanillaShieldRegen: outfitShieldRegen.checked,
                             miniBoss: mb,
                             miniBossRegionDensity: miniBossDensities(),
                             miniBossConfig: {

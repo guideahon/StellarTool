@@ -73,6 +73,30 @@
    "ru": "Skin Suit при разрушении щита",
    "zh_Hans": "破盾时紧身衣"
   },
+  "builder.q.outfitVanillaRestFX": {
+   "es": "Conservar el FX vanilla de descanso en campamento",
+   "en": "Keep vanilla camp rest FX",
+   "fr": "Garder le FX vanilla de repos au camp",
+   "it": "Mantieni l'FX vanilla di riposo al campo",
+   "de": "Vanilla-Rast-FX im Lager behalten",
+   "ja": "キャンプ休憩の標準FXを維持",
+   "ko": "캠프 휴식 기본 FX 유지",
+   "pt_BR": "Manter o FX vanilla de descanso no acampamento",
+   "ru": "Сохранить ванильный FX отдыха в лагере",
+   "zh_Hans": "保留原版营地休息特效"
+  },
+  "builder.q.outfitVanillaShieldRegen": {
+   "es": "Conservar el bloqueo vanilla de regen de escudo (4 s)",
+   "en": "Keep vanilla shield regen block (4s)",
+   "fr": "Garder le blocage vanilla de regen de bouclier (4 s)",
+   "it": "Mantieni il blocco vanilla della rigenerazione scudo (4 s)",
+   "de": "Vanilla-Schildregen-Sperre behalten (4 s)",
+   "ja": "標準のシールド回復停止(4秒)を維持",
+   "ko": "기본 실드 재생 차단(4초) 유지",
+   "pt_BR": "Manter o bloqueio vanilla de regen de escudo (4 s)",
+   "ru": "Сохранить ванильную блокировку регена щита (4 с)",
+   "zh_Hans": "保留原版护盾回复封锁(4 秒)"
+  },
   "builder.q.miniBoss": {
    "es": "Mini-bosses + drops NG+",
    "en": "Mini-bosses + NG+ drops",

@@ -385,6 +385,12 @@ for _tid, _fn in (("noFallDamage", "no_fall_damage"), ("noEnvDeath", "no_environ
                   ("gunGorgonRotation", "gun_gorgon_free_rotation")):
     _reg_extra(f"extras.{_tid}", "EffectTable", "full", _fn, "effect_extras")
     _reg_extra(f"extrasVanilla.{_tid}", "EffectTable", "vanilla", _fn, "effect_extras")
+# Colaterales del pak de outfit: solo tienen sentido sobre la base full (la
+# EffectTable con el swap Skin-Suit-on-break); en vanilla ya estan intactos.
+_reg_extra("outfit.vanillaRestFX", "EffectTable", "full",
+           "restore_camp_rest_fx", "effect_extras")
+_reg_extra("outfit.vanillaShieldRegenBlock", "EffectTable", "full",
+           "restore_shield_regen_block", "effect_extras")
 # SkillTable (sensacion de combate)
 _reg_extra("extras.forgivingJust", "SkillTable", "full", "forgiving_just", "skill_extras")
 _reg_extra("extras.extraAirDodge", "SkillTable", "full", "extra_air_dodge", "skill_extras")

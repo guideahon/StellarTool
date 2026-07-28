@@ -20,6 +20,27 @@ COMBAT_FULL = [
 
 OUTFIT = ["outfit.effectTable.skinSuitOnBreak", "outfit.tuning.public1219"]
 
+# Colaterales del pak de outfit sobre filas vanilla, restaurables por separado.
+# Ambos default ON: el builder promete vanilla salvo lo elegido, y los dos se
+# verificaron en juego (2026-07-28) sin perder el swap ni el restore del outfit.
+# Cada entrada: (clave de respuesta, default, transform id, extra id de staging).
+OUTFIT_FIXES = [
+    ("outfitVanillaRestFX", True, "outfit.vanillaRestFX", "vanillaRestFX"),
+    ("outfitVanillaShieldRegen", True, "outfit.vanillaShieldRegenBlock",
+     "vanillaShieldRegenBlock"),
+]
+
+
+def outfit_fix_transforms(a: dict) -> list[str]:
+    """Transforms que devuelven a vanilla lo que el swap de outfit pisa de paso."""
+    return [tid for key, default, tid, _ in OUTFIT_FIXES if a.get(key, default)]
+
+
+def outfit_fix_extras(a: dict) -> list[str]:
+    """Mismos arreglos para los paths de staging (mini-boss / First Run), que
+    aplican EffectTable via effect_extras en vez de transforms."""
+    return [eid for key, default, _, eid in OUTFIT_FIXES if a.get(key, default)]
+
 # gaugeTweaks opcionales, componibles sobre el combate.
 GAUGE_TRANSFORMS = {
     "blasterCellX2": "combat.blasterCellDamageX2",
@@ -124,7 +145,8 @@ def combo_to_targets(a: dict):
     if outfit:
         # Extras de EffectTable se componen sobre el pak de outfit (base SkinSuit).
         targets.append({"name": "StellarSouls-DirectRestore-NoRestFX",
-                        "transforms": list(OUTFIT) + [f"extras.{e}" for e in et_extras]
+                        "transforms": list(OUTFIT) + outfit_fix_transforms(a)
+                                      + [f"extras.{e}" for e in et_extras]
                                       + (["extras.droneScanDuration"] if drone_scan else [])})
     elif et_extras or drone_scan:
         # Sin outfit: pak propio con EffectTable VANILLA + extras (no agrega SkinSuit).

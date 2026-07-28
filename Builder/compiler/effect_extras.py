@@ -181,12 +181,78 @@ def gun_gorgon_free_rotation(et_doc) -> bool:
     return bool(row and _set(row, "ActorState1", "ActorState_None"))
 
 
+# ---- restauracion de efectos colaterales del pak de outfit ----
+# El swap Skin-Suit-on-break engancha dos filas vanilla y, de paso, pisa lo que
+# esas filas ya hacian. Estas funciones devuelven ese comportamiento vanilla sin
+# tocar el enganche del outfit.
+
+_CAMP_REST_FX = "Common/InteractCamp_LevelReset_FX"
+
+
+def _append_alias(row, prop_name, alias) -> bool:
+    """Agrega un alias al final de un array de NameProperty (sin duplicar)."""
+    p = _prop(row, prop_name)
+    if p is None:
+        return False
+    arr = p.get("Value") or []
+    if any(isinstance(e, dict) and e.get("Value") == alias for e in arr):
+        return False
+    if arr:
+        entry = dict(arr[0])
+    else:
+        entry = {"$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
+                 "ArrayIndex": 0, "PropertyGuid": None, "PropertyTagFlags": "None",
+                 "PropertyTypeName": None, "PropertyTagExtensions": "NoExtension"}
+        p["ArrayType"] = "NameProperty"
+    entry["Name"] = str(len(arr))
+    entry["IsZero"] = False
+    entry["Value"] = alias
+    arr.append(entry)
+    p["Value"] = arr
+    p["IsZero"] = False
+    return True
+
+
+def restore_camp_rest_fx(et_doc) -> bool:
+    """Devuelve el FX de descanso en campamento.
+
+    El outfit usa P_Eve_InteractCamp_RestFX para disparar breakDispel (restaurar
+    el outfit al descansar) y en el camino deja ActiveShowPath en null, que es el
+    FX visual vanilla del campamento. El disparo vive en
+    ActiveTargetEffectAliasArray, asi que ambos conviven.
+    """
+    row = _idx(et_doc).get("P_Eve_InteractCamp_RestFX")
+    return bool(row and _set(row, "ActiveShowPath", _CAMP_REST_FX))
+
+
+def restore_shield_regen_block(et_doc) -> int:
+    """Devuelve el bloqueo vanilla de regen de escudo tras quedar en cero.
+
+    BlockShieldRegenWhenShieldZero_PC es la fila que el outfit usa como trigger
+    del break: le reemplaza el chain (pierde ShieldRecover_PC), le pone LifeTime
+    0 y le saca ActorState_BlockShieldRegen (4 s sin regen en vanilla). Se
+    restauran los tres conservando el chain del break.
+    """
+    row = _idx(et_doc).get("BlockShieldRegenWhenShieldZero_PC")
+    if not row:
+        return 0
+    n = 0
+    for field, value in (("LifeTime", 4.0),
+                         ("ActorState1", "ActorState_BlockShieldRegen")):
+        if _set(row, field, value):
+            n += 1
+    if _append_alias(row, "ChainEffectAliasArray", "ShieldRecover_PC"):
+        n += 1
+    return n
+
+
 # Que extras tocan EffectTable (para saber si hace falta el pase tojson/fromjson).
 EFFECT_EXTRAS = {
     "noFallDamage", "noEnvDeath", "tachyReduce", "strongerGear",
     "autoGaugeRecovery", "noWaterDeath", "noSandDeath", "betaParryRecovery",
     "burstDodgeRecovery", "tumblerHeal",
     "gaugeRecoveryOverTime", "droneScanBoost", "gunGorgonRotation",
+    "vanillaRestFX", "vanillaShieldRegenBlock",
 }
 
 
@@ -219,4 +285,8 @@ def apply_effect_extras(et_doc, extras: list, gear_mult=2.0,
         rep["droneScanBoost"] = drone_scan_duration(et_doc)
     if "gunGorgonRotation" in extras:
         rep["gunGorgonRotation"] = gun_gorgon_free_rotation(et_doc)
+    if "vanillaRestFX" in extras:
+        rep["vanillaRestFX"] = restore_camp_rest_fx(et_doc)
+    if "vanillaShieldRegenBlock" in extras:
+        rep["vanillaShieldRegenBlock"] = restore_shield_regen_block(et_doc)
     return rep

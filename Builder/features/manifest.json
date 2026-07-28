@@ -75,6 +75,24 @@
       }
     },
     {
+      "id": "outfitVanillaRestFX",
+      "type": "bool",
+      "i18nKey": "builder.q.outfitVanillaRestFX",
+      "default": true,
+      "showIf": { "outfitSkinSuit": [true] },
+      "comment": "El swap usa P_Eve_InteractCamp_RestFX como disparo y de paso borra ActiveShowPath (FX de descanso). Lo devuelve.",
+      "whenTrue": { "transforms": ["outfit.vanillaRestFX"] }
+    },
+    {
+      "id": "outfitVanillaShieldRegen",
+      "type": "bool",
+      "i18nKey": "builder.q.outfitVanillaShieldRegen",
+      "default": true,
+      "showIf": { "outfitSkinSuit": [true] },
+      "comment": "BlockShieldRegenWhenShieldZero_PC es el trigger del break: el swap le saca los 4 s sin regen y ShieldRecover_PC. Restaurarlo no rompe el swap (verificado in-game).",
+      "whenTrue": { "transforms": ["outfit.vanillaShieldRegenBlock"] }
+    },
+    {
       "id": "miniBoss",
       "type": "single",
       "i18nKey": "builder.q.miniBoss",

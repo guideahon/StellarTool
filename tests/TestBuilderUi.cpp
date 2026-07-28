@@ -28,6 +28,9 @@ void TestBuilderUi::itemLabelsAreLocalized() {
         QStringLiteral("builder_item_pulse_grenade"),
         QStringLiteral("builder_item_wb_pump"),
         QStringLiteral("builder_item_sonic_grenade"),
+        QStringLiteral("builder_q_rest_fx"),
+        QStringLiteral("builder_q_shield_regen"),
+        QStringLiteral("builder_outfit_fix_hint"),
     };
 
     QDir translations(sourceDir + QStringLiteral("/i18n"));
