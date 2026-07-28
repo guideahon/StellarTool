@@ -438,7 +438,10 @@ def _generate_writable_vanilla(table, output):
     game = gamepaths.detect_game()
     if not game:
         raise FileNotFoundError(
-            f"{table} necesita la instalación de Stellar Blade para generar su baseline escribible.")
+            f"{table} necesita la instalación de Stellar Blade para generar su baseline "
+            "escribible, y no se encontró el juego. Elegí la carpeta del juego en Stellar "
+            "Tool (la que contiene SB\\Content\\Paks) o definí la variable de entorno "
+            f"{gamepaths.ENV_VAR} con esa ruta y volvé a compilar.")
     paks = Path(game) / "SB" / "Content" / "Paks"
     stage = Path(tempfile.mkdtemp(prefix="~st_builder_vanilla_", dir=paks))
     extracted = Path(tempfile.mkdtemp(prefix="st_builder_legacy_"))

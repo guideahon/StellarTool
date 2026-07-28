@@ -961,12 +961,18 @@ void AppController::setThemeMode(const QString &mode) {
     emit themeModeChanged();
 }
 
-void AppController::setGamePath(const QUrl &dirUrl) {
+bool AppController::setGamePath(const QUrl &dirUrl) {
     const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
-    GamePaths::setGameRoot(dir);
-    emit gamePathChanged();
-    if (!GamePaths::hasGame())
+    // Se acepta la raiz o cualquier subcarpeta/padre reconocible; una ruta que
+    // no sea el juego no pisa la que ya estaba guardada.
+    const QString root = GamePaths::normalizeRoot(dir);
+    if (root.isEmpty()) {
         emit errorOccurred(t(QStringLiteral("err_game_not_found")));
+        return false;
+    }
+    GamePaths::setGameRoot(root);
+    emit gamePathChanged();
+    return true;
 }
 
 QString AppController::usmapPath() const { return UAssetService::usmapPath(); }
@@ -1071,11 +1077,23 @@ static QString pythonExe() {
     return QFileInfo::exists(embed) ? embed : QStringLiteral("python");
 }
 
+// El Builder resuelve el juego por su cuenta (gamepaths.py) para extraer
+// baselines vanilla escribibles; sin esto, una instalacion fuera de Steam no
+// le llega aunque el usuario la haya elegido en la app.
+static void applyGameEnv(QProcess &proc, const QString &gameDir = QString()) {
+    const QString root = gameDir.isEmpty() ? GamePaths::gameRoot() : gameDir;
+    if (root.isEmpty()) return;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    env.insert(QStringLiteral("STELLARBLADE_DIR"), QDir::toNativeSeparators(root));
+    proc.setProcessEnvironment(env);
+}
+
 // Corre python build_custom.py con args de forma sincrona; devuelve stdout.
 static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = nullptr) {
     QProcess proc;
     proc.setProgram(pythonExe());
     proc.setArguments(QStringList{builderScript()} + extraArgs);
+    applyGameEnv(proc);
     proc.start();
     proc.waitForFinished(600000);
     if (exitCode) *exitCode = proc.exitCode();
@@ -1095,10 +1113,12 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
                          QStringLiteral("--answers"), QStringLiteral("@") + answersPath};
         if (installPaks) args << QStringLiteral("--install-paks");
         if (installHelper) args << QStringLiteral("--install-helper");
-        if (!gameDir.isEmpty()) args << QStringLiteral("--game") << gameDir;
+        const QString game = gameDir.isEmpty() ? GamePaths::gameRoot() : gameDir;
+        if (!game.isEmpty()) args << QStringLiteral("--game") << game;
         QProcess proc;
         proc.setProgram(pythonExe());
         proc.setArguments(args);
+        applyGameEnv(proc, game);
         proc.start();
         proc.waitForFinished(600000);
         const QString out = QString::fromUtf8(proc.readAllStandardOutput());
@@ -1116,6 +1136,10 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
 }
 
 QString AppController::detectStellarBlade() {
+    // La ruta guardada (elegida en Ajustes) manda sobre la autodeteccion.
+    const QString saved = GamePaths::gameRoot();
+    if (!saved.isEmpty() && QFileInfo::exists(saved + QStringLiteral("/SB/Content/Paks")))
+        return saved;
     QProcess proc;
     proc.setProgram(pythonExe());
     const QString gp = QFileInfo(builderScript()).absolutePath() + QStringLiteral("/gamepaths.py");

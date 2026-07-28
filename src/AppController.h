@@ -103,7 +103,7 @@ public:
     Q_INVOKABLE void buildBaselineFromGame();
     QString gamePath() const;
     bool hasGamePath() const;
-    Q_INVOKABLE void setGamePath(const QUrl &dirUrl);
+    Q_INVOKABLE bool setGamePath(const QUrl &dirUrl);  // false si no es el juego
     // Override del usmap (mappings). Vacío = usar el bundled. Para actualizar
     // mappings tras un parche del juego sin esperar una nueva release.
     QString usmapPath() const;

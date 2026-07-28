@@ -1040,6 +1040,65 @@ def test_outfit_fix_transforms_defaults():
     assert set(build_specs.outfit_fix_extras(a)) <= effect_extras.EFFECT_EXTRAS
 
 
+def _fake_game(base):
+    """Arbol minimo que gamepaths.is_game reconoce."""
+    mods = Path(base) / "SB" / "Content" / "Paks" / "~mods"
+    mods.mkdir(parents=True, exist_ok=True)
+    return str(Path(base)), mods
+
+
+def test_out_dir_inside_mods_is_rejected(tmp_path=None):
+    """Compilar dentro de ~mods deja paks fantasma: se rechaza antes de empezar."""
+    import tempfile
+    import gamepaths
+    game, mods = _fake_game(tmp_path or tempfile.mkdtemp())
+
+    assert gamepaths.is_inside_mods(mods, game)
+    assert gamepaths.is_inside_mods(mods / "stage" / "Paks", game)
+    assert gamepaths.is_inside_mods(mods / "compile_mb", game)
+    # hermano con prefijo comun: NO cuenta (comparacion por partes, no por texto)
+    assert not gamepaths.is_inside_mods(str(mods) + "Backup", game)
+    assert not gamepaths.is_inside_mods(Path(game) / "SB" / "Content" / "Paks", game)
+    assert not gamepaths.is_inside_mods(Path(game).parent / "builds", game)
+
+    for bad in (mods, mods / "stage"):
+        try:
+            bc.check_out_dir(bad, game)
+            raise AssertionError(f"deberia rechazar {bad}")
+        except SystemExit as e:
+            assert "~mods" in str(e)
+    bc.check_out_dir(Path(game).parent / "StellarSouls-builds", game)  # no levanta
+
+
+def test_shadow_paks_finds_builds_left_inside_mods(tmp_path=None):
+    """Paks cargables que la tool no instalo (o duplicados en subcarpetas)."""
+    import tempfile
+    import installer
+    game, mods = _fake_game(tmp_path or tempfile.mkdtemp())
+
+    def pak(folder, base):
+        folder.mkdir(parents=True, exist_ok=True)
+        for ext in (".pak", ".ucas", ".utoc"):
+            (folder / f"{base}{ext}").write_text("x", encoding="utf-8")
+
+    installed = "StellarSouls-MiniBossNGPlus-Combat_P"
+    pak(mods, installed)                                  # instalado, raiz: OK
+    pak(mods / "stage" / "Paks", installed)               # duplicado fantasma
+    pak(mods / "compile_mb", installed)                   # duplicado fantasma
+    pak(mods / "AAA-CNS Outfit-1670", "SomeOutfit_P")     # mod de tercero: OK
+    pak(mods, "StellarSouls-Custom_P")                    # propio, no instalado
+
+    original = installer.load_manifest
+    installer.load_manifest = lambda: {"game": game, "paks": [installed]}
+    try:
+        found = installer.shadow_paks(game)
+    finally:
+        installer.load_manifest = original
+
+    assert found == sorted([f"compile_mb\\{installed}", f"stage\\Paks\\{installed}",
+                            "StellarSouls-Custom_P"])
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

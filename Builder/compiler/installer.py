@@ -45,6 +45,40 @@ def _save_manifest(m: dict) -> None:
     _manifest_path().write_text(json.dumps(m, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+PAK_SUFFIXES = (".pak", ".ucas", ".utoc")
+
+
+def shadow_paks(game: str | None = None) -> list[str]:
+    """Paks de Stellar Souls cargables que la tool NO instalo, o duplicados.
+
+    ~mods se carga recursivamente, asi que una carpeta de build ahi adentro
+    (``stage\\Paks``, ``compile_mb``) queda cargada y puede pisar al pak
+    instalado sin que se vea por ningun lado. Devuelve rutas relativas a ~mods.
+
+    Solo mira paks propios (prefijo ``StellarSouls``) y copias del instalado en
+    subcarpetas: los mods de terceros viven en subcarpetas de forma legitima.
+    """
+    g = game or load_manifest().get("game") or gamepaths.detect_game()
+    if not g:
+        return []
+    root = gamepaths.paks_dir(g)
+    if not root.is_dir():
+        return []
+    installed = set(load_manifest().get("paks", []))
+    out = []
+    for f in root.rglob("*"):
+        if f.suffix.lower() not in PAK_SUFFIXES or not f.is_file():
+            continue
+        in_subdir = f.parent != root
+        mine = f.stem.startswith("StellarSouls")
+        # Copia del instalado en subcarpeta, o pak propio que la tool no instalo.
+        if (in_subdir and (mine or f.stem in installed)) or (mine and f.stem not in installed):
+            rel = str(f.parent.relative_to(root) / f.stem)
+            if rel not in out:
+                out.append(rel)
+    return sorted(out)
+
+
 def installed_status(game: str | None = None) -> dict:
     """Lo que la tool instalo Y sigue presente en el juego. Para la UI."""
     m = load_manifest()
@@ -62,7 +96,8 @@ def installed_status(game: str | None = None) -> dict:
             if (mods / name).exists():
                 helpers_present.append(name)
     return {"game": g or "", "paks": paks_present,
-            "helper": bool(helpers_present), "helpers": helpers_present}
+            "helper": bool(helpers_present), "helpers": helpers_present,
+            "shadowPaks": shadow_paks(g) if g else []}
 
 
 def install_paks(game: str, pak_basenames_dir: Path, approved: bool = False) -> dict:

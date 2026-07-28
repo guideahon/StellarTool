@@ -18,6 +18,9 @@ public:
     static QStringList globalContainerFiles(); // global.utoc/.ucas/.upak del juego
 
     static QString detectSteam();            // intenta ubicar StellarBlade en Steam
+    // Acomoda lo que eligio el usuario: acepta la raiz, una subcarpeta (SB,
+    // Content, Paks, ~mods) o la carpeta que la contiene. "" si no es el juego.
+    static QString normalizeRoot(const QString &dir);
 };
 
 } // namespace st
