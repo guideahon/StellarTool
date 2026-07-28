@@ -16,6 +16,14 @@ Version 0.4.2
   are asked for the folder, and it accepts the game root, SB\Content\Paks or
   ~mods.
 
+- Tables are no longer dropped from the merged pak. When a base row had an
+  empty array and a mod filled it, the merge wrote those array entries with a
+  malformed internal type name, so the table failed verification and was
+  excluded to avoid shipping a corrupt file - the merge report warned about it
+  and told you to keep the source mod enabled. Reported on EffectTable while
+  merging two Eve movesets; it could hit any table. Fixed in 0.4.1. Re-run the
+  merge, the mods themselves need no changes.
+
 If you build Stellar Souls with the outfit swap, 0.4.1 already restores the
 camp rest FX and the vanilla 4-second shield-regen lock that the swap used to
 overwrite. Both are on by default and can be unticked.
