@@ -191,6 +191,7 @@ def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = Non
         game = gamepaths.detect_game(install.get("game"))
         if not game:
             raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
+        backup_before_install(game, ue4ss, ue4ss, {"paks": False, "helper": True})
         installer.install_helper(game, ue4ss, approved=True)
 
     try:
@@ -198,12 +199,44 @@ def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = Non
         history.record(a, str(zip_path))
     except Exception:
         pass
+    import buildjournal
+    buildjournal.finish()
     return zip_path
+
+
+def install_targets(paks_dir: Path, helper_src: Path, install: dict) -> tuple[list, list]:
+    """Que paks/helpers va a pisar la instalacion (para respaldarlos antes)."""
+    import installer
+    bases = []
+    if install.get("paks"):
+        bases = sorted({f.stem for f in Path(paks_dir).glob("*")
+                        if f.suffix.lower() in installer.PAK_SUFFIXES})
+    helpers = []
+    if install.get("helper") and Path(helper_src).is_dir():
+        helpers = installer.helper_targets(helper_src)
+    return bases, helpers
+
+
+def backup_before_install(game: str, paks_dir: Path, helper_src: Path, install: dict) -> None:
+    """Respalda la instalacion previa y lo anota en el diario del build.
+
+    Cancelar mata el proceso en cualquier punto, incluso a mitad de copiar los
+    paks; el rollback necesita el estado anterior completo para reponerlo.
+    """
+    import buildjournal, installer
+    bases, helpers = install_targets(paks_dir, helper_src, install)
+    buildjournal.record_backup(
+        installer.backup_install(game, bases, helpers,
+                                 buildjournal.backup_root() / "install"))
 
 
 def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     a = normalize(answers)
     check_out_dir(out_dir, (install or {}).get("game"))
+    # Diario para poder deshacer si el usuario cancela (el build muere de golpe,
+    # sin chance de limpiar por su cuenta).
+    import buildjournal
+    buildjournal.begin(out_dir)
     # La ruta elegida en la UI tambien la necesita el compilador (baselines
     # vanilla escribibles), no solo el instalador.
     if (install or {}).get("game"):
@@ -351,10 +384,15 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
         game = gamepaths.detect_game(install.get("game"))
         if not game:
             raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
+        helper_src = stage / "ue4ss" / "Mods"
+        want_helper = install.get("helper") and (plan["needsHelper"]
+                                                 or vanilla_helper.is_enabled(alpha))
+        backup_before_install(game, paks_dir, helper_src,
+                              {"paks": install.get("paks"), "helper": want_helper})
         if install.get("paks"):
             installer.install_paks(game, paks_dir, approved=True)
-        if install.get("helper") and (plan["needsHelper"] or vanilla_helper.is_enabled(alpha)):
-            installer.install_helper(game, stage / "ue4ss" / "Mods", approved=True)
+        if want_helper:
+            installer.install_helper(game, helper_src, approved=True)
 
     # Historial (para 'usar de plantilla' / re-exportar).
     try:
@@ -362,6 +400,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
         history.record(a, str(zip_path))
     except Exception:
         pass
+    buildjournal.finish()   # build completo: no queda nada que deshacer
     return zip_path
 
 
@@ -378,11 +417,18 @@ def main():
     ap.add_argument("--installed-status", action="store_true", help="JSON de lo instalado por la tool.")
     ap.add_argument("--uninstall-paks", action="store_true", help="desinstalar el mod que la tool instalo.")
     ap.add_argument("--uninstall-helper", action="store_true", help="desinstalar el helper que la tool instalo.")
+    ap.add_argument("--rollback", action="store_true",
+                    help="deshacer el ultimo build cortado (restaura la instalacion y limpia la salida).")
     args = ap.parse_args()
 
     if args.game:
         import gamepaths
         gamepaths.remember_game(args.game)
+
+    if args.rollback:
+        import buildjournal
+        print(f"OK -> {json.dumps(buildjournal.rollback())}")
+        return
 
     if args.installed_status:
         import installer

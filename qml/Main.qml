@@ -188,6 +188,15 @@ ApplicationWindow {
                     Layout.alignment: Qt.AlignHCenter
                     implicitWidth: 32; implicitHeight: 32
                 }
+                // Solo el build largo se puede cortar (App.cancellable): el resto
+                // de las tareas terminan solas en segundos.
+                FlatButton {
+                    id: cancelBuildButton
+                    visible: App.cancellable
+                    Layout.fillWidth: true
+                    text: I18n.s.cancel
+                    onClicked: App.cancelBuild()
+                }
 
                 Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 

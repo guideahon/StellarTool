@@ -100,6 +100,114 @@ def installed_status(game: str | None = None) -> dict:
             "shadowPaks": shadow_paks(g) if g else []}
 
 
+# ---- backup / restore para deshacer una instalacion cortada a la mitad ----
+
+def _mods_txt_backup(d: Path) -> Path:
+    return d / "mods.txt"
+
+
+def backup_install(game: str, pak_bases, helper_names, dest_dir) -> dict:
+    """Copia lo que la instalacion esta por pisar, para poder volver atras.
+
+    ``pak_bases``/``helper_names`` son los que se van a instalar; se suma lo que
+    ya figuraba en el manifest, porque un rollback tiene que dejar la
+    instalacion anterior completa, no solo los archivos coincidentes.
+    """
+    dest_dir = Path(dest_dir)
+    (dest_dir / "paks").mkdir(parents=True, exist_ok=True)
+    (dest_dir / "helpers").mkdir(parents=True, exist_ok=True)
+    m = load_manifest()
+
+    bases = sorted(set(pak_bases) | set(m.get("paks", [])))
+    mods = gamepaths.paks_dir(game)
+    saved_paks = []
+    for base in bases:
+        for ext in PAK_SUFFIXES:
+            f = mods / f"{base}{ext}"
+            if f.is_file():
+                shutil.copy2(f, dest_dir / "paks" / f.name)
+                saved_paks.append(f.name)
+
+    names = sorted(set(helper_names) | set(m.get("helpers") or []))
+    ue4ss = gamepaths.ue4ss_mods_dir(game)
+    saved_helpers, missing_helpers = [], []
+    for name in names:
+        src = ue4ss / name
+        if src.is_dir():
+            shutil.copytree(src, dest_dir / "helpers" / name, dirs_exist_ok=True)
+            saved_helpers.append(name)
+        else:
+            missing_helpers.append(name)
+
+    mods_txt = ue4ss / "mods.txt"
+    had_mods_txt = mods_txt.is_file()
+    if had_mods_txt:
+        shutil.copy2(mods_txt, _mods_txt_backup(dest_dir))
+
+    manifest = _manifest_path()
+    had_manifest = manifest.is_file()
+    if had_manifest:
+        shutil.copy2(manifest, dest_dir / "installed.json")
+
+    return {"game": game, "dir": str(dest_dir),
+            "pakTargets": bases, "paks": saved_paks,
+            "helperTargets": names, "helpers": saved_helpers,
+            "helpersMissing": missing_helpers,
+            "modsTxt": had_mods_txt, "manifest": had_manifest}
+
+
+def restore_install(backup: dict) -> dict:
+    """Vuelve la instalacion al estado que guardo ``backup_install``."""
+    d = Path(backup.get("dir", ""))
+    game = backup.get("game") or ""
+    if not game or not d.is_dir():
+        return {"restored": False}
+
+    mods = gamepaths.paks_dir(game)
+    # Primero fuera lo que haya ahora de esos paks (la instalacion cortada pudo
+    # dejar solo el .pak sin su .utoc), despues volver a poner los del backup.
+    for base in backup.get("pakTargets", []):
+        for ext in PAK_SUFFIXES:
+            f = mods / f"{base}{ext}"
+            if f.is_file():
+                f.unlink()
+    for name in backup.get("paks", []):
+        src = d / "paks" / name
+        if src.is_file():
+            mods.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, mods / name)
+
+    ue4ss = gamepaths.ue4ss_mods_dir(game)
+    for name in backup.get("helperTargets", []):
+        dest = ue4ss / name
+        if dest.is_dir():
+            shutil.rmtree(dest, ignore_errors=True)
+    for name in backup.get("helpers", []):
+        src = d / "helpers" / name
+        if src.is_dir():
+            shutil.copytree(src, ue4ss / name, dirs_exist_ok=True)
+
+    mods_txt = ue4ss / "mods.txt"
+    if backup.get("modsTxt"):
+        saved = _mods_txt_backup(d)
+        if saved.is_file():
+            shutil.copy2(saved, mods_txt)
+    elif mods_txt.is_file():
+        # No habia mods.txt antes: lo creo la instalacion que se corto.
+        mods_txt.unlink()
+
+    manifest = _manifest_path()
+    if backup.get("manifest"):
+        saved = d / "installed.json"
+        if saved.is_file():
+            shutil.copy2(saved, manifest)
+    elif manifest.is_file():
+        manifest.unlink()
+
+    return {"restored": True, "paks": backup.get("paks", []),
+            "helpers": backup.get("helpers", [])}
+
+
 def install_paks(game: str, pak_basenames_dir: Path, approved: bool = False) -> dict:
     """Copia todos los .pak/.ucas/.utoc de pak_basenames_dir a ~mods."""
     if not approved:
@@ -162,6 +270,11 @@ def _helper_sources(helper_src: Path) -> list[Path]:
         return subs
     cand = helper_src / HELPER_NAME
     return [cand] if cand.is_dir() else []
+
+
+def helper_targets(helper_src) -> list[str]:
+    """Nombres de mod UE4SS que instalaria install_helper desde helper_src."""
+    return [p.name for p in _helper_sources(Path(helper_src))]
 
 
 def install_helper(game: str, helper_src: Path, approved: bool = False) -> dict:

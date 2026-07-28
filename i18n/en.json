@@ -185,6 +185,8 @@
   "builder_out": "Output folder for the ZIP",
   "builder_build": "Build my mod",
   "builder_compiling": "Compiling...",
+  "builder_cancelling": "Cancelling...",
+  "builder_cancelled": "Build cancelled. Previous install restored and partial output cleaned.",
   "builder_done": "Done. Your mod:",
   "builder_game_found": "Game detected",
   "builder_game_missing": "Game not detected — a ZIP will be generated for manual install",

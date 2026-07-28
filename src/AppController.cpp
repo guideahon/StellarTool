@@ -874,6 +874,14 @@ QString AppController::gamePath() const { return GamePaths::gameRoot(); }
 bool AppController::hasGamePath() const { return GamePaths::hasGame(); }
 QString AppController::defaultOutDir() const { return GamePaths::modsDir(); }
 
+QString AppController::defaultBuildOutDir() const {
+    QString base = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+    if (base.isEmpty())
+        base = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation);
+    if (base.isEmpty()) return {};
+    return QDir::toNativeSeparators(base + QStringLiteral("/StellarTool/builds"));
+}
+
 // ¿El origen del mod vive dentro de ~mods del juego?
 static bool sourceInMods(const QString &sourcePath) {
     const QString mods = GamePaths::modsDir();
@@ -1120,19 +1128,50 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
         proc.setArguments(args);
         applyGameEnv(proc, game);
         proc.start();
+        // El pid habilita Cancelar en la UI; cancelBuild() mata ese arbol.
+        if (proc.waitForStarted(30000)) {
+            m_buildPid.store(proc.processId());
+            QMetaObject::invokeMethod(this, [this] { emit cancellableChanged(); }, Qt::QueuedConnection);
+        }
         proc.waitForFinished(600000);
+        m_buildPid.store(0);
+        const bool cancelled = m_buildCancelled.exchange(false);
+        // El build murio de golpe: no pudo limpiar nada. El diario que dejo
+        // permite reponer la instalacion previa y borrar la salida a medias.
+        if (cancelled) runBuilderSync({QStringLiteral("--rollback")});
         const QString out = QString::fromUtf8(proc.readAllStandardOutput());
         const QString err = QString::fromUtf8(proc.readAllStandardError());
         QString zip;
         for (const QString &line : out.split(QLatin1Char('\n')))
             if (line.startsWith(QStringLiteral("OK -> "))) zip = line.mid(6).trimmed();
         const bool ok = proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0 && !zip.isEmpty();
-        QMetaObject::invokeMethod(this, [this, ok, zip, err] {
-            if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
+        QMetaObject::invokeMethod(this, [this, ok, zip, err, cancelled] {
+            emit cancellableChanged();
+            // Cancelar no es un error: el build muere a proposito y el usuario
+            // ya sabe por que, asi que no se abre el dialogo de error.
+            if (cancelled) { setStatus(t(QStringLiteral("builder_cancelled"))); emit buildCancelled(); }
+            else if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
             else emit errorOccurred(err.isEmpty() ? QStringLiteral("build_custom failed") : err);
             setBusy(false);
         }, Qt::QueuedConnection);
     });
+}
+
+void AppController::cancelBuild() {
+    const qint64 pid = m_buildPid.load();
+    if (pid == 0) return;
+    m_buildCancelled.store(true);
+    setStatus(t(QStringLiteral("builder_cancelling")));
+    // Matar solo el python deja vivos a repak/retoc/UAssetGUI, que siguen
+    // escribiendo en la carpeta de salida. /T se lleva el arbol entero.
+#ifdef Q_OS_WIN
+    QProcess::startDetached(QStringLiteral("taskkill"),
+                            {QStringLiteral("/PID"), QString::number(pid),
+                             QStringLiteral("/T"), QStringLiteral("/F")});
+#else
+    QProcess::startDetached(QStringLiteral("kill"),
+                            {QStringLiteral("-9"), QString::number(pid)});
+#endif
 }
 
 QString AppController::detectStellarBlade() {

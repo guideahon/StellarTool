@@ -1099,6 +1099,107 @@ def test_shadow_paks_finds_builds_left_inside_mods(tmp_path=None):
                             "StellarSouls-Custom_P"])
 
 
+def test_cancel_rollback_restores_install_and_cleans_output(tmp_path=None):
+    """Cancelar repone la instalacion previa y borra la salida a medias."""
+    import os
+    import tempfile
+    import buildjournal
+    import installer
+
+    base = Path(tmp_path or tempfile.mkdtemp())
+    game, mods = _fake_game(base / "game")
+    ue4ss = Path(game) / "SB" / "Binaries" / "Win64" / "ue4ss" / "Mods"
+    (ue4ss / installer.HELPER_NAME / "Scripts").mkdir(parents=True)
+    (ue4ss / installer.HELPER_NAME / "Scripts" / "main.lua").write_text("viejo", encoding="utf-8")
+    (ue4ss / "mods.txt").write_text("StellarSoulsOutfitRestore : 1\n", encoding="utf-8")
+    for ext in installer.PAK_SUFFIXES:
+        (mods / f"StellarSouls-Custom{ext}").write_text("viejo", encoding="utf-8")
+
+    old_appdata = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = str(base / "appdata")
+    try:
+        manifest = {"game": game, "paks": ["StellarSouls-Custom"],
+                    "helper": True, "helpers": [installer.HELPER_NAME]}
+        installer._save_manifest(manifest)
+
+        out = base / "builds"
+        (out / "stage" / "Paks").mkdir(parents=True)
+        (out / "compile_mb").mkdir(parents=True)
+        buildjournal.begin(out)
+        (out / "StellarSouls-Custom-abc123.zip").write_text("a medias", encoding="utf-8")
+        buildjournal.record_backup(installer.backup_install(
+            game, ["StellarSouls-Custom"], [installer.HELPER_NAME],
+            buildjournal.backup_root() / "install"))
+
+        # El build muere despues de pisar el pak y el helper, y antes de copiar
+        # el .utoc: el estado que queda en el juego no arranca ni con lo viejo.
+        (mods / "StellarSouls-Custom.pak").write_text("nuevo a medias", encoding="utf-8")
+        (mods / "StellarSouls-Custom.utoc").unlink()
+        (ue4ss / installer.HELPER_NAME / "Scripts" / "main.lua").write_text("nuevo", encoding="utf-8")
+        (ue4ss / "mods.txt").write_text("basura\n", encoding="utf-8")
+        installer._save_manifest({"game": game, "paks": [], "helper": False, "helpers": []})
+
+        res = buildjournal.rollback()
+        assert res["rolledBack"] is True
+
+        for ext in installer.PAK_SUFFIXES:
+            f = mods / f"StellarSouls-Custom{ext}"
+            assert f.is_file() and f.read_text(encoding="utf-8") == "viejo"
+        assert (ue4ss / installer.HELPER_NAME / "Scripts" / "main.lua").read_text(
+            encoding="utf-8") == "viejo"
+        assert (ue4ss / "mods.txt").read_text(encoding="utf-8") == "StellarSoulsOutfitRestore : 1\n"
+        assert installer.load_manifest()["paks"] == ["StellarSouls-Custom"]
+
+        assert not (out / "stage").exists()
+        assert not (out / "compile_mb").exists()
+        assert not (out / "StellarSouls-Custom-abc123.zip").exists()
+        # Diario consumido: un segundo rollback no tiene nada que deshacer.
+        assert buildjournal.rollback() == {"rolledBack": False}
+    finally:
+        if old_appdata is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = old_appdata
+
+
+def test_rollback_removes_install_that_did_not_exist_before(tmp_path=None):
+    """Sin instalacion previa, cancelar deja el juego limpio (no a medio instalar)."""
+    import os
+    import tempfile
+    import buildjournal
+    import installer
+
+    base = Path(tmp_path or tempfile.mkdtemp())
+    game, mods = _fake_game(base / "game")
+    ue4ss = Path(game) / "SB" / "Binaries" / "Win64" / "ue4ss" / "Mods"
+    ue4ss.mkdir(parents=True)
+
+    old_appdata = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = str(base / "appdata")
+    try:
+        out = base / "builds"
+        out.mkdir()
+        buildjournal.begin(out)
+        buildjournal.record_backup(installer.backup_install(
+            game, ["StellarSouls-Custom"], [installer.HELPER_NAME],
+            buildjournal.backup_root() / "install"))
+
+        (mods / "StellarSouls-Custom.pak").write_text("nuevo", encoding="utf-8")
+        (ue4ss / installer.HELPER_NAME / "Scripts").mkdir(parents=True)
+        (ue4ss / "mods.txt").write_text("StellarSoulsOutfitRestore : 1\n", encoding="utf-8")
+
+        buildjournal.rollback()
+
+        assert not (mods / "StellarSouls-Custom.pak").exists()
+        assert not (ue4ss / installer.HELPER_NAME).exists()
+        assert not (ue4ss / "mods.txt").exists()
+    finally:
+        if old_appdata is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = old_appdata
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

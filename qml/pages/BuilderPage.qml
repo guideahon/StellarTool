@@ -387,6 +387,8 @@ Item {
         target: App
         function onBuilderFinished(zipPath) { root.resultZip = zipPath; root.refreshHistory(); root.refreshInstalled() }
         function onUninstalled() { root.refreshInstalled() }
+        // El rollback pudo reponer (o sacar) paks y helper: releer que quedo.
+        function onBuildCancelled() { root.refreshInstalled() }
         function onGamePathChanged() { root.refreshGamePath(); root.refreshInstalled() }
     }
 
@@ -1262,7 +1264,7 @@ Item {
                                 id: outField
                                 Layout.fillWidth: true
                                 color: Theme.text
-                                text: App.defaultOutDir()
+                                text: App.defaultBuildOutDir()
                                 background: Rectangle { radius: Theme.radius; color: Theme.panelAlt; border.color: Theme.border }
                             }
                             Button { text: "📁"; onClicked: outDialog.open() }

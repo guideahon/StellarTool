@@ -8,6 +8,8 @@
 #include <QObject>
 #include <QFutureWatcher>
 
+#include <atomic>
+
 namespace st {
 
 class PakService;
@@ -42,6 +44,9 @@ class AppController : public QObject {
     Q_PROPERTY(QString lastMergeResult READ lastMergeResult NOTIFY mergeFinished)
     Q_PROPERTY(bool lastMergeOk READ lastMergeOk NOTIFY mergeFinished)
     Q_PROPERTY(bool exportZip READ exportZip WRITE setExportZip NOTIFY exportZipChanged)
+    // Hay un build en curso que se puede cortar (solo runBuilder: es el único
+    // proceso largo del que guardamos el pid).
+    Q_PROPERTY(bool cancellable READ cancellable NOTIFY cancellableChanged)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
     ~AppController() override;
@@ -56,6 +61,10 @@ public:
     QString lastMergeResult() const { return m_lastMergeResult; }
     bool lastMergeOk() const { return m_lastMergeOk; }
     bool exportZip() const { return m_exportZip; }
+    bool cancellable() const { return m_buildPid.load() != 0; }
+    // Mata el árbol del build en curso (python + repak/retoc hijos). No-op si
+    // no hay build corriendo.
+    Q_INVOKABLE void cancelBuild();
     void setExportZip(bool v) { if (m_exportZip != v) { m_exportZip = v; emit exportZipChanged(); } }
 
     ModListModel *modModel() { return &m_modModel; }
@@ -116,6 +125,10 @@ public:
     bool downloadingUsmap() const { return m_downloadingUsmap; }
     Q_INVOKABLE void downloadUsmap(const QString &version);
     Q_INVOKABLE QString defaultOutDir() const;   // <juego>/~mods si hay juego, si no vacío
+    // Salida del builder: fuera del juego. Deja stage/ y compile*/ junto al ZIP
+    // y ~mods se carga recursivamente, así que ~mods como default dejaba el
+    // botón Compilar deshabilitado (check_out_dir la rechaza).
+    Q_INVOKABLE QString defaultBuildOutDir() const;
     Q_INVOKABLE void openDir(const QString &path); // abre la carpeta en el Explorador
     // Mods cargados cuyo origen vive dentro de ~mods (candidatos a desactivar).
     Q_INVOKABLE int disableableSourceCount() const;
@@ -149,6 +162,8 @@ signals:
     void builderFinished(const QString &zipPath);
     void uninstalled();
     void exportZipChanged();
+    void cancellableChanged();
+    void buildCancelled();
     void errorOccurred(const QString &message);
 
 private:
@@ -207,6 +222,10 @@ private:
     QString m_lastMergeResult;
     QHash<QString, QStringList> m_usmapEnums;
     bool m_usmapEnumsLoaded = false;
+    // pid del build en curso (0 = ninguno) y si el usuario lo canceló: los lee
+    // el hilo de UI mientras el worker corre el QProcess.
+    std::atomic<qint64> m_buildPid{0};
+    std::atomic<bool> m_buildCancelled{false};
     QStringList m_lastDroppedTables;  // tablas no emitidas (0 cambios aplicados)
     QStringList m_lastFailedTables;   // tablas excluidas por fallar la verificación
     int m_lastSkipped = 0;
