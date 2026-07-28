@@ -268,4 +268,28 @@ ApplicationWindow {
         anchors.centerIn: parent
     }
     Component.onCompleted: if (!I18n.chosen) langDialog.open()
+
+    // Aviso de actualización (chequeo silencioso al arrancar + botón en Settings).
+    UpdateDialog {
+        id: updateDialog
+        anchors.centerIn: parent
+    }
+    // En el primer arranque manda el popup de idioma: el aviso espera a que cierre.
+    property bool updatePending: false
+    Connections {
+        target: Updater
+        function onUpdateAvailable(version) {
+            if (langDialog.opened) win.updatePending = true
+            else updateDialog.open()
+        }
+    }
+    Connections {
+        target: langDialog
+        function onClosed() {
+            if (win.updatePending) {
+                win.updatePending = false
+                updateDialog.open()
+            }
+        }
+    }
 }

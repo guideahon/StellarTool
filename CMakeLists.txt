@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(StellarTool VERSION 0.3.13 LANGUAGES CXX)
+project(StellarTool VERSION 0.4.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,6 +55,9 @@ set(CORE_HEADERS
 
 qt_add_executable(StellarTool
     src/main.cpp
+    # Solo la app GUI: usa Qt6::Network y no lo necesitan los tests.
+    src/core/UpdateService.cpp
+    src/core/UpdateService.h
     ${CORE_SOURCES}
     ${CORE_HEADERS}
 )
@@ -93,11 +96,14 @@ if (BUILD_TESTS)
         tests/tst_main.cpp
         tests/TestDiffEngine.cpp
         tests/TestMergeEngine.cpp
+        tests/TestUpdateService.cpp
+        src/core/UpdateService.cpp
+        src/core/UpdateService.h
         ${CORE_SOURCES}
         ${CORE_HEADERS}
     )
     target_include_directories(StellarToolTests PRIVATE src tests)
-    target_link_libraries(StellarToolTests PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Test)
+    target_link_libraries(StellarToolTests PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Test Qt6::Network)
     target_compile_definitions(StellarToolTests PRIVATE
         ST_FIXTURES_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
     set_target_properties(StellarToolTests PROPERTIES WIN32_EXECUTABLE FALSE)

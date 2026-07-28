@@ -140,11 +140,53 @@ def tumbler_heal(et_doc, value=60.0) -> bool:
     return bool(r and _set(r, "CalculationValue", value))
 
 
+def gauge_recovery_over_time(et_doc) -> int:
+    """Recuperación sostenida tras parry/dodge perfecto, conservando el skill gate."""
+    idx = _idx(et_doc)
+    rates = {
+        "P_Eve_SkillTree_JustParry_BetaGauge1": 8.0,
+        "P_Eve_SkillTree_JustParry_BetaGauge2": 6.0,
+        "P_Eve_SkillTree_JustEvade_BurstGauge1": 4.0,
+        "P_Eve_SkillTree_JustEvade_BurstGauge2": 3.0,
+    }
+    n = 0
+    for name, rate in rates.items():
+        row = idx.get(name)
+        if not row:
+            continue
+        for field, value in (
+                ("LoopTargetFilterAlias", "Self"),
+                ("CalculationMultipleValue", rate),
+                ("LoopIntervalTime", 1.0),
+                ("StartDelayTime", 1.0),
+                ("LifeTime", 11.0)):
+            if _set(row, field, value):
+                n += 1
+    return n
+
+
+def drone_scan_duration(et_doc) -> int:
+    row = _idx(et_doc).get("N_Drone_Scan")
+    if not row:
+        return 0
+    return sum(1 for field, value in (
+        ("ExpansionValue1", "1"), ("LifeTime", 10.0),
+    ) if _set(row, field, value))
+
+
+def gun_gorgon_free_rotation(et_doc) -> bool:
+    row = _idx(et_doc).get("P_Eve_Stance_GunGorgon")
+    # CUE4Parse muestra el enum calificado, pero UAssetAPI legacy espera el
+    # FName sin el prefijo del tipo.
+    return bool(row and _set(row, "ActorState1", "ActorState_None"))
+
+
 # Que extras tocan EffectTable (para saber si hace falta el pase tojson/fromjson).
 EFFECT_EXTRAS = {
     "noFallDamage", "noEnvDeath", "tachyReduce", "strongerGear",
     "autoGaugeRecovery", "noWaterDeath", "noSandDeath", "betaParryRecovery",
     "burstDodgeRecovery", "tumblerHeal",
+    "gaugeRecoveryOverTime", "droneScanBoost", "gunGorgonRotation",
 }
 
 
@@ -170,4 +212,10 @@ def apply_effect_extras(et_doc, extras: list, gear_mult=2.0) -> dict:
         rep["burstDodgeRecovery"] = burst_dodge_recovery(et_doc)
     if "tumblerHeal" in extras:
         rep["tumblerHeal"] = tumbler_heal(et_doc)
+    if "gaugeRecoveryOverTime" in extras:
+        rep["gaugeRecoveryOverTime"] = gauge_recovery_over_time(et_doc)
+    if "droneScanBoost" in extras:
+        rep["droneScanBoost"] = drone_scan_duration(et_doc)
+    if "gunGorgonRotation" in extras:
+        rep["gunGorgonRotation"] = gun_gorgon_free_rotation(et_doc)
     return rep

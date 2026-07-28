@@ -19,6 +19,18 @@ Nexus Mods), extraelo donde quieras y ejecutá `StellarTool.exe`. Es autoconteni
 incluye el runtime de Qt y los binarios de `tools\` (repak, retoc, UAssetGUI y el
 mapping de Stellar Blade). No instala nada ni toca archivos del juego.
 
+### Actualizaciones
+
+Al arrancar consulta la release *latest* de GitHub. Si hay una más nueva ofrece
+tres opciones: **actualizar ahora** (descarga el zip, lo extrae y relanza el exe
+nuevo), **más tarde** (vuelve a preguntar en el próximo arranque) o **saltear
+esta versión** (no vuelve a ofrecer ese tag). El chequeo automático se apaga en
+Settings → Actualizaciones, donde además hay un botón para buscar a mano.
+
+Requisitos del lado del repo: la release tiene que estar **publicada** (no draft
+ni prerelease, si no la API `releases/latest` devuelve 404) y traer como adjunto
+el `StellarTool-<version>.zip` que genera `package.bat`.
+
 ## Empaquetar un release (mantenedores)
 
 ```bat
@@ -64,6 +76,15 @@ ofrecen niveles visibles; los mini-bosses permiten densidad independiente por
 región y configuración separada de vida, ataque, tamaño, escudo, drops, XP,
 persistencia, tipo Boss e inmunidad a ejecución. El cuestionario no usa menús
 desplegables.
+Los extras permiten recrear de forma granular Base Attribute Enhancement:
+HP/escudo y reducción base, regeneración de escudo 160/20, capacidad
+Beta/Burst 1500/2000, HP pasivo 20/s, pesca 50, munición x100, recuperación
+sostenida por acciones perfectas, dash de 4 s, escaneo 5/10 s y rotación
+GunGorgon.
+El perfil nativo de Stellar Souls modifica sólo enemigos normales. Los
+mini-bosses se agregan de forma independiente y el extra **Bosses más duros**
+ofrece presets Main e Insane limitados a Hardcore desde
+`DifficultyStatGroupTable`; no modifica enemigos normales y excluye Maelstrom.
 El pak combinado de mini-bosses aplica la misma selección granular sobre
 `CharacterTable` y `SkillTable`: activar mini-bosses no reemplaza silenciosamente
 la economía Beta/Burst ni el resto del perfil por un preset fijo. El

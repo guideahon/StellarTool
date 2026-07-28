@@ -2,6 +2,7 @@
 #include "HeadlessRunner.h"
 #include "Translator.h"
 #include "core/GamePaths.h"
+#include "core/UpdateService.h"
 
 #include <QGuiApplication>
 #include <QCoreApplication>
@@ -93,6 +94,9 @@ int main(int argc, char *argv[]) {
 
     st::Translator translator;
     st::AppController controller(&translator);
+    st::UpdateService updater;
+    // El .bat de reemplazo ya está corriendo: hay que soltar el exe viejo.
+    QObject::connect(&updater, &st::UpdateService::quitRequested, &app, &QGuiApplication::quit);
 
     QQmlApplicationEngine engine;
     QObject::connect(&engine, &QQmlApplicationEngine::warnings, [](const QList<QQmlError> &ws) {
@@ -106,8 +110,13 @@ int main(int argc, char *argv[]) {
     });
     engine.rootContext()->setContextProperty(QStringLiteral("App"), &controller);
     engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &translator);
+    engine.rootContext()->setContextProperty(QStringLiteral("Updater"), &updater);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;
+    // Chequeo silencioso de actualización al arrancar (desactivable en Settings).
+    if (updater.checkOnStartup())
+        QMetaObject::invokeMethod(&updater, [&updater] { updater.checkForUpdates(true); },
+                                  Qt::QueuedConnection);
     return app.exec();
 }

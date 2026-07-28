@@ -167,10 +167,12 @@ private:
 
     void runAnalysis(const AnalysisChoices &choices = {}); // en worker thread
     QString runMerge(const QString &outDir); // en worker thread; devuelve error o vacío
-    // Stage con los contenedores raíz del juego (hardlinks); cachea por proceso.
-    QString ensureVanillaStage();
-    // JSON UAssetGUI real de la tabla vanilla (cacheado en disco); vacío si no hay juego.
-    QString vanillaUAssetJsonPath(const QString &tableBase);
+    // Carpeta con SOLO los contenedores vanilla, lista para retoc (hardlinks;
+    // si no se puede linkear, la carpeta Paks del juego tal cual).
+    QString ensureVanillaStage(QString *error = nullptr);
+    // JSON UAssetGUI real de la tabla vanilla (cacheado en disco); vacío si no
+    // se pudo obtener, con el motivo real en *error.
+    QString vanillaUAssetJsonPath(const QString &tableBase, QString *error = nullptr);
     // Enums del usmap (nombre -> valores en orden), leídos una sola vez.
     const QHash<QString, QStringList> &usmapEnums();
 

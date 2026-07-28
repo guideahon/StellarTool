@@ -58,8 +58,29 @@ def extra_air_dodge(sk_doc, count=2) -> int:
     return n
 
 
+def dash_cooldown_4s(sk_doc) -> int:
+    idx = {r.get("Name"): r for r in _rows(sk_doc)}
+    n = 0
+    for name in (
+            "P_Eve_Sword_Normal_DashAttack1_1",
+            "P_Eve_Sword_Normal_DashAttack3_1",
+            "P_Eve_Sword_Normal_DashAttack4_1"):
+        row = idx.get(name)
+        if row and _set(row, "CoolTime", 4.0):
+            n += 1
+    return n
+
+
+def drone_scan_cooldown_5s(sk_doc) -> bool:
+    row = next((r for r in _rows(sk_doc)
+                if r.get("Name") == "N_Drone_Normal_Scan1_1"), None)
+    return bool(row and _set(row, "CoolTime", 5.0))
+
+
 # Extras que tocan SkillTable.
-SKILL_EXTRAS = {"forgivingJust", "extraAirDodge"}
+SKILL_EXTRAS = {
+    "forgivingJust", "extraAirDodge", "dashCooldown4", "droneScanBoost",
+}
 
 
 def apply_skill_extras(sk_doc, extras: list, just_mult=1.5, air_count=2) -> dict:
@@ -68,4 +89,8 @@ def apply_skill_extras(sk_doc, extras: list, just_mult=1.5, air_count=2) -> dict
         rep["forgivingJust"] = forgiving_just(sk_doc, just_mult)
     if "extraAirDodge" in extras:
         rep["extraAirDodge"] = extra_air_dodge(sk_doc, air_count)
+    if "dashCooldown4" in extras:
+        rep["dashCooldown4"] = dash_cooldown_4s(sk_doc)
+    if "droneScanBoost" in extras:
+        rep["droneScanBoost"] = drone_scan_cooldown_5s(sk_doc)
     return rep

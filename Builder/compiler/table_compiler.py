@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import sys
+import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -221,6 +223,26 @@ def _skill_feature(tid, key, row_pred, prop_pred=lambda _r, p: p["Name"] in _DAM
         _copy_changed(doc, load_table("SkillTable", "full"), _rp, _pp, _tid, amount)
 
 
+def _is_boss_character(row):
+    return (get(row, "ActorType") == "ActorType_BossMonster"
+            or str(row.get("Name", "")).endswith("_MB"))
+
+
+_BOSS_SKILL_PREFIXES = None
+
+
+def _is_boss_skill(row):
+    """Relaciona SkillTable con aliases BossMonster de CharacterTable."""
+    global _BOSS_SKILL_PREFIXES
+    if _BOSS_SKILL_PREFIXES is None:
+        aliases = [
+            str(r.get("Name", "")) for r in rows(load_table("CharacterTable", "vanilla"))
+            if _is_boss_character(r)
+        ]
+        _BOSS_SKILL_PREFIXES = tuple(f"{alias}_" for alias in aliases if alias)
+    return str(row.get("Name", "")).startswith(_BOSS_SKILL_PREFIXES)
+
+
 _skill_feature("combat.betaBurstDamage", "betaBurstDamage",
                lambda r: str(r.get("Name", "")).startswith(("P_Eve_Sword_Beta_", "P_Eve_Sword_Burst_")))
 _skill_feature("combat.droneDamage", "droneDamage",
@@ -233,7 +255,8 @@ _skill_feature("combat.eveDamage", "eveDamage",
                and not str(r.get("Name", "")).startswith(("P_Eve_Gun_", "P_Eve_Sword_Beta_", "P_Eve_Sword_Burst_"))
                and get(r, "UseableCheckGroup") != "DashAttack")
 _skill_feature("combat.enemyDamage", "enemyDamage",
-               lambda r: not str(r.get("Name", "")).startswith("P_Eve_"))
+               lambda r: not str(r.get("Name", "")).startswith("P_Eve_")
+               and not _is_boss_skill(r))
 _skill_feature("combat.perfectDodge", "perfectDodge",
                lambda r: r.get("Name") in {
                    "P_Eve_Sword_Normal_Evade2_1", "P_Eve_Tachy_Normal_Evade1_1",
@@ -267,7 +290,7 @@ def _tachy_duration(doc, _vanilla):
 @transform("combat.enemyVulnerability", table="CharacterTable", base="vanilla")
 def _enemy_vulnerability(doc, _vanilla):
     _copy_changed(doc, load_table("CharacterTable", "full"),
-                  lambda r: r.get("Name") != "Player",
+                  lambda r: r.get("Name") != "Player" and not _is_boss_character(r),
                   lambda _r, p: p["Name"] == "FinalHPDamageReduceRate",
                   "combat.enemyVulnerability",
                   float(PARAMS.get("combat_levels", {}).get("enemyVulnerability", 1.0)))
@@ -334,6 +357,12 @@ _reg_extra("extras.attackSpeed", "CharacterTable", "full", "attack_speed", "extr
 _reg_extra("extras.longerTachy", "CharacterTable", "full", "longer_tachy", "extras")
 _reg_extra("extras.hpDrain", "CharacterTable", "full", "hp_drain", "extras")
 _reg_extra("extras.harderEnemies", "CharacterTable", "full", "harder_enemies", "extras")
+_reg_extra("extras.baseAttributes", "CharacterTable", "full", "base_attributes", "extras")
+_reg_extra("extras.attributeShieldRegen", "CharacterTable", "full", "attribute_shield_regen", "extras")
+_reg_extra("extras.highGaugeCapacity", "CharacterTable", "full", "high_gauge_capacity", "extras")
+_reg_extra("extras.passiveHpRegen", "CharacterTable", "full", "passive_hp_regen", "extras")
+_reg_extra("extras.fishingPower", "CharacterTable", "full", "fishing_power", "extras")
+_reg_extra("extras.ammo100x", "CharacterTable", "full", "ammo_100x", "extras")
 # EffectTable (van sobre el pak de outfit, o sobre uno propio desde vanilla)
 for _tid, _fn in (("noFallDamage", "no_fall_damage"), ("noEnvDeath", "no_environment_death"),
                   ("noWaterDeath", "no_water_death"), ("noSandDeath", "no_sand_death"),
@@ -341,12 +370,30 @@ for _tid, _fn in (("noFallDamage", "no_fall_damage"), ("noEnvDeath", "no_environ
                   ("autoGaugeRecovery", "auto_gauge_recovery"),
                   ("betaParryRecovery", "beta_parry_recovery"),
                   ("burstDodgeRecovery", "burst_dodge_recovery"),
-                  ("tumblerHeal", "tumbler_heal")):
+                  ("tumblerHeal", "tumbler_heal"),
+                  ("gaugeRecoveryOverTime", "gauge_recovery_over_time"),
+                  ("gunGorgonRotation", "gun_gorgon_free_rotation")):
     _reg_extra(f"extras.{_tid}", "EffectTable", "full", _fn, "effect_extras")
     _reg_extra(f"extrasVanilla.{_tid}", "EffectTable", "vanilla", _fn, "effect_extras")
 # SkillTable (sensacion de combate)
 _reg_extra("extras.forgivingJust", "SkillTable", "full", "forgiving_just", "skill_extras")
 _reg_extra("extras.extraAirDodge", "SkillTable", "full", "extra_air_dodge", "skill_extras")
+
+
+@transform("hardcoreEnemies.main", table="DifficultyStatGroupTable", base="vanilla")
+def _hardcore_enemies_main(doc, _vanilla):
+    import hardcore_enemies
+    doc.setdefault("_report", {})["hardcoreEnemies"] = hardcore_enemies.apply(doc, "main")
+
+
+@transform("hardcoreEnemies.insane", table="DifficultyStatGroupTable", base="vanilla")
+def _hardcore_enemies_insane(doc, _vanilla):
+    import hardcore_enemies
+    doc.setdefault("_report", {})["hardcoreEnemies"] = hardcore_enemies.apply(doc, "insane")
+_reg_extra("extras.dashCooldown4", "SkillTable", "full", "dash_cooldown_4s", "skill_extras")
+_reg_extra("extras.droneScanCooldown", "SkillTable", "full", "drone_scan_cooldown_5s", "skill_extras")
+_reg_extra("extras.droneScanDuration", "EffectTable", "full", "drone_scan_duration", "effect_extras")
+_reg_extra("extrasVanilla.droneScanDuration", "EffectTable", "vanilla", "drone_scan_duration", "effect_extras")
 
 
 # ---- compilador ----
@@ -364,14 +411,66 @@ _VENDOR_SSMOD = BUILDER_DIR / "vendor" / "ssmod"
 _VENDOR_RENAME = {"SkillTable.json": "SkillTable_full.json"}
 
 
+def _generate_writable_vanilla(table, output):
+    """Extrae una tabla vanilla y conserva el JSON UAssetAPI escribible.
+
+    Se estagean sólo contenedores raíz mediante hardlinks junto al juego para
+    que ningún archivo de ``~mods`` pueda contaminar la base.
+    """
+    import gamepaths
+
+    game = gamepaths.detect_game()
+    if not game:
+        raise FileNotFoundError(
+            f"{table} necesita la instalación de Stellar Blade para generar su baseline escribible.")
+    paks = Path(game) / "SB" / "Content" / "Paks"
+    stage = Path(tempfile.mkdtemp(prefix="~st_builder_vanilla_", dir=paks))
+    extracted = Path(tempfile.mkdtemp(prefix="st_builder_legacy_"))
+    try:
+        roots = list(paks.glob("global.*")) + list(paks.glob("pakchunk*"))
+        for src in roots:
+            if src.is_file():
+                os.link(src, stage / src.name)
+        cp = toolchain._retoc([
+            "to-legacy", "-f", table, "--version", "UE4_26",
+            str(stage), str(extracted),
+        ])
+        uasset = next(extracted.rglob(f"{table}.uasset"), None)
+        if cp.returncode != 0 or not uasset:
+            raise RuntimeError(
+                f"No se pudo extraer {table} de los contenedores vanilla: "
+                f"{(cp.stdout + cp.stderr)[-500:]}")
+        output = Path(output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        usmap = toolchain.tools_dir() / "StellarBlade.usmap"
+        cp = toolchain._run([
+            str(toolchain.tools_dir() / "UAssetGUI.exe"), "tojson",
+            str(uasset), str(output), "VER_UE4_26", str(usmap),
+        ], timeout=600)
+        if cp.returncode != 0 or not output.exists():
+            raise RuntimeError(
+                f"UAssetGUI no generó la baseline escribible de {table}: "
+                f"{(cp.stdout + cp.stderr)[-500:]}")
+    finally:
+        shutil.rmtree(extracted, ignore_errors=True)
+        shutil.rmtree(stage, ignore_errors=True)
+
+
 def load_table(name, base):
     tables, env = _sources()
-    orig = Path(env) / Path(tables[name][base]).name if env else Path(tables[name][base])
+    configured = os.path.expandvars(tables[name][base])
+    orig = Path(env) / Path(configured).name if env else Path(configured)
     if _VENDOR_SSMOD.exists():
         fname = orig.name
         cand = _VENDOR_SSMOD / _VENDOR_RENAME.get(fname, fname)
         if cand.exists():
             orig = cand
+    if name in {"CharacterTable", "DifficultyStatGroupTable"} and not orig.exists():
+        _generate_writable_vanilla(name, orig)
+    if not orig.exists():
+        raise FileNotFoundError(
+            f"No se encontro la tabla base {name}: {orig}. "
+            "Genera el baseline vanilla desde Ajustes de Stellar Tool.")
     return json.loads(orig.read_text(encoding="utf-8"))
 
 

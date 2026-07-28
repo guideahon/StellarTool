@@ -11,11 +11,15 @@
     },
     "CharacterTable": {
       "full": "C:\\Temp\\ssmod\\combatCT.json",
-      "vanilla": "C:\\Temp\\ssmod\\CharacterTable_sub.json"
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\charactertable.json"
     },
     "EffectTable": {
       "full": "C:\\Temp\\ssmod\\DR_EffectTable.json",
       "vanilla": "C:\\Temp\\ssmod\\VANILLA_EffectTable.json"
+    },
+    "DifficultyStatGroupTable": {
+      "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\difficultystatgrouptable.json",
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\difficultystatgrouptable.json"
     }
   }
 }

@@ -32,17 +32,19 @@
 #endif
 
 namespace {
-// Enlaza src->dst con hardlink (instantáneo, mismo volumen); si falla
-// (ej. distinto volumen) copia. Windows: QFile::link crearía un .lnk, no sirve.
-bool linkOrCopy(const QString &src, const QString &dst) {
+// Enlaza src->dst con hardlink (instantáneo, mismo volumen). NUNCA copia: los
+// contenedores del juego pesan ~100 GB y una copia llenaría el disco (o
+// quedaría a medias) en vez de fallar rápido. Windows: QFile::link crearía un
+// .lnk, no sirve.
+bool hardLink(const QString &src, const QString &dst) {
     if (QFileInfo::exists(dst)) return true;
 #ifdef Q_OS_WIN
-    if (CreateHardLinkW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(dst).utf16()),
-                        reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(src).utf16()),
-                        nullptr))
-        return true;
+    return CreateHardLinkW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(dst).utf16()),
+                           reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(src).utf16()),
+                           nullptr);
+#else
+    return QFile::link(src, dst);
 #endif
-    return QFile::copy(src, dst);
 }
 }
 
@@ -194,37 +196,78 @@ void AppController::clearMods() {
     emit analysisChanged();
 }
 
-QString AppController::ensureVanillaStage() {
-    if (!GamePaths::hasGame()) return {};
-    const QString stage = workRoot() + QStringLiteral("/vanilla_stage");
-    if (QFileInfo::exists(stage + QStringLiteral("/global.utoc"))) return stage;
-    QDir().mkpath(stage);
-    QDirIterator gi(GamePaths::paksDir(),
-                    {QStringLiteral("global.*"), QStringLiteral("pakchunk*")}, QDir::Files);
+QString AppController::ensureVanillaStage(QString *error) {
+    if (!GamePaths::hasGame()) {
+        if (error) *error = t(QStringLiteral("err_need_game_path"));
+        return {};
+    }
+    const QString paks = GamePaths::paksDir();
+    QStringList names;   // contenedores vanilla (sin ~mods/, que es subcarpeta)
+    QDirIterator gi(paks, {QStringLiteral("global.*"), QStringLiteral("pakchunk*")}, QDir::Files);
     while (gi.hasNext()) {
         gi.next();
-        linkOrCopy(gi.filePath(), stage + QLatin1Char('/') + gi.fileName());
+        names << gi.fileName();
+    }
+    if (names.isEmpty()) {
+        if (error) *error = t(QStringLiteral("err_game_not_found"));
+        return {};
+    }
+
+    // Un stage previo sólo sirve si está COMPLETO. Antes alcanzaba con que
+    // existiera global.utoc: una corrida cortada a la mitad (disco lleno, otro
+    // volumen) dejaba el stage roto y el fallo se volvía permanente, porque
+    // ninguna corrida posterior lo rehacía.
+    const QString stage = workRoot() + QStringLiteral("/vanilla_stage");
+    bool complete = true;
+    for (const QString &n : names) {
+        const QFileInfo src(paks + QLatin1Char('/') + n);
+        const QFileInfo dst(stage + QLatin1Char('/') + n);
+        if (!dst.exists() || dst.size() != src.size()) { complete = false; break; }
+    }
+    if (complete) return stage;
+
+    QDir(stage).removeRecursively();
+    QDir().mkpath(stage);
+    for (const QString &n : names) {
+        if (hardLink(paks + QLatin1Char('/') + n, stage + QLatin1Char('/') + n)) continue;
+        // Sin hardlink (juego en otra unidad que %LOCALAPPDATA%, o carpeta de
+        // trabajo sin permisos) se usa la carpeta Paks del juego tal cual:
+        // retoc no recorre subcarpetas, así que ~mods/ y LogicMods/ quedan
+        // afuera igual que en el stage. Copiar no es opción: son ~100 GB.
+        QDir(stage).removeRecursively();
+        return paks;
     }
     return stage;
 }
 
-QString AppController::vanillaUAssetJsonPath(const QString &tableBase) {
+QString AppController::vanillaUAssetJsonPath(const QString &tableBase, QString *error) {
     const QString cacheDir = m_baseline->baselineDir() + QStringLiteral("/uasset_json");
     const QString cached = cacheDir + QLatin1Char('/') + tableBase.toLower() + QStringLiteral(".json");
     if (QFileInfo::exists(cached)) return cached;
-    const QString stage = ensureVanillaStage();
+    const QString stage = ensureVanillaStage(error);
     if (stage.isEmpty()) return {};
     QDir().mkpath(cacheDir);
     const QString legDir = workRoot() + QStringLiteral("/vanilla_extract/") + tableBase;
     QDir(legDir).removeRecursively();
     QString err;
-    if (m_pak->toLegacyFiltered(stage, tableBase, legDir, &err) <= 0) return {};
+    if (m_pak->toLegacyFiltered(stage, tableBase, legDir, &err) <= 0) {
+        if (error)
+            *error = err.isEmpty() ? t(QStringLiteral("err_retoc_no_table")).arg(tableBase) : err;
+        return {};
+    }
     QString uasset;
     QDirIterator li(legDir, {tableBase + QStringLiteral(".uasset")}, QDir::Files,
                     QDirIterator::Subdirectories);
     if (li.hasNext()) uasset = li.next();
-    if (uasset.isEmpty()) return {};
-    if (!m_uasset->toJson(uasset, cached, &err)) return {};
+    if (uasset.isEmpty()) {
+        if (error) *error = t(QStringLiteral("err_table_not_in_game")).arg(tableBase);
+        return {};
+    }
+    if (!m_uasset->toJson(uasset, cached, &err)) {
+        QFile::remove(cached);   // no dejar un JSON a medias cacheado
+        if (error) *error = err;
+        return {};
+    }
     return cached;
 }
 
@@ -266,7 +309,7 @@ void AppController::runAnalysis(const AnalysisChoices &choices) {
                     if (!baseRoot.isEmpty()) baseRoot = normalizeDataTableDoc(baseRoot);
                 } else {
                     const QString vp = vanillaUAssetJsonPath(
-                        QFileInfo(asset.gamePath).completeBaseName());
+                        QFileInfo(asset.gamePath).completeBaseName(), nullptr);
                     if (!vp.isEmpty()) {
                         QFile vf(vp);
                         if (vf.open(QIODevice::ReadOnly))
@@ -435,8 +478,26 @@ QString AppController::runMerge(const QString &outDir) {
                   .arg(QDateTime::currentDateTime().toString(Qt::ISODate));
     report << QString();
     report << QStringLiteral("Mods (priority order, first wins):");
-    for (const auto &m : m_mods)
-        report << QStringLiteral("  %1. %2  [%3]").arg(m.loadOrder + 1).arg(m.name, m.sourcePath);
+    // Cuánto aporta cada mod: un mod con 0 cambios legibles (pak Zen que no se
+    // pudo leer, o idéntico a vanilla) es la causa mas comun de "falta una tabla".
+    QHash<QString, int> itemsByMod, selectedByMod;
+    for (const ChangeItem &c : m_items) {
+        ++itemsByMod[c.modId];
+        if (c.selected) ++selectedByMod[c.modId];
+    }
+    for (const auto &m : m_mods) {
+        const int total = itemsByMod.value(m.id);
+        const int sel = selectedByMod.value(m.id);
+        QString note;
+        if (total == 0)
+            note = QStringLiteral("  <- NO readable changes (unreadable Zen pak, "
+                                  "or identical to vanilla)");
+        else if (sel == 0)
+            note = QStringLiteral("  <- nothing selected: this mod contributes NOTHING "
+                                  "to the merge");
+        report << QStringLiteral("  %1. %2  [%3]").arg(m.loadOrder + 1).arg(m.name, m.sourcePath)
+               << QStringLiteral("     %1 changes, %2 selected%3").arg(total).arg(sel).arg(note);
+    }
     if (!m_groups.isEmpty()) {
         report << QString() << QStringLiteral("Conflicts (%1):").arg(m_groups.size());
         for (const auto &g : m_groups) {
@@ -448,6 +509,44 @@ QString AppController::runMerge(const QString &outDir) {
             report << QStringLiteral("  %1 -> %2").arg(line, winner);
         }
     }
+    // Tablas que tienen cambios pero ninguno seleccionado: no llegan al bucle de
+    // abajo, asi que sin esta seccion desaparecen del reporte sin explicacion
+    // (es lo que se veia como "la tabla del mod no entro en el merge").
+    {
+        struct TableTally { int total = 0, selected = 0, dups = 0, lostConflict = 0; QString path; };
+        QMap<QString, TableTally> tally;
+        QHash<int, QString> resolvedBy;
+        for (const ConflictGroup &g : m_groups)
+            if (!g.resolvedModId.isEmpty()) resolvedBy.insert(g.id, g.resolvedModId);
+        for (const ChangeItem &c : m_items) {
+            if (c.type == ChangeItem::AssetReplaced) continue;
+            TableTally &t = tally[c.tablePath.toLower()];
+            t.path = c.tablePath;
+            ++t.total;
+            if (c.selected) { ++t.selected; continue; }
+            if (c.dup) ++t.dups;
+            else if (c.conflictGroup >= 0 && resolvedBy.contains(c.conflictGroup)
+                     && resolvedBy.value(c.conflictGroup) != c.modId)
+                ++t.lostConflict;
+        }
+        QStringList lines;
+        for (const TableTally &t : tally) {
+            if (t.selected > 0 || t.total == 0) continue;
+            const int unticked = t.total - t.dups - t.lostConflict;
+            lines << QStringLiteral("  %1: %2 changes, none selected "
+                                    "(%3 lost a conflict, %4 duplicate of another mod, %5 unticked)")
+                         .arg(QFileInfo(t.path).completeBaseName())
+                         .arg(t.total).arg(t.lostConflict).arg(t.dups).arg(unticked);
+        }
+        if (!lines.isEmpty()) {
+            report << QString()
+                   << QStringLiteral("Tables left out (changes exist but none selected):")
+                   << lines
+                   << QStringLiteral("  These tables are NOT in the merged pak. Keep the mod that "
+                                     "owns them enabled, or tick their changes.");
+        }
+    }
+
     report << QString() << QStringLiteral("Tables:");
     // Tablas cuyos cambios se saltearon por completo: no se emiten (ver abajo).
     m_lastDroppedTables.clear();
@@ -487,8 +586,8 @@ QString AppController::runMerge(const QString &outDir) {
     }
 
     // Base de escritura: JSON UAssetGUI real de la tabla vanilla (cacheado).
-    auto realVanilla = [&](const QString &tableBase, QString *) -> QJsonObject {
-        const QString vp = vanillaUAssetJsonPath(tableBase);
+    auto realVanilla = [&](const QString &tableBase, QString *why) -> QJsonObject {
+        const QString vp = vanillaUAssetJsonPath(tableBase, why);
         if (vp.isEmpty()) return {};
         QFile f(vp);
         if (!f.open(QIODevice::ReadOnly)) return {};
@@ -519,9 +618,10 @@ QString AppController::runMerge(const QString &outDir) {
                 if (!base.isEmpty()) break;
             }
         }
-        if (base.isEmpty())
-            return tr("No hay base de escritura para %1. Configurá la carpeta del juego "
-                      "para poder mergear mods Zen.").arg(gamePath);
+        if (base.isEmpty()) {
+            if (verr.isEmpty()) verr = t(QStringLiteral("err_need_game_path"));
+            return t(QStringLiteral("err_no_write_base")).arg(gamePath, verr);
+        }
 
         // Antes de tocar nada: sanear los enums con FName numerado que vienen
         // así de vanilla. Si quedan como están, UAssetGUI no puede reescribir

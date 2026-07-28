@@ -48,6 +48,17 @@ _QOL_VALUES = {
     "AttackSpeed": 1.3,
 }
 
+_BASE_ATTRIBUTE_VALUES = {
+    "MaxHP": 3000,
+    "MaxShield": 1000,
+    "DamageReductionPerShieldBock": 0.2,
+}
+
+_AMMO_100X_VALUES = {
+    "StackBullet1": 3000, "StackBullet2": 300, "StackBullet3": 1600,
+    "StackBullet4": 1200, "StackBullet5": 6000, "StackBullet6": 800,
+}
+
 
 def player_qol(ct_doc) -> int:
     player = _find(_rows(ct_doc), "Player")
@@ -83,6 +94,52 @@ def attack_speed(ct_doc) -> int:
     return _qol_fields(ct_doc, ["AttackSpeed"])
 
 
+def base_attributes(ct_doc) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    if not player:
+        return 0
+    return sum(1 for name, value in _BASE_ATTRIBUTE_VALUES.items()
+               if _set(player, name, value))
+
+
+def attribute_shield_regen(ct_doc) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    if not player:
+        return 0
+    values = {
+        "ShieldRegenPerSecond": 160.0,
+        "ShieldRegenPerSecondWhenBattle": 20.0,
+    }
+    return sum(1 for name, value in values.items() if _set(player, name, value))
+
+
+def high_gauge_capacity(ct_doc) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    if not player:
+        return 0
+    return sum(1 for name, value in {
+        "MaxBetaGauge": 1500, "MaxBurstGauge": 2000,
+    }.items() if _set(player, name, value))
+
+
+def passive_hp_regen(ct_doc) -> bool:
+    player = _find(_rows(ct_doc), "Player")
+    return bool(player and _set(player, "HPRegenPerSecond", 20.0))
+
+
+def fishing_power(ct_doc) -> bool:
+    player = _find(_rows(ct_doc), "Player")
+    return bool(player and _set(player, "FishingAttackPower", 50.0))
+
+
+def ammo_100x(ct_doc) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    if not player:
+        return 0
+    return sum(1 for name, value in _AMMO_100X_VALUES.items()
+               if _set(player, name, value))
+
+
 def longer_tachy(ct_doc, gauge=18000) -> bool:
     player = _find(_rows(ct_doc), "Player")
     return bool(player and _set(player, "MaxTachyGauge", gauge))
@@ -99,12 +156,15 @@ def hp_drain(ct_doc) -> bool:
 
 
 def harder_enemies(ct_doc, mult=2.0) -> int:
-    """Multiplica MaxHP/MaxShield de filas de enemigo (no Player, no _MB clones
-    ya buffeados). Global -> combo con mini-boss para picos + piso mas duro."""
+    """Multiplica HP/escudo sólo de enemigos normales.
+
+    Bosses y clones mini-boss pertenecen a opciones independientes.
+    """
     n = 0
     for r in _rows(ct_doc):
         name = r.get("Name", "")
-        if name.startswith("Player") or name.endswith("_MB"):
+        if (name.startswith("Player") or name.endswith("_MB")
+                or _get(r, "ActorType") == "ActorType_BossMonster"):
             continue
         for field in ("MaxHP", "MaxShield"):
             v = _get(r, field)
@@ -127,6 +187,18 @@ def apply_extras(ct_doc, extras: list, harder_mult=2.0) -> dict:
         rep["shieldRegen"] = shield_regen(ct_doc)
     if "attackSpeed" in extras:
         rep["attackSpeed"] = attack_speed(ct_doc)
+    if "baseAttributes" in extras:
+        rep["baseAttributes"] = base_attributes(ct_doc)
+    if "attributeShieldRegen" in extras:
+        rep["attributeShieldRegen"] = attribute_shield_regen(ct_doc)
+    if "highGaugeCapacity" in extras:
+        rep["highGaugeCapacity"] = high_gauge_capacity(ct_doc)
+    if "passiveHpRegen" in extras:
+        rep["passiveHpRegen"] = passive_hp_regen(ct_doc)
+    if "fishingPower" in extras:
+        rep["fishingPower"] = fishing_power(ct_doc)
+    if "ammo100x" in extras:
+        rep["ammo100x"] = ammo_100x(ct_doc)
     if "longerTachy" in extras:
         rep["longerTachy"] = longer_tachy(ct_doc)
     if "hpDrain" in extras:

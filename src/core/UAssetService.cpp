@@ -133,7 +133,10 @@ bool UAssetService::run(const QStringList &args, QString *error, QString *output
         if (error) *error = QStringLiteral("No se pudo iniciar UAssetGUI.exe");
         return false;
     }
-    if (!p.waitForFinished(60000)) {
+    // Generoso a propósito: EffectTable produce ~435 MB de JSON y en equipos
+    // con disco lento pasaba del minuto, con lo cual la tabla se perdía por
+    // timeout (y el merge fallaba sin base vanilla). Corre en worker thread.
+    if (!p.waitForFinished(600000)) {
         p.kill();
         if (error) *error = QStringLiteral("Timeout en UAssetGUI (%1)").arg(args.value(0));
         return false;

@@ -248,6 +248,65 @@ Item {
             }
         }
 
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
+        // ---- Actualizaciones ----
+        Label {
+            text: I18n.s.update_section
+            color: Theme.text; font.pixelSize: 16; font.bold: true
+        }
+        Label {
+            text: I18n.s.update_current_version.arg(Updater.currentVersion)
+            color: Theme.textDim
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Switch {
+                id: autoUpdateSwitch
+                checked: Updater.checkOnStartup
+                onToggled: Updater.checkOnStartup = checked
+            }
+            Label {
+                text: I18n.s.update_auto
+                color: Theme.text
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                MouseArea {
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: { autoUpdateSwitch.toggle(); autoUpdateSwitch.toggled() }
+                }
+            }
+            Button {
+                text: Updater.state === "checking" ? I18n.s.update_checking : I18n.s.update_check_now
+                enabled: !Updater.busy
+                onClicked: { updateStatus.text = ""; Updater.checkForUpdates(false) }
+            }
+        }
+        Label {
+            id: updateStatus
+            Layout.fillWidth: true
+            wrapMode: Text.Wrap
+            color: Theme.textDim
+            text: ""
+        }
+        Connections {
+            target: Updater
+            function onUpToDate() {
+                updateStatus.text = I18n.s.update_uptodate.arg(Updater.currentVersion)
+                updateStatus.color = Theme.ok
+            }
+            function onStateChanged() {
+                if (Updater.state === "error") {
+                    updateStatus.text = I18n.s.update_error.arg(Updater.errorText)
+                    updateStatus.color = Theme.danger
+                }
+            }
+        }
+
         // ---- Shoutouts / creditos ----
         Label {
             text: I18n.s.settings_shoutouts || "Shoutouts"

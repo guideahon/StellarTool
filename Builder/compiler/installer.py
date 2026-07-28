@@ -38,7 +38,7 @@ def load_manifest() -> dict:
             return json.loads(p.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             pass
-    return {"game": "", "paks": [], "helper": False}
+    return {"game": "", "paks": [], "helper": False, "helpers": []}
 
 
 def _save_manifest(m: dict) -> None:
@@ -55,8 +55,14 @@ def installed_status(game: str | None = None) -> dict:
         for base in m.get("paks", []):
             if (dest / f"{base}.pak").exists():
                 paks_present.append(base)
-    helper_present = bool(m.get("helper")) and g and (gamepaths.ue4ss_mods_dir(g) / HELPER_NAME).exists()
-    return {"game": g or "", "paks": paks_present, "helper": bool(helper_present)}
+    helpers_present = []
+    if g:
+        mods = gamepaths.ue4ss_mods_dir(g)
+        for name in (m.get("helpers") or ([HELPER_NAME] if m.get("helper") else [])):
+            if (mods / name).exists():
+                helpers_present.append(name)
+    return {"game": g or "", "paks": paks_present,
+            "helper": bool(helpers_present), "helpers": helpers_present}
 
 
 def install_paks(game: str, pak_basenames_dir: Path, approved: bool = False) -> dict:
@@ -107,32 +113,50 @@ def set_mod_enabled(mods_txt: Path, name: str, value: int = 1) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _helper_sources(helper_src: Path) -> list[Path]:
+    """Carpetas de mod UE4SS a instalar desde helper_src.
+
+    Acepta la carpeta de un helper concreto, o el `Mods` del staging (que puede
+    traer el helper CNS y/o la ALPHA del helper vanilla).
+    """
+    helper_src = Path(helper_src)
+    if (helper_src / "Scripts").is_dir():
+        return [helper_src]
+    subs = [d for d in sorted(helper_src.iterdir()) if d.is_dir() and (d / "Scripts").is_dir()]
+    if subs:
+        return subs
+    cand = helper_src / HELPER_NAME
+    return [cand] if cand.is_dir() else []
+
+
 def install_helper(game: str, helper_src: Path, approved: bool = False) -> dict:
-    """Reemplaza la carpeta del helper y lo activa en mods.txt."""
+    """Reemplaza la(s) carpeta(s) de helper y las activa en mods.txt."""
     if not approved:
         raise PermissionError("install_helper requiere aprobacion explicita del usuario")
-    helper_src = Path(helper_src)
-    if helper_src.name != HELPER_NAME:
-        # aceptar tanto la carpeta HELPER_NAME como su padre
-        cand = helper_src / HELPER_NAME
-        if cand.is_dir():
-            helper_src = cand
+    sources = _helper_sources(Path(helper_src))
+    if not sources:
+        raise FileNotFoundError(f"No hay carpetas de helper en {helper_src}")
     mods = gamepaths.ue4ss_mods_dir(game)
     if not mods.exists():
         raise FileNotFoundError(f"No existe {mods} (UE4SS instalado?)")
-    dest = mods / HELPER_NAME
-    if dest.exists():
-        shutil.rmtree(dest)
-    shutil.copytree(helper_src, dest)
-    # activar en mods.txt
+
     mods_txt = mods / "mods.txt"
-    new = set_mod_enabled(mods_txt, HELPER_NAME, 1)
-    mods_txt.write_text(new, encoding="utf-8")
+    installed = []
+    for src in sources:
+        dest = mods / src.name
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(src, dest)
+        mods_txt.write_text(set_mod_enabled(mods_txt, src.name, 1), encoding="utf-8")
+        installed.append(src.name)
+
     m = load_manifest()
     m["game"] = game
-    m["helper"] = True
+    m["helpers"] = sorted(set(m.get("helpers", [])) | set(installed))
+    m["helper"] = True   # compat: la UI vieja lee este bool
     _save_manifest(m)
-    return {"helper": str(dest), "modsTxt": str(mods_txt), "enabled": True}
+    return {"helper": str(mods / installed[0]), "helpers": installed,
+            "modsTxt": str(mods_txt), "enabled": True}
 
 
 # ---- desinstalacion (solo lo instalado por la tool) ----
@@ -156,20 +180,25 @@ def uninstall_paks(game: str, approved: bool = False) -> dict:
 
 
 def uninstall_helper(game: str, approved: bool = False) -> dict:
-    """Elimina la carpeta del helper y lo desactiva en mods.txt (=0)."""
+    """Elimina las carpetas de helper que instalo la tool y las desactiva (=0)."""
     if not approved:
         raise PermissionError("uninstall_helper requiere aprobacion explicita del usuario")
     mods = gamepaths.ue4ss_mods_dir(game)
-    dest = mods / HELPER_NAME
-    if dest.exists():
-        shutil.rmtree(dest)
-    mods_txt = mods / "mods.txt"
-    if mods_txt.exists():
-        mods_txt.write_text(set_mod_enabled(mods_txt, HELPER_NAME, 0), encoding="utf-8")
     m = load_manifest()
+    names = m.get("helpers") or [HELPER_NAME]
+    mods_txt = mods / "mods.txt"
+    removed = []
+    for name in names:
+        dest = mods / name
+        if dest.exists():
+            shutil.rmtree(dest)
+            removed.append(str(dest))
+        if mods_txt.exists():
+            mods_txt.write_text(set_mod_enabled(mods_txt, name, 0), encoding="utf-8")
+    m["helpers"] = []
     m["helper"] = False
     _save_manifest(m)
-    return {"removed": str(dest), "disabled": True}
+    return {"removed": removed, "disabled": True}
 
 
 if __name__ == "__main__":

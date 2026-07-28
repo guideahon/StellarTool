@@ -109,6 +109,15 @@ selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
 solamente los subconjuntos elegidos desde las bases autoritativas del mod. El
 idioma de la guía de instalación se toma de `I18n.language`; no se configura
 por separado dentro del Builder.
+`hardcoreEnemyBoost` compila un pak independiente desde la baseline local de
+`DifficultyStatGroupTable`. Sólo recorre filas `HardMode`, clasifica los grupos
+específicos de boss por ID (301+) y excluye aliases Maelstrom. Los presets Main
+e Insane pueden acompañar tanto el pipeline normal como el combinado de
+mini-bosses sin modificar `CharacterTable` ni grupos de enemigos normales.
+Los transforms nativos `combat.enemyDamage` y `combat.enemyVulnerability`
+excluyen `ActorType_BossMonster`; `CharacterTable` granular parte de la baseline
+vanilla escribible local, nunca de `CharacterTable_sub` (fuente exclusiva del
+pipeline de mini-bosses).
 
 ## 6. Manejo de errores
 

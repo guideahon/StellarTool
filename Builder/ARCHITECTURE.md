@@ -70,6 +70,10 @@ Viven en `Builder/base_tables/` (JSON UAssetAPI extraídos con retoc). Necesaria
 - **Mini-Boss + NG+**: off / Great Desert / todas las regiones (+ densidad).
 - **Sub-tweaks combat**: gauge Beta, burst, tachy, blaster cell, turret stagger,
   perfect dodge sin lock-on, tumbler heal, execution immunity. (defaults sanos.)
+- **Base Attribute Enhancement granular**: propiedades de Player en
+  `CharacterTable`, recuperación/scan/GunGorgon en `EffectTable` y cooldowns de
+  dash/scan en `SkillTable`. `droneScanBoost` se expande a dos transforms
+  internos porque un ID del registro pertenece a una sola tabla.
 - **Helper CNS** (solo si outfit): last / random-any / random+periódico (intervalo).
 
 ## 6. Fases

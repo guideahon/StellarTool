@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from helper_compiler import compile_helper
 import build_specs
 import table_compiler
+import vanilla_helper
 
 BUILDER_DIR = Path(__file__).resolve().parent.parent
 FEATURES = BUILDER_DIR / "features"
@@ -48,6 +49,8 @@ def normalize(answers: dict) -> dict:
     a.setdefault("combatProfile", "full")
     a.setdefault("outfitSkinSuit", True)
     a.setdefault("miniBoss", "off")
+    # Build ALPHA del helper vanilla (sin CNS). "off" = no incluirlo.
+    a.setdefault("vanillaHelperBuild", "off")
     a.setdefault("lang", "es")
     if a["lang"] not in SUPPORTED_LANGS:
         a["lang"] = "es"
@@ -60,11 +63,19 @@ def preset_key(a: dict) -> str:
     return f'{a["combatProfile"]}|{outfit}|{mb}'
 
 
+def only_vanilla_helper(a: dict) -> bool:
+    """True si lo unico pedido es una ALPHA del helper vanilla (sin paks)."""
+    mb_on = a.get("miniBoss", "off") not in ("off", False, None)
+    return (a.get("combatProfile") == "none" and not a.get("outfitSkinSuit") and not mb_on
+            and vanilla_helper.is_enabled(a.get("vanillaHelperBuild")))
+
+
 def validate(a: dict) -> None:
     """Rechaza combos sin sentido con mensajes accionables (antes de buscar preset)."""
     combat, outfit, mb = a["combatProfile"], a["outfitSkinSuit"], a["miniBoss"]
     mb_on = mb not in ("off", False, None)
-    if combat == "none" and not outfit and not mb_on:
+    hardcore_on = a.get("hardcoreEnemyBoost", "off") in ("main", "insane")
+    if combat == "none" and not outfit and not mb_on and not hardcore_on:
         raise SystemExit("[builder] Nada seleccionado: activa combate, outfit o mini-boss.")
     if combat == "firstRun" and not mb_on:
         raise SystemExit("[builder] First Run solo existe con mini-boss activado (miniBoss=on).")
@@ -124,8 +135,54 @@ def build_install_guide(a: dict, plan: dict, paks: list[str], has_helper: bool) 
     )
 
 
+def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = None) -> Path:
+    """ZIP con SOLO la ALPHA del helper vanilla (para testers sin CNS)."""
+    alpha = a["vanillaHelperBuild"]
+    stage = out_dir / "stage"
+    if stage.exists():
+        shutil.rmtree(stage)
+    ue4ss = stage / "ue4ss" / "Mods"
+    ue4ss.mkdir(parents=True)
+    vanilla_helper.compile_vanilla_helper(alpha, ue4ss)
+
+    (stage / f"INSTALL_{a['lang']}.txt").write_text(
+        vanilla_helper.install_note(alpha).lstrip("\n"), encoding="utf-8")
+    (stage / "build_manifest.json").write_text(
+        json.dumps({"answers": a, "mode": "vanilla-helper-only",
+                    "vanillaHelperBuild": vanilla_helper.build_name(alpha),
+                    "paks": [], "warnings": []},
+                   indent=2, ensure_ascii=False),
+        encoding="utf-8")
+
+    digest = hashlib.sha1(json.dumps(a, sort_keys=True).encode()).hexdigest()[:8]
+    zip_path = out_dir / f"StellarSouls-{vanilla_helper.build_name(alpha)}-{digest}.zip"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in stage.rglob("*"):
+            if f.is_file():
+                zf.write(f, f.relative_to(stage))
+
+    install = install or {}
+    if install.get("helper"):
+        import gamepaths, installer
+        game = install.get("game") or gamepaths.detect_game()
+        if not game:
+            raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
+        installer.install_helper(game, ue4ss, approved=True)
+
+    try:
+        import history
+        history.record(a, str(zip_path))
+    except Exception:
+        pass
+    return zip_path
+
+
 def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     a = normalize(answers)
+    # Solo la ALPHA del helper vanilla: no hay pak que compilar ni preset que
+    # resolver, asi que se saltea todo el pipeline de gameplay.
+    if only_vanilla_helper(a):
+        return build_vanilla_helper_only(a, Path(out_dir), install)
     plan = resolve(a)
     out_dir = Path(out_dir)
     stage = out_dir / "stage"
@@ -201,14 +258,36 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
                 if src.exists():
                     shutil.copy2(src, paks_dir / src.name)
 
+    # Mini-boss y First Run usan un pipeline propio; el ajuste Hardcore vive en
+    # una tabla independiente y se compila como segundo pak componible.
+    hardcore = a.get("hardcoreEnemyBoost", "off")
+    if hardcore in ("main", "insane") and (mb_on or a.get("combatProfile") == "firstRun"):
+        hc_name = "StellarSouls-HarderBosses"
+        hc = table_compiler.compile_pak(
+            [f"hardcoreEnemies.{hardcore}"], hc_name, out_dir / "compile_hardcore")
+        compilation_report[hc_name] = hc.get("reports", {})
+        for key in ("pak", "ucas", "utoc"):
+            shutil.copy2(hc[key], paks_dir / Path(hc[key]).name)
+        paks_out.append(hc_name)
+
     # Helper: compilar config.lua si aplica.
     if plan["needsHelper"]:
         ue4ss = stage / "ue4ss" / "Mods"
         ue4ss.mkdir(parents=True, exist_ok=True)
         compile_helper(plan["helperBase"], ue4ss, a)
 
+    # Helper vanilla (ALPHA, sin CNS): convive con el helper CNS en el ZIP, pero
+    # son mods distintos de UE4SS; instalar solo el que corresponda al setup.
+    alpha = a.get("vanillaHelperBuild")
+    if vanilla_helper.is_enabled(alpha):
+        ue4ss = stage / "ue4ss" / "Mods"
+        ue4ss.mkdir(parents=True, exist_ok=True)
+        vanilla_helper.compile_vanilla_helper(alpha, ue4ss)
+
     # Guia localizada.
     guide = build_install_guide(a, plan, paks_out, plan["needsHelper"])
+    if vanilla_helper.is_enabled(alpha):
+        guide += vanilla_helper.install_note(alpha)
     (stage / f"INSTALL_{a['lang']}.txt").write_text(guide, encoding="utf-8")
 
     # Manifest de la build (trazabilidad).
@@ -237,7 +316,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
         if install.get("paks"):
             installer.install_paks(game, paks_dir, approved=True)
-        if install.get("helper") and plan["needsHelper"]:
+        if install.get("helper") and (plan["needsHelper"] or vanilla_helper.is_enabled(alpha)):
             installer.install_helper(game, stage / "ue4ss" / "Mods", approved=True)
 
     # Historial (para 'usar de plantilla' / re-exportar).

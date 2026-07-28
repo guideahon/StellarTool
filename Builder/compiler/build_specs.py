@@ -41,13 +41,18 @@ COMBAT_FEATURE_TRANSFORMS = {
 _CT_EXTRAS = {
     "playerQol", "ammoStacks", "consumableStacks", "shieldRegen", "attackSpeed",
     "longerTachy", "hpDrain", "harderEnemies",
+    "baseAttributes", "attributeShieldRegen", "highGaugeCapacity",
+    "passiveHpRegen", "fishingPower", "ammo100x",
 }
 _ET_EXTRAS = {
     "noFallDamage", "noEnvDeath", "tachyReduce", "strongerGear",
     "autoGaugeRecovery", "noWaterDeath", "noSandDeath", "betaParryRecovery",
     "burstDodgeRecovery", "tumblerHeal",
+    "gaugeRecoveryOverTime", "droneScanBoost", "gunGorgonRotation",
 }
-_SK_EXTRAS = {"forgivingJust", "extraAirDodge"}   # SkillTable -> pak de combate
+_SK_EXTRAS = {
+    "forgivingJust", "extraAirDodge", "dashCooldown4", "droneScanBoost",
+}   # SkillTable -> pak de combate
 
 
 def combat_transforms(a: dict) -> list[str]:
@@ -95,22 +100,37 @@ def combo_to_targets(a: dict):
     ct_extras = sorted(extras & _CT_EXTRAS)
     et_extras = sorted(extras & _ET_EXTRAS)
     sk_extras = sorted(extras & _SK_EXTRAS)
+    # Un control toca dos tablas; usa IDs distintos para no colisionar en el
+    # registro global de transforms.
+    drone_scan = "droneScanBoost" in extras
+    et_extras = [e for e in et_extras if e != "droneScanBoost"]
+    sk_extras = [e for e in sk_extras if e != "droneScanBoost"]
 
     targets = []
+    hardcore = a.get("hardcoreEnemyBoost", "off")
+    if hardcore in ("main", "insane"):
+        targets.append({
+            "name": "StellarSouls-HarderBosses",
+            "transforms": [f"hardcoreEnemies.{hardcore}"],
+        })
     if combat == "full":
         transforms = combat_transforms(a)
         # Extras de CharacterTable van sobre el pak de combate.
         transforms += [f"extras.{e}" for e in ct_extras] + [f"extras.{e}" for e in sk_extras]
+        if drone_scan:
+            transforms.append("extras.droneScanCooldown")
         if transforms:
             targets.append({"name": "StellarSouls-CombatOnly", "transforms": transforms})
     if outfit:
         # Extras de EffectTable se componen sobre el pak de outfit (base SkinSuit).
         targets.append({"name": "StellarSouls-DirectRestore-NoRestFX",
-                        "transforms": list(OUTFIT) + [f"extras.{e}" for e in et_extras]})
-    elif et_extras:
+                        "transforms": list(OUTFIT) + [f"extras.{e}" for e in et_extras]
+                                      + (["extras.droneScanDuration"] if drone_scan else [])})
+    elif et_extras or drone_scan:
         # Sin outfit: pak propio con EffectTable VANILLA + extras (no agrega SkinSuit).
         targets.append({"name": "StellarSouls-Extras",
-                        "transforms": [f"extrasVanilla.{e}" for e in et_extras]})
+                        "transforms": [f"extrasVanilla.{e}" for e in et_extras]
+                                      + (["extrasVanilla.droneScanDuration"] if drone_scan else [])})
     if ct_extras and combat != "full":
         # Extras de CharacterTable necesitan el pak de combate (base editable).
         pass  # se reportan como no aplicados por build_custom (warning)

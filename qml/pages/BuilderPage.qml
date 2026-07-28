@@ -14,7 +14,7 @@ Item {
     property string resultZip: ""
     property string gamePath: ""
     property var historyModel: []
-    property var installed: ({ paks: [], helper: false })
+    property var installed: ({ paks: [], helper: false, helpers: [] })
 
     Component.onCompleted: {
         gamePath = App.detectStellarBlade()
@@ -27,7 +27,7 @@ Item {
     }
     function refreshInstalled() {
         try { installed = JSON.parse(App.installedStatus() || "{}") }
-        catch (e) { installed = { paks: [], helper: false } }
+        catch (e) { installed = { paks: [], helper: false, helpers: [] } }
     }
     function applyHistoryTemplate(id) {
         try {
@@ -116,9 +116,15 @@ Item {
         var ex = a.gameplayExtras || []
         var legacyQol = ex.indexOf("playerQol") >= 0
         exAmmo.checked = legacyQol || ex.indexOf("ammoStacks") >= 0
+        exAmmo100x.checked = ex.indexOf("ammo100x") >= 0
         exConsumables.checked = legacyQol || ex.indexOf("consumableStacks") >= 0
         exShieldRegen.checked = legacyQol || ex.indexOf("shieldRegen") >= 0
+        exAttributeShieldRegen.checked = ex.indexOf("attributeShieldRegen") >= 0
         exAttackSpeed.checked = legacyQol || ex.indexOf("attackSpeed") >= 0
+        exBaseAttributes.checked = ex.indexOf("baseAttributes") >= 0
+        exHighGauge.checked = ex.indexOf("highGaugeCapacity") >= 0
+        exPassiveHp.checked = ex.indexOf("passiveHpRegen") >= 0
+        exFishing.checked = ex.indexOf("fishingPower") >= 0
         exTachy.checked = ex.indexOf("longerTachy") >= 0
         exDrain.checked = ex.indexOf("hpDrain") >= 0
         exFall.checked = ex.indexOf("noFallDamage") >= 0
@@ -128,13 +134,17 @@ Item {
         exGear.checked = ex.indexOf("strongerGear") >= 0
         exBetaParry.checked = ex.indexOf("autoGaugeRecovery") >= 0 || ex.indexOf("betaParryRecovery") >= 0
         exBurstDodge.checked = ex.indexOf("autoGaugeRecovery") >= 0 || ex.indexOf("burstDodgeRecovery") >= 0
+        exGaugeOverTime.checked = ex.indexOf("gaugeRecoveryOverTime") >= 0
+        exDashCooldown.checked = ex.indexOf("dashCooldown4") >= 0
+        exDroneScan.checked = ex.indexOf("droneScanBoost") >= 0
+        exGunRotation.checked = ex.indexOf("gunGorgonRotation") >= 0
         exJust.checked = ex.indexOf("forgivingJust") >= 0
         exAirDodge.checked = ex.indexOf("extraAirDodge") >= 0
-        exHarder.checked = ex.indexOf("harderEnemies") >= 0
+        var hardcore = a.hardcoreEnemyBoost || "off"
+        exHarder.checked = hardcore !== "off"
+        harderMain.checked = hardcore === "main"
+        harderInsane.checked = hardcore === "insane"
         exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
-        var hm = Number(a.harderEnemiesMult || 2)
-        harder2.checked = hm === 2; harder3.checked = hm === 3; harder4.checked = hm === 4
-        harder5.checked = hm === 5; harder6.checked = hm === 6
         var justMult = Number(a.forgivingJustMult || 1.5)
         just15.checked = justMult === 1.5; just2.checked = justMult === 2; just3.checked = justMult === 3
         var airCount = Number(a.airDodgeCount || 2)
@@ -144,6 +154,11 @@ Item {
         helperPeriodic.checked = a.helperMode === "randomPeriodic"
         helperLast.checked = !helperRandom.checked && !helperPeriodic.checked
         if (a.helperIntervalSeconds) interval.value = a.helperIntervalSeconds
+        var vh = a.vanillaHelperBuild || "off"
+        alpha1.checked = vh === "alpha1"; alpha2.checked = vh === "alpha2"
+        alpha3.checked = vh === "alpha3"; alpha4.checked = vh === "alpha4"
+        alpha5.checked = vh === "alpha5"; alpha6.checked = vh === "alpha6"
+        alphaOff.checked = vh === "off"
     }
     function toFolderUrl(txt) {
         if (txt.length === 0) return ""
@@ -190,8 +205,36 @@ Item {
             mbPersistent.checked=true; mbBossType.checked=true; mbExecution.checked=true
         }
     }
-    function harderValue() { return harder6.checked ? 6 : (harder5.checked ? 5 : (harder4.checked ? 4 : (harder3.checked ? 3 : 2))) }
+    function hardcoreValue() { return !exHarder.checked ? "off" : (harderInsane.checked ? "insane" : "main") }
+    function setBaseAttributeEnhancement(on) {
+        exBaseAttributes.checked = on
+        exAmmo100x.checked = on
+        exAttributeShieldRegen.checked = on
+        exHighGauge.checked = on
+        exPassiveHp.checked = on
+        exFishing.checked = on
+        exGaugeOverTime.checked = on
+        exDashCooldown.checked = on
+        exDroneScan.checked = on
+        exGunRotation.checked = on
+        if (on) {
+            exAmmo.checked = false
+            exShieldRegen.checked = false
+            exBetaParry.checked = false
+            exBurstDodge.checked = false
+            capacityRow.selected = false
+        }
+    }
     function helperValue() { return helperPeriodic.checked ? "randomPeriodic" : (helperRandom.checked ? "randomAny" : "last") }
+    function vanillaHelperValue() {
+        if (alpha1.checked) return "alpha1"
+        if (alpha2.checked) return "alpha2"
+        if (alpha3.checked) return "alpha3"
+        if (alpha4.checked) return "alpha4"
+        if (alpha5.checked) return "alpha5"
+        if (alpha6.checked) return "alpha6"
+        return "off"
+    }
 
     Connections {
         target: App
@@ -378,6 +421,30 @@ Item {
                                    color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
                         }
 
+                        // El comportamiento del outfit CNS depende del check de
+                        // arriba: va pegado a el, no al final del formulario.
+                        ColumnLayout {
+                            Layout.fillWidth: true; Layout.leftMargin: 26; spacing: 6
+                            visible: outfit.checked
+                            FieldLabel { text: I18n.s.builder_q_helper || "Comportamiento del outfit CNS" }
+                            ButtonGroup { id: helperGroup }
+                            ColumnLayout {
+                                spacing: 2
+                                RadioButton { id: helperLast; checked: true; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_last || "Restaurar último outfit" }
+                                RadioButton { id: helperRandom; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_random || "Outfit aleatorio" }
+                                RadioButton { id: helperPeriodic; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_periodic || "Aleatorio + periódico" }
+                            }
+                            RowLayout {
+                                spacing: 10
+                                visible: helperPeriodic.checked
+                                FieldLabel { text: I18n.s.builder_q_interval || "Intervalo (s)" }
+                                SpinBox { id: interval; from: 5; to: 600; value: 30; Layout.preferredWidth: 140 }
+                            }
+                        }
+
                         RowLayout {
                             FieldLabel { text: I18n.s.builder_miniboss_regions || "Mini-bosses by region"; font.bold: true; Layout.fillWidth: true }
                             Button { text: I18n.s.builder_miniboss_preset || "Apply NG+ preset"; onClicked: root.setMiniBossPreset(true) }
@@ -460,9 +527,61 @@ Item {
                                 Rectangle { radius: 4; color: Theme.warn; implicitWidth: xbeta.width+12; implicitHeight: 18
                                     Text { id: xbeta; anchors.centerIn: parent; text: "BETA"; color: Theme.warnText; font.pixelSize: 10; font.bold: true } }
                             }
-                            CheckBox { id: exAmmo; text: I18n.s.builder_ex_ammo || "Ammo stack size: 999" }
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                FieldLabel {
+                                    text: I18n.s.builder_bae_group || "Base Attribute Enhancement"
+                                    Layout.fillWidth: true
+                                }
+                                Button {
+                                    text: I18n.s.builder_bae_apply || "Apply all"
+                                    onClicked: root.setBaseAttributeEnhancement(true)
+                                }
+                                Button {
+                                    text: I18n.s.builder_bae_clear || "Clear"
+                                    onClicked: root.setBaseAttributeEnhancement(false)
+                                }
+                            }
+                            CheckBox {
+                                id: exBaseAttributes
+                                text: I18n.s.builder_ex_base_attributes || "Base HP 3000, shield 1000 and shield reduction 20%"
+                            }
+                            CheckBox {
+                                id: exAmmo
+                                text: I18n.s.builder_ex_ammo || "Ammo stack size: 999"
+                                onClicked: if (checked) exAmmo100x.checked = false
+                            }
+                            CheckBox {
+                                id: exAmmo100x
+                                text: I18n.s.builder_ex_ammo_100x || "Ammo capacity x100"
+                                onClicked: if (checked) exAmmo.checked = false
+                            }
                             CheckBox { id: exConsumables; text: I18n.s.builder_ex_consumables || "Consumable stack size: 99" }
-                            CheckBox { id: exShieldRegen; text: I18n.s.builder_ex_shield_regen || "Increased shield regeneration" }
+                            CheckBox {
+                                id: exShieldRegen
+                                text: I18n.s.builder_ex_shield_regen || "Increased shield regeneration"
+                                onClicked: if (checked) exAttributeShieldRegen.checked = false
+                            }
+                            CheckBox {
+                                id: exAttributeShieldRegen
+                                text: I18n.s.builder_ex_attribute_shield_regen || "Shield regeneration: 160/s, 20/s in combat"
+                                onClicked: if (checked) exShieldRegen.checked = false
+                            }
+                            CheckBox {
+                                id: exHighGauge
+                                text: I18n.s.builder_ex_high_gauge || "Beta 1500 / Burst 2000 capacity"
+                                onClicked: if (checked) capacityRow.selected = false
+                            }
+                            CheckBox { id: exPassiveHp; text: I18n.s.builder_ex_passive_hp || "Passive HP regeneration: 20/s" }
+                            CheckBox { id: exFishing; text: I18n.s.builder_ex_fishing || "Fishing power: 50" }
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 4
+                                Layout.bottomMargin: 4
+                                height: 1
+                                color: Theme.border
+                            }
                             CheckBox { id: exAttackSpeed; text: I18n.s.builder_ex_attack_speed || "Attack speed x1.3" }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTachy }
@@ -486,8 +605,27 @@ Item {
                                 CheckBox { id: exGear }
                                 Text { text: I18n.s.builder_ex_gear || "Engranajes más fuertes (x2)"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
-                            CheckBox { id: exBetaParry; text: I18n.s.builder_ex_beta_parry || "Beta on perfect parry (no skill tree)" }
-                            CheckBox { id: exBurstDodge; text: I18n.s.builder_ex_burst_dodge || "Burst on perfect dodge (no skill tree)" }
+                            CheckBox {
+                                id: exBetaParry
+                                text: I18n.s.builder_ex_beta_parry || "Beta on perfect parry (no skill tree)"
+                                onClicked: if (checked) exGaugeOverTime.checked = false
+                            }
+                            CheckBox {
+                                id: exBurstDodge
+                                text: I18n.s.builder_ex_burst_dodge || "Burst on perfect dodge (no skill tree)"
+                                onClicked: if (checked) exGaugeOverTime.checked = false
+                            }
+                            CheckBox {
+                                id: exGaugeOverTime
+                                text: I18n.s.builder_ex_gauge_over_time || "Sustained Beta/Burst recovery after perfect actions"
+                                onClicked: if (checked) {
+                                    exBetaParry.checked = false
+                                    exBurstDodge.checked = false
+                                }
+                            }
+                            CheckBox { id: exDashCooldown; text: I18n.s.builder_ex_dash_cooldown || "Dash cooldown: 4 s" }
+                            CheckBox { id: exDroneScan; text: I18n.s.builder_ex_drone_scan || "Drone scan: 5 s cooldown, 10 s marking" }
+                            CheckBox { id: exGunRotation; text: I18n.s.builder_ex_gun_rotation || "Allow rotation during GunGorgon stance" }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTumbler }
                                 Text { text: I18n.s.builder_ex_tumbler || "Tumbler: curación base 60%"
@@ -509,18 +647,23 @@ Item {
                                 RadioButton { id: air3; text:"x3"; ButtonGroup.group:airGroup; enabled:exAirDodge.checked } }
                             RowLayout { spacing: 10
                                 CheckBox { id: exHarder }
-                                Text { text: I18n.s.builder_ex_harder || "Enemigos más duros"
-                                       color: Theme.text; Layout.fillWidth: false }
+                                Text { text: I18n.s.builder_ex_harder || "Bosses más duros (sólo Hardcore)"
+                                       color: Theme.text; Layout.fillWidth: true; wrapMode: Text.Wrap }
                                 ButtonGroup { id: harderGroup }
                                 RowLayout {
                                     visible: exHarder.checked
                                     spacing: 4
-                                    RadioButton { id: harder2; checked: true; ButtonGroup.group: harderGroup; text: "x2" }
-                                    RadioButton { id: harder3; ButtonGroup.group: harderGroup; text: "x3" }
-                                    RadioButton { id: harder4; ButtonGroup.group: harderGroup; text: "x4" }
-                                    RadioButton { id: harder5; ButtonGroup.group: harderGroup; text: "x5" }
-                                    RadioButton { id: harder6; ButtonGroup.group: harderGroup; text: "x6" }
+                                    RadioButton { id: harderMain; checked: true; ButtonGroup.group: harderGroup
+                                        text: I18n.s.builder_hardcore_main || "Main" }
+                                    RadioButton { id: harderInsane; ButtonGroup.group: harderGroup
+                                        text: I18n.s.builder_hardcore_insane || "Insane" }
                                 }
+                            }
+                            Text {
+                                visible: exHarder.checked
+                                text: I18n.s.builder_hardcore_note ||
+                                      "Main: bosses x2 HP/x1,25 escudo. Insane: x3 HP/x2 escudo. Daño boss x1,25. No modifica enemigos normales; Maelstrom queda excluido."
+                                color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true
                             }
 
                             // Patches TOML propios (opcional, avanzado)
@@ -542,26 +685,54 @@ Item {
                             }
                         }
 
+                        // ---- Helper vanilla sin CNS: builds de prueba ALPHA ----
+                        // Van despues de todo lo BETA a proposito: son mas
+                        // crudos todavia (no confirmados in-game).
                         ColumnLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            visible: outfit.checked
-                            FieldLabel { text: I18n.s.builder_q_helper || "Comportamiento del outfit CNS" }
-                            ButtonGroup { id: helperGroup }
+                            Layout.fillWidth: true; spacing: 6; Layout.topMargin: 8
+
+                            RowLayout {
+                                spacing: 6
+                                FieldLabel { text: I18n.s.builder_alpha_title || "Restaurar outfit sin CNS" }
+                                Rectangle {
+                                    radius: 4; color: Theme.danger
+                                    implicitWidth: alphaBadge.width + 12; implicitHeight: 18
+                                    // En claro el rojo es oscuro: el texto va blanco.
+                                    Text { id: alphaBadge; anchors.centerIn: parent; text: "ALPHA"
+                                           color: Theme.dark ? Theme.warnText : "#ffffff"
+                                           font.pixelSize: 10; font.bold: true }
+                                }
+                            }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                                text: "⚠ " + (I18n.s.builder_alpha_warn
+                                      || "ALPHA, mas crudo que BETA: sin confirmar in-game. Instala UNA por vez.")
+                                color: Theme.danger; font.pixelSize: 12
+                            }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                                text: I18n.s.builder_alpha_note
+                                      || "Para quien NO usa CNS (outfits replacer). Necesita UE4SS. Log: %USERPROFILE%\\StellarSoulsVanillaRestore.log"
+                                color: Theme.textDim; font.pixelSize: 11
+                            }
+                            ButtonGroup { id: alphaGroup }
                             ColumnLayout {
                                 spacing: 2
-                                RadioButton { id: helperLast; checked: true; ButtonGroup.group: helperGroup
-                                    text: I18n.s.builder_helper_last || "Restaurar último outfit" }
-                                RadioButton { id: helperRandom; ButtonGroup.group: helperGroup
-                                    text: I18n.s.builder_helper_random || "Outfit aleatorio" }
-                                RadioButton { id: helperPeriodic; ButtonGroup.group: helperGroup
-                                    text: I18n.s.builder_helper_periodic || "Aleatorio + periódico" }
+                                RadioButton { id: alphaOff; checked: true; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha_off || "No incluir" }
+                                RadioButton { id: alpha1; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha1 || "ALPHA1 probe — solo lee y diagnostica (empezar por esta)" }
+                                RadioButton { id: alpha2; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha2 || "ALPHA2 meshrepaint — ApplyMeshInfo(); sin cheat manager ni id de traje" }
+                                RadioButton { id: alpha3; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha3 || "ALPHA3 cheatequip — SBPlayerEquipItem; necesita CheatManagerEnablerMod" }
+                                RadioButton { id: alpha4; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha4 || "ALPHA4 cheatequip-construct — igual, pero se crea su propio cheat manager" }
+                                RadioButton { id: alpha5; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha5 || "ALPHA5 equiptoggle — desequipa y reequipa (el arreglo manual, automatico)" }
+                                RadioButton { id: alpha6; ButtonGroup.group: alphaGroup
+                                    text: I18n.s.builder_alpha6 || "ALPHA6 chain — prueba 2 → 3/4 → 5 y para en la que repinta" }
                             }
-                        }
-                        RowLayout {
-                            spacing: 10
-                            visible: outfit.checked && helperPeriodic.checked
-                            FieldLabel { text: I18n.s.builder_q_interval || "Intervalo (s)" }
-                            SpinBox { id: interval; from: 5; to: 600; value: 30; Layout.preferredWidth: 140 }
                         }
 
                         FieldLabel { text: I18n.s.builder_out || "Carpeta de salida del ZIP" }
@@ -600,7 +771,9 @@ Item {
                                    color: enabled ? Theme.text : Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
                         }
                         RowLayout {
-                            spacing: 10; enabled: root.gamePath.length > 0 && outfit.checked
+                            // Tambien vale para la ALPHA vanilla: es otro mod de UE4SS.
+                            spacing: 10
+                            enabled: root.gamePath.length > 0 && (outfit.checked || !alphaOff.checked)
                             CheckBox { id: instHelper }
                             Text { text: I18n.s.builder_install_helper || "Instalar y activar el helper (edita mods.txt)"
                                    color: enabled ? Theme.text : Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
@@ -671,8 +844,14 @@ Item {
                             enemyVariety: variety.checked,
                             gameplayExtras: [
                                 exAmmo.checked ? "ammoStacks" : "",
+                                exAmmo100x.checked ? "ammo100x" : "",
                                 exConsumables.checked ? "consumableStacks" : "",
                                 exShieldRegen.checked ? "shieldRegen" : "",
+                                exAttributeShieldRegen.checked ? "attributeShieldRegen" : "",
+                                exBaseAttributes.checked ? "baseAttributes" : "",
+                                exHighGauge.checked ? "highGaugeCapacity" : "",
+                                exPassiveHp.checked ? "passiveHpRegen" : "",
+                                exFishing.checked ? "fishingPower" : "",
                                 exAttackSpeed.checked ? "attackSpeed" : "",
                                 exTachy.checked ? "longerTachy" : "",
                                 exDrain.checked ? "hpDrain" : "",
@@ -683,17 +862,21 @@ Item {
                                 exGear.checked ? "strongerGear" : "",
                                 exBetaParry.checked ? "betaParryRecovery" : "",
                                 exBurstDodge.checked ? "burstDodgeRecovery" : "",
+                                exGaugeOverTime.checked ? "gaugeRecoveryOverTime" : "",
+                                exDashCooldown.checked ? "dashCooldown4" : "",
+                                exDroneScan.checked ? "droneScanBoost" : "",
+                                exGunRotation.checked ? "gunGorgonRotation" : "",
                                 exJust.checked ? "forgivingJust" : "",
                                 exAirDodge.checked ? "extraAirDodge" : "",
-                                exHarder.checked ? "harderEnemies" : "",
                                 exTumbler.checked ? "tumblerHeal" : ""
                             ].filter(function(x){ return x.length > 0 }),
-                            harderEnemiesMult: harderValue(),
+                            hardcoreEnemyBoost: hardcoreValue(),
                             forgivingJustMult: just15.checked ? 1.5 : (just2.checked ? 2 : 3),
                             airDodgeCount: air2.checked ? 2 : 3,
                             customPatchesDir: tomlField.text,
                             helperMode: helperValue(),
                             helperIntervalSeconds: interval.value,
+                            vanillaHelperBuild: vanillaHelperValue(),
                             lang: I18n.language
                         }
                         root.resultZip = ""
@@ -739,7 +922,9 @@ Item {
                         RowLayout {
                             visible: root.installed.helper
                             spacing: 10; Layout.fillWidth: true
-                            Text { Layout.fillWidth: true; color: Theme.textDim; text: "🧵 Helper (StellarSoulsOutfitRestore)" }
+                            Text { Layout.fillWidth: true; color: Theme.textDim; wrapMode: Text.WrapAnywhere
+                                   text: "🧵 Helper (" + ((root.installed.helpers && root.installed.helpers.length > 0)
+                                          ? root.installed.helpers.join(", ") : "StellarSoulsOutfitRestore") + ")" }
                             Button { text: I18n.s.builder_uninstall_helper || "Desinstalar helper"
                                      enabled: !App.busy; onClicked: uninstallDialog.ask("helper") }
                         }

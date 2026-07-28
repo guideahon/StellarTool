@@ -3,6 +3,7 @@ build_tests/
 *.user
 test_diff.txt
 test_merge.txt
+test_update.txt
 out.txt
 
 # Binarios externos: se bajan con setup.bat (ver tools/VERSIONS.md)
@@ -17,6 +18,8 @@ qmlerr.txt
 qmlout.txt
 shot_*.png
 dist/
+dist_nexus/
+Release/
 Media/generated/
 !Media/screenshots/
 !Media/screenshots/*.png
