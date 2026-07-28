@@ -70,7 +70,9 @@ daño Beta/Burst, drones, dash, ataques de EVE, daño/vulnerabilidad de enemigos
 perfect dodge, duración de Tachy, economía de gauges, Blaster Cell, outfit,
 mini-bosses y extras independientes. Los cambios que pisan la misma mecánica
 se presentan como radios visibles de selección exclusiva; los combinables usan
-checks. **Full**, **First Run** y **NG+** son solamente presets que preseleccionan
+checks. Al activar un cambio incompatible con otro que ya está marcado, la app
+explica el conflicto y pregunta explícitamente cuál de los dos conservar.
+**Full**, **First Run** y **NG+** son solamente presets que preseleccionan
 controles: no ocultan ni bloquean cambios. Daño, gauges y otros valores graduables
 ofrecen niveles visibles; los mini-bosses permiten densidad independiente por
 región y configuración separada de vida, ataque, tamaño, escudo, drops, XP,

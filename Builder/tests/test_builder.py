@@ -1,5 +1,6 @@
 """Tests F1 del Stellar Souls Builder. Corre: python -m pytest Builder/tests -q
 (o directo: python Builder/tests/test_builder.py)."""
+import json
 import sys
 from pathlib import Path
 
@@ -393,6 +394,31 @@ def test_base_attribute_preset_resolves_overlapping_options():
     for conflicting in ("exAmmo", "exShieldRegen", "exBetaParry", "exBurstDodge"):
         assert f"{conflicting}.checked = false" in body
     assert "capacityRow.selected = false" in body
+
+
+def test_incompatible_builder_options_require_an_explicit_choice():
+    root = Path(__file__).resolve().parents[2]
+    qml = (root / "qml" / "pages" / "BuilderPage.qml").read_text(encoding="utf-8")
+    assert "id: optionConflictDialog" in qml
+    assert "function requestOption(newOption, conflicts, newLabel)" in qml
+    assert "function requestBaseAttributeEnhancement()" in qml
+    assert "onClicked: root.requestBaseAttributeEnhancement()" in qml
+    for control in (
+        "exAmmo", "exAmmo100x", "exShieldRegen", "exAttributeShieldRegen",
+        "exHighGauge", "exBetaParry", "exBurstDodge", "exGaugeOverTime",
+    ):
+        body = qml.split(f"id: {control}", 1)[1].split("}", 1)[0]
+        assert "root.requestOption(" in body
+    capacity = qml.split("id: capacityRow", 1)[1].split("CheckBox", 1)[0]
+    assert "onUserToggled: if (checked) root.requestOption(" in capacity
+    for language in ("es", "en"):
+        translations = json.loads((root / "i18n" / f"{language}.json").read_text(
+            encoding="utf-8"))
+        for key in (
+            "builder_conflict_title", "builder_conflict_body",
+            "builder_conflict_keep", "builder_conflict_use",
+        ):
+            assert translations[key]
 
 
 def test_miniboss_density_scales():

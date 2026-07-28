@@ -15,6 +15,9 @@ Item {
     property string gamePath: ""
     property var historyModel: []
     property var installed: ({ paks: [], helper: false, helpers: [] })
+    property string conflictNewLabel: ""
+    property string conflictCurrentLabel: ""
+    property var conflictApplyNew: null
 
     Component.onCompleted: {
         gamePath = App.detectStellarBlade()
@@ -224,6 +227,61 @@ Item {
         if (tumbler90.checked) return 90
         return 100
     }
+    function optionEnabled(option) {
+        return option.propertyName === "selected"
+                ? option.control.selected : option.control.checked
+    }
+    function setOptionEnabled(option, enabled) {
+        if (option.propertyName === "selected")
+            option.control.selected = enabled
+        else
+            option.control.checked = enabled
+    }
+    function showOptionConflict(newLabel, currentLabels, applyNew) {
+        conflictNewLabel = newLabel
+        conflictCurrentLabel = currentLabels.join(" + ")
+        conflictApplyNew = applyNew
+        optionConflictDialog.open()
+    }
+    function requestOption(newOption, conflicts, newLabel) {
+        if (!optionEnabled(newOption))
+            return
+        var active = []
+        var labels = []
+        for (var i = 0; i < conflicts.length; ++i) {
+            if (optionEnabled(conflicts[i])) {
+                active.push(conflicts[i])
+                labels.push(conflicts[i].label)
+            }
+        }
+        if (active.length === 0)
+            return
+        setOptionEnabled(newOption, false)
+        showOptionConflict(newLabel, labels, function() {
+            for (var j = 0; j < active.length; ++j)
+                setOptionEnabled(active[j], false)
+            setOptionEnabled(newOption, true)
+        })
+    }
+    function requestBaseAttributeEnhancement() {
+        var possible = [
+            {control: exAmmo, label: exAmmo.text},
+            {control: exShieldRegen, label: exShieldRegen.text},
+            {control: exBetaParry, label: exBetaParry.text},
+            {control: exBurstDodge, label: exBurstDodge.text},
+            {control: capacityRow, propertyName: "selected", label: capacityRow.label}
+        ]
+        var labels = []
+        for (var i = 0; i < possible.length; ++i)
+            if (optionEnabled(possible[i]))
+                labels.push(possible[i].label)
+        if (labels.length === 0) {
+            setBaseAttributeEnhancement(true)
+            return
+        }
+        showOptionConflict(I18n.s.builder_bae_group || "Base Attribute Enhancement",
+                           labels, function() { setBaseAttributeEnhancement(true) })
+    }
     function setBaseAttributeEnhancement(on) {
         exBaseAttributes.checked = on
         exAmmo100x.checked = on
@@ -267,6 +325,50 @@ Item {
     FolderDialog {
         id: tomlDialog
         onAccepted: { tomlField.text = tomlDialog.selectedFolder.toString().replace("file:///", "").replace(/\//g, "\\") }
+    }
+
+    Dialog {
+        id: optionConflictDialog
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        closePolicy: Popup.NoAutoClose
+        title: I18n.s.builder_conflict_title || "Opciones incompatibles"
+        contentItem: ColumnLayout {
+            width: 440
+            spacing: 12
+            Text {
+                Layout.fillWidth: true
+                text: (I18n.s.builder_conflict_body
+                       || "%1 no se puede combinar con %2. ¿Con cuál querés quedarte?")
+                      .arg(root.conflictNewLabel).arg(root.conflictCurrentLabel)
+                color: Theme.text
+                wrapMode: Text.Wrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Button {
+                    Layout.fillWidth: true
+                    text: (I18n.s.builder_conflict_keep || "Conservar %1")
+                          .arg(root.conflictCurrentLabel)
+                    onClicked: optionConflictDialog.close()
+                }
+                Button {
+                    Layout.fillWidth: true
+                    highlighted: true
+                    text: (I18n.s.builder_conflict_use || "Usar %1")
+                          .arg(root.conflictNewLabel)
+                    onClicked: {
+                        var applyNew = root.conflictApplyNew
+                        optionConflictDialog.close()
+                        root.conflictApplyNew = null
+                        if (applyNew)
+                            applyNew()
+                    }
+                }
+            }
+        }
+        onClosed: root.conflictApplyNew = null
     }
 
     // Confirmacion de desinstalacion (accion destructiva sobre el juego).
@@ -374,11 +476,18 @@ Item {
                             color: Theme.textDim; font.pixelSize: 11; wrapMode: Text.Wrap
                         }
                         component ChangeRow: RowLayout {
+                            id: changeRowRoot
                             property alias label: toggle.text
                             property alias selected: toggle.checked
                             default property alias choices: choiceBox.data
+                            signal userToggled(bool checked)
                             Layout.fillWidth: true; spacing: 8
-                            CheckBox { id: toggle; checked: true; Layout.preferredWidth: 330 }
+                            CheckBox {
+                                id: toggle
+                                checked: true
+                                Layout.preferredWidth: 330
+                                onClicked: changeRowRoot.userToggled(checked)
+                            }
                             RowLayout { id: choiceBox; enabled: toggle.checked; spacing: 3 }
                         }
                         ChangeRow { id: betaRow; label: I18n.s.builder_damage_beta || "Beta/Burst damage"
@@ -424,6 +533,10 @@ Item {
                             ButtonGroup { id: gainGroup } RadioButton { id: gain25; text: "-25%"; ButtonGroup.group: gainGroup }
                             RadioButton { id: gain50; text: "-50%"; checked: true; ButtonGroup.group: gainGroup } }
                         ChangeRow { id: capacityRow; label: I18n.s.builder_beta_capacity || "Beta/Burst capacity"
+                            onUserToggled: if (checked) root.requestOption(
+                                {control: capacityRow, propertyName: "selected"},
+                                [{control: exHighGauge, label: exHighGauge.text}],
+                                capacityRow.label)
                             CheckBox { id: economyCapacity; checked: capacityRow.selected; visible: false }
                             ButtonGroup { id: capacityGroup } RadioButton { id: capacityFirst; text: "700 / 1200"; ButtonGroup.group: capacityGroup }
                             RadioButton { id: capacityFull; text: "400 / 800"; checked: true; ButtonGroup.group: capacityGroup } }
@@ -554,7 +667,7 @@ Item {
                                 }
                                 Button {
                                     text: I18n.s.builder_bae_apply || "Apply all"
-                                    onClicked: root.setBaseAttributeEnhancement(true)
+                                    onClicked: root.requestBaseAttributeEnhancement()
                                 }
                                 Button {
                                     text: I18n.s.builder_bae_clear || "Clear"
@@ -568,28 +681,45 @@ Item {
                             CheckBox {
                                 id: exAmmo
                                 text: I18n.s.builder_ex_ammo || "Ammo stack size: 999"
-                                onClicked: if (checked) exAmmo100x.checked = false
+                                onClicked: root.requestOption(
+                                    {control: exAmmo},
+                                    [{control: exAmmo100x, label: exAmmo100x.text}],
+                                    exAmmo.text)
                             }
                             CheckBox {
                                 id: exAmmo100x
                                 text: I18n.s.builder_ex_ammo_100x || "Ammo capacity x100"
-                                onClicked: if (checked) exAmmo.checked = false
+                                onClicked: root.requestOption(
+                                    {control: exAmmo100x},
+                                    [{control: exAmmo, label: exAmmo.text}],
+                                    exAmmo100x.text)
                             }
                             CheckBox { id: exConsumables; text: I18n.s.builder_ex_consumables || "Consumable stack size: 99" }
                             CheckBox {
                                 id: exShieldRegen
                                 text: I18n.s.builder_ex_shield_regen || "Increased shield regeneration"
-                                onClicked: if (checked) exAttributeShieldRegen.checked = false
+                                onClicked: root.requestOption(
+                                    {control: exShieldRegen},
+                                    [{control: exAttributeShieldRegen,
+                                      label: exAttributeShieldRegen.text}],
+                                    exShieldRegen.text)
                             }
                             CheckBox {
                                 id: exAttributeShieldRegen
                                 text: I18n.s.builder_ex_attribute_shield_regen || "Shield regeneration: 160/s, 20/s in combat"
-                                onClicked: if (checked) exShieldRegen.checked = false
+                                onClicked: root.requestOption(
+                                    {control: exAttributeShieldRegen},
+                                    [{control: exShieldRegen, label: exShieldRegen.text}],
+                                    exAttributeShieldRegen.text)
                             }
                             CheckBox {
                                 id: exHighGauge
                                 text: I18n.s.builder_ex_high_gauge || "Beta 1500 / Burst 2000 capacity"
-                                onClicked: if (checked) capacityRow.selected = false
+                                onClicked: root.requestOption(
+                                    {control: exHighGauge},
+                                    [{control: capacityRow, propertyName: "selected",
+                                      label: capacityRow.label}],
+                                    exHighGauge.text)
                             }
                             CheckBox { id: exPassiveHp; text: I18n.s.builder_ex_passive_hp || "Passive HP regeneration: 20/s" }
                             CheckBox { id: exFishing; text: I18n.s.builder_ex_fishing || "Fishing power: 50" }
@@ -626,20 +756,27 @@ Item {
                             CheckBox {
                                 id: exBetaParry
                                 text: I18n.s.builder_ex_beta_parry || "Beta on perfect parry (no skill tree)"
-                                onClicked: if (checked) exGaugeOverTime.checked = false
+                                onClicked: root.requestOption(
+                                    {control: exBetaParry},
+                                    [{control: exGaugeOverTime, label: exGaugeOverTime.text}],
+                                    exBetaParry.text)
                             }
                             CheckBox {
                                 id: exBurstDodge
                                 text: I18n.s.builder_ex_burst_dodge || "Burst on perfect dodge (no skill tree)"
-                                onClicked: if (checked) exGaugeOverTime.checked = false
+                                onClicked: root.requestOption(
+                                    {control: exBurstDodge},
+                                    [{control: exGaugeOverTime, label: exGaugeOverTime.text}],
+                                    exBurstDodge.text)
                             }
                             CheckBox {
                                 id: exGaugeOverTime
                                 text: I18n.s.builder_ex_gauge_over_time || "Sustained Beta/Burst recovery after perfect actions"
-                                onClicked: if (checked) {
-                                    exBetaParry.checked = false
-                                    exBurstDodge.checked = false
-                                }
+                                onClicked: root.requestOption(
+                                    {control: exGaugeOverTime},
+                                    [{control: exBetaParry, label: exBetaParry.text},
+                                     {control: exBurstDodge, label: exBurstDodge.text}],
+                                    exGaugeOverTime.text)
                             }
                             CheckBox { id: exDashCooldown; text: I18n.s.builder_ex_dash_cooldown || "Dash cooldown: 4 s" }
                             CheckBox { id: exDroneScan; text: I18n.s.builder_ex_drone_scan || "Drone scan: 5 s cooldown, 10 s marking" }
