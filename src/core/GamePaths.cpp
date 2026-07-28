@@ -49,6 +49,27 @@ QStringList GamePaths::globalContainerFiles() {
     return out;
 }
 
+static bool isGameRoot(const QString &dir) {
+    return !dir.isEmpty()
+        && QFileInfo::exists(dir + QStringLiteral("/SB/Content/Paks/global.utoc"));
+}
+
+QString GamePaths::normalizeRoot(const QString &dir) {
+    if (dir.isEmpty()) return {};
+    QString d = QDir::cleanPath(dir);
+    if (isGameRoot(d)) return d;
+    // El usuario pudo elegir hondo (…/SB/Content/Paks/~mods) o la carpeta padre.
+    for (int i = 0; i < 5 && !d.isEmpty(); ++i) {
+        const QString parent = QDir::cleanPath(QFileInfo(d).absolutePath());
+        if (parent == d) break;
+        d = parent;
+        if (isGameRoot(d)) return d;
+    }
+    const QString child = QDir::cleanPath(dir) + QStringLiteral("/StellarBlade");
+    if (isGameRoot(child)) return child;
+    return {};
+}
+
 QString GamePaths::detectSteam() {
     QStringList candidates;
 #ifdef Q_OS_WIN

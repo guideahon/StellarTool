@@ -1,15 +1,19 @@
 #include <QtTest>
 
+#include "core/GamePaths.h"
+
 #include <QDir>
 #include <QFile>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QTemporaryDir>
 
 class TestBuilderUi : public QObject {
     Q_OBJECT
 
 private slots:
     void itemLabelsAreLocalized();
+    void gameRootAcceptsSubfoldersAndParent();
 };
 
 void TestBuilderUi::itemLabelsAreLocalized() {
@@ -34,6 +38,10 @@ void TestBuilderUi::itemLabelsAreLocalized() {
         QStringLiteral("builder_out_in_mods"),
         QStringLiteral("builder_shadow_title"),
         QStringLiteral("builder_shadow_hint"),
+        QStringLiteral("builder_game_pick"),
+        QStringLiteral("builder_game_prompt_title"),
+        QStringLiteral("builder_game_prompt_body"),
+        QStringLiteral("builder_game_later"),
     };
 
     QDir translations(sourceDir + QStringLiteral("/i18n"));
@@ -61,6 +69,27 @@ void TestBuilderUi::itemLabelsAreLocalized() {
     QVERIFY(!source.contains("label: \"StackConsumable"));
     QVERIFY(source.contains("technicalName: \"StackBullet1\""));
     QVERIFY(source.contains("technicalName: \"StackConsumable7\""));
+}
+
+// El picker de carpeta del juego tiene que perdonar lo que el usuario elige:
+// la raiz, una subcarpeta (Paks, ~mods) o la carpeta que contiene el juego.
+void TestBuilderUi::gameRootAcceptsSubfoldersAndParent() {
+    QTemporaryDir tmp;
+    QVERIFY(tmp.isValid());
+    const QString root = tmp.path() + QStringLiteral("/StellarBlade");
+    const QString paks = root + QStringLiteral("/SB/Content/Paks");
+    QVERIFY(QDir().mkpath(paks + QStringLiteral("/~mods")));
+    QFile utoc(paks + QStringLiteral("/global.utoc"));
+    QVERIFY(utoc.open(QIODevice::WriteOnly));
+    utoc.write("x");
+    utoc.close();
+
+    QCOMPARE(st::GamePaths::normalizeRoot(root), root);
+    QCOMPARE(st::GamePaths::normalizeRoot(paks), root);
+    QCOMPARE(st::GamePaths::normalizeRoot(paks + QStringLiteral("/~mods")), root);
+    QCOMPARE(st::GamePaths::normalizeRoot(tmp.path()), root);          // carpeta padre
+    QVERIFY(st::GamePaths::normalizeRoot(tmp.path() + QStringLiteral("/nope")).isEmpty());
+    QVERIFY(st::GamePaths::normalizeRoot(QString()).isEmpty());
 }
 
 #include "TestBuilderUi.moc"
