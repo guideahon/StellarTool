@@ -190,7 +190,8 @@ EFFECT_EXTRAS = {
 }
 
 
-def apply_effect_extras(et_doc, extras: list, gear_mult=2.0) -> dict:
+def apply_effect_extras(et_doc, extras: list, gear_mult=2.0,
+                        tumbler_value=60.0) -> dict:
     rep = {}
     if "noFallDamage" in extras:
         rep["noFallDamage"] = no_fall_damage(et_doc)
@@ -211,7 +212,7 @@ def apply_effect_extras(et_doc, extras: list, gear_mult=2.0) -> dict:
     if "burstDodgeRecovery" in extras:
         rep["burstDodgeRecovery"] = burst_dodge_recovery(et_doc)
     if "tumblerHeal" in extras:
-        rep["tumblerHeal"] = tumbler_heal(et_doc)
+        rep["tumblerHeal"] = tumbler_heal(et_doc, tumbler_value)
     if "gaugeRecoveryOverTime" in extras:
         rep["gaugeRecoveryOverTime"] = gauge_recovery_over_time(et_doc)
     if "droneScanBoost" in extras:

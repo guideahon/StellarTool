@@ -371,7 +371,8 @@ def test_builder_template_restores_every_granular_answer_group():
     for answer in (
         "combatFeatureLevels", "combatEconomyLevels", "blasterMultiplier",
         "miniBossRegionDensity", "miniBossConfig", "hardcoreEnemyBoost",
-        "forgivingJustMult", "airDodgeCount", "helperIntervalSeconds",
+        "forgivingJustMult", "airDodgeCount", "tumblerHealPercent",
+        "helperIntervalSeconds",
     ):
         assert f"a.{answer}" in restore
     assert "App.builderTemplate(id)" in qml
@@ -693,6 +694,24 @@ def test_tumbler_heal_is_independent():
     doc = json.loads((mb._SSMOD / "VANILLA_EffectTable.json").read_text(encoding="utf-8"))
     assert ee.apply_effect_extras(doc, ["tumblerHeal"])["tumblerHeal"]
     assert ee._prop(ee._idx(doc)["Item_HP_RPotion"], "CalculationValue")["Value"] == 60.0
+    assert ee.apply_effect_extras(
+        doc, ["tumblerHeal"], tumbler_value=10)["tumblerHeal"]
+    assert ee._prop(ee._idx(doc)["Item_HP_RPotion"], "CalculationValue")["Value"] == 10
+    assert ee.apply_effect_extras(
+        doc, ["tumblerHeal"], tumbler_value=100)["tumblerHeal"]
+    assert ee._prop(ee._idx(doc)["Item_HP_RPotion"], "CalculationValue")["Value"] == 100
+
+
+def test_tumbler_heal_level_is_normalized_and_wired():
+    import build_custom as bc
+    assert bc.normalize({"tumblerHealPercent": 4})["tumblerHealPercent"] == 10
+    assert bc.normalize({"tumblerHealPercent": 64})["tumblerHealPercent"] == 60
+    assert bc.normalize({"tumblerHealPercent": 106})["tumblerHealPercent"] == 100
+    qml = (Path(__file__).resolve().parents[2] / "qml" / "pages" / "BuilderPage.qml").read_text(
+        encoding="utf-8")
+    for value in range(10, 101, 10):
+        assert f'id: tumbler{value}; text:"{value}%"' in qml
+    assert "tumblerHealPercent: tumblerValue()" in qml
 
 
 def test_skill_extras_combat_feel():

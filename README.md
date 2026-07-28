@@ -81,6 +81,8 @@ HP/escudo y reducción base, regeneración de escudo 160/20, capacidad
 Beta/Burst 1500/2000, HP pasivo 20/s, pesca 50, munición x100, recuperación
 sostenida por acciones perfectas, dash de 4 s, escaneo 5/10 s y rotación
 GunGorgon.
+La curación base del Tumbler se activa por separado y permite elegir cualquier
+nivel de 10% a 100% en pasos de 10%; los proyectos anteriores conservan 60%.
 El perfil nativo de Stellar Souls modifica sólo enemigos normales. Los
 mini-bosses se agregan de forma independiente y el extra **Bosses más duros**
 ofrece presets Main e Insane limitados a Hardcore desde

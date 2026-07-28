@@ -237,7 +237,7 @@
   "builder_economy_gain": "50% slower Beta gain",
   "builder_economy_capacity": "Lower Beta/Burst capacity",
   "builder_economy_cooldown": "Beta/Burst skill cooldown: 3 s",
-  "builder_ex_tumbler": "Tumbler: 60% base healing",
+  "builder_ex_tumbler": "Tumbler base healing",
   "builder_presets": "Combat presets (only preselect options)",
   "builder_preset_full": "Apply Full",
   "builder_preset_first": "Apply First Run",

@@ -50,6 +50,8 @@ recuperación sostenida tras parry/dodge perfecto, cooldown de dash, escaneo del
 dron y rotación durante GunGorgon. Las alternativas que pisan los extras
 anteriores (munición 999, regeneración 120/30 y recuperación sin skill tree) se
 mantienen separadas para no cambiar proyectos guardados.
+La curación base del Tumbler es otro check independiente con niveles visibles
+de 10% a 100% en pasos de 10% (60% para proyectos anteriores).
 
 ### Helper vanilla (ALPHA, sin CNS)
 

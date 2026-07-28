@@ -51,6 +51,9 @@ def normalize(answers: dict) -> dict:
     a.setdefault("miniBoss", "off")
     # Build ALPHA del helper vanilla (sin CNS). "off" = no incluirlo.
     a.setdefault("vanillaHelperBuild", "off")
+    # Valor graduable visible en pasos de 10%. Proyectos viejos conservan 60%.
+    tumbler = int(round(float(a.get("tumblerHealPercent", 60)) / 10.0) * 10)
+    a["tumblerHealPercent"] = max(10, min(100, tumbler))
     a.setdefault("lang", "es")
     if a["lang"] not in SUPPORTED_LANGS:
         a["lang"] = "es"
@@ -205,6 +208,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     table_compiler.PARAMS["blaster_mult"] = float(a.get("blasterMultiplier", 2.0))
     table_compiler.PARAMS["just_mult"] = float(a.get("forgivingJustMult", 1.5))
     table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
+    table_compiler.PARAMS["tumbler_value"] = float(a.get("tumblerHealPercent", 60))
     if a.get("combatProfile") == "firstRun" and not a.get("forcePreset"):
         # First Run = variante fija (repack del staging legacy).
         import miniboss_builder
@@ -226,6 +230,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             extras=a.get("gameplayExtras") or [],
             harder_mult=float(a.get("harderEnemiesMult", 2.0)),
             gear_mult=float(a.get("strongerGearMult", 2.0)),
+            tumbler_value=float(a.get("tumblerHealPercent", 60)),
             toml_dir=a.get("customPatchesDir") or None,
             area_densities=a.get("miniBossRegionDensity"),
             miniboss_config=a.get("miniBossConfig"),

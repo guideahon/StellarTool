@@ -177,6 +177,7 @@ def _blaster_x2(doc, vanilla):
 PARAMS = {
     "harder_mult": 2.0, "gear_mult": 2.0, "combat_levels": {},
     "economy_levels": {}, "blaster_mult": 2.0, "just_mult": 1.5, "air_count": 2,
+    "tumbler_value": 60.0,
 }
 
 
@@ -342,6 +343,8 @@ def _reg_extra(tid, table, base, fn_name, module):
             n = fn(doc, PARAMS.get("just_mult", 1.5))
         elif _f == "extra_air_dodge":
             n = fn(doc, PARAMS.get("air_count", 2))
+        elif _f == "tumbler_heal":
+            n = fn(doc, PARAMS.get("tumbler_value", 60.0))
         else:
             n = fn(doc)
         doc.setdefault("_report", {})[_f] = n

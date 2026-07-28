@@ -145,6 +145,12 @@ Item {
         harderMain.checked = hardcore === "main"
         harderInsane.checked = hardcore === "insane"
         exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
+        var tumbler = Number(a.tumblerHealPercent || 60)
+        tumbler10.checked = tumbler === 10; tumbler20.checked = tumbler === 20
+        tumbler30.checked = tumbler === 30; tumbler40.checked = tumbler === 40
+        tumbler50.checked = tumbler === 50; tumbler60.checked = tumbler === 60
+        tumbler70.checked = tumbler === 70; tumbler80.checked = tumbler === 80
+        tumbler90.checked = tumbler === 90; tumbler100.checked = tumbler === 100
         var justMult = Number(a.forgivingJustMult || 1.5)
         just15.checked = justMult === 1.5; just2.checked = justMult === 2; just3.checked = justMult === 3
         var airCount = Number(a.airDodgeCount || 2)
@@ -206,6 +212,18 @@ Item {
         }
     }
     function hardcoreValue() { return !exHarder.checked ? "off" : (harderInsane.checked ? "insane" : "main") }
+    function tumblerValue() {
+        if (tumbler10.checked) return 10
+        if (tumbler20.checked) return 20
+        if (tumbler30.checked) return 30
+        if (tumbler40.checked) return 40
+        if (tumbler50.checked) return 50
+        if (tumbler60.checked) return 60
+        if (tumbler70.checked) return 70
+        if (tumbler80.checked) return 80
+        if (tumbler90.checked) return 90
+        return 100
+    }
     function setBaseAttributeEnhancement(on) {
         exBaseAttributes.checked = on
         exAmmo100x.checked = on
@@ -628,8 +646,24 @@ Item {
                             CheckBox { id: exGunRotation; text: I18n.s.builder_ex_gun_rotation || "Allow rotation during GunGorgon stance" }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTumbler }
-                                Text { text: I18n.s.builder_ex_tumbler || "Tumbler: curación base 60%"
+                                Text { text: I18n.s.builder_ex_tumbler || "Tumbler base healing"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout {
+                                Layout.leftMargin: 36
+                                spacing: 4
+                                enabled: exTumbler.checked
+                                ButtonGroup { id: tumblerGroup }
+                                RadioButton { id: tumbler10; text:"10%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler20; text:"20%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler30; text:"30%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler40; text:"40%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler50; text:"50%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler60; text:"60%"; checked:true; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler70; text:"70%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler80; text:"80%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler90; text:"90%"; ButtonGroup.group:tumblerGroup }
+                                RadioButton { id: tumbler100; text:"100%"; ButtonGroup.group:tumblerGroup }
+                            }
                             RowLayout { spacing: 10
                                 CheckBox { id: exJust }
                                 Text { text: I18n.s.builder_ex_just || "Ventana de parry/dodge perfecto más amplia (x1.5)"
@@ -873,6 +907,7 @@ Item {
                             hardcoreEnemyBoost: hardcoreValue(),
                             forgivingJustMult: just15.checked ? 1.5 : (just2.checked ? 2 : 3),
                             airDodgeCount: air2.checked ? 2 : 3,
+                            tumblerHealPercent: tumblerValue(),
                             customPatchesDir: tomlField.text,
                             helperMode: helperValue(),
                             helperIntervalSeconds: interval.value,

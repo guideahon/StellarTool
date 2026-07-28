@@ -428,7 +428,8 @@ def _script_path(name):
     return _BUILDER_ROOT.parent / "Development" / name
 
 
-def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0):
+def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0,
+                              tumbler_value=60.0):
     """tojson EffectTable.uasset -> effect_extras -> fromjson. Solo si hay extras
     de EffectTable. Devuelve reporte o {}."""
     import json
@@ -449,7 +450,8 @@ def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0):
     subprocess.run([str(uag), "tojson", str(et), str(tj), "VER_UE4_26", str(usmap)],
                    capture_output=True, text=True, timeout=900)
     doc = json.loads(tj.read_text(encoding="utf-8"))
-    rep = effect_extras.apply_effect_extras(doc, sel, gear_mult)
+    rep = effect_extras.apply_effect_extras(
+        doc, sel, gear_mult, tumbler_value)
     tj.write_text(json.dumps(doc), encoding="utf-8")
     subprocess.run([str(uag), "fromjson", str(tj), str(et), "StellarBlade"],
                    capture_output=True, text=True, timeout=900)
@@ -603,7 +605,7 @@ def _repair_namemap(doc):
 def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result=True,
                      outfit=True, difficulty="flat", faithful=False, variety=False,
                      extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0,
-                     area_densities=None, miniboss_config=None,
+                     tumbler_value=60.0, area_densities=None, miniboss_config=None,
                      just_mult=1.5, air_count=2, combat_transform_ids=None):
     """Compila el pak mini-boss completo (10 tablas) a work_dir. Devuelve dict.
 
@@ -674,7 +676,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     if not outfit:
         _apply_disable_skinsuit(work_dir)
     # Extras de EffectTable (no fall damage / env death / tachy / gear).
-    eff = _apply_effect_extras_pass(work_dir, extras, gear_mult)
+    eff = _apply_effect_extras_pass(
+        work_dir, extras, gear_mult, tumbler_value)
     if eff:
         report["effectExtras"] = eff
     skx = _apply_skill_extras_pass(work_dir, extras, just_mult, air_count)
