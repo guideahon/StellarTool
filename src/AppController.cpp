@@ -498,6 +498,33 @@ QString AppController::runMerge(const QString &outDir) {
         report << QStringLiteral("  %1. %2  [%3]").arg(m.loadOrder + 1).arg(m.name, m.sourcePath)
                << QStringLiteral("     %1 changes, %2 selected%3").arg(total).arg(sel).arg(note);
     }
+    // Un mod Zen puede traer animaciones/AnimBP/mallas además de tablas. Esos
+    // assets no se pueden reescribir, así que el pak mergeado lleva SOLO sus
+    // tablas: si el usuario desinstala el mod original (como dice el readme),
+    // las tablas quedan pero el contenido que referencian desaparece.
+    {
+        QStringList lines;
+        for (const auto &m : m_mods) {
+            if (m.zenAssetsNotMerged.isEmpty()) continue;
+            QStringList shown = m.zenAssetsNotMerged.mid(0, 8);
+            if (m.zenAssetsNotMerged.size() > shown.size())
+                shown << QStringLiteral("... (+%1)").arg(m.zenAssetsNotMerged.size() - shown.size());
+            lines << QStringLiteral("  %1: %2 non-table assets (%3)")
+                         .arg(m.name)
+                         .arg(m.zenAssetsNotMerged.size())
+                         .arg(shown.join(QStringLiteral(", ")));
+        }
+        if (!lines.isEmpty()) {
+            report << QString()
+                   << QStringLiteral("Assets NOT merged (Zen mods: animations, blueprints, meshes):")
+                   << lines
+                   << QStringLiteral("  Only DataTables can be rewritten, so the merged pak carries "
+                                     "the tables of these mods but not the rest.")
+                   << QStringLiteral("  Their original paks are copied UNCHANGED into the installable "
+                                     "zip, next to the merged one: install both.")
+                   << QStringLiteral("  The merged pak loads last (zzz_) and still wins on the tables.");
+        }
+    }
     if (!m_groups.isEmpty()) {
         report << QString() << QStringLiteral("Conflicts (%1):").arg(m_groups.size());
         for (const auto &g : m_groups) {
@@ -736,6 +763,27 @@ QString AppController::runMerge(const QString &outDir) {
             if (QFileInfo::exists(src))
                 QFile::copy(src, zipStage + QStringLiteral("/Paks/") + baseName + QLatin1Char('.') + ext);
         }
+        // Los assets no tabulares de un mod Zen (animaciones, AnimBP, mallas) no
+        // se pueden reescribir, pero tampoco hacen falta reescribir: el merge no
+        // los toca. Se copia el pak original SIN MODIFICAR al lado del mergeado,
+        // así el zip queda completo y desinstalar el mod de origen es seguro.
+        // El mergeado carga después (zzz_) y sigue ganando en las tablas.
+        QStringList bundled;
+        for (const auto &m : m_mods) {
+            if (m.zenAssetsNotMerged.isEmpty()) continue;
+            const QFileInfo fi(m.sourcePath);
+            if (fi.suffix().compare(QLatin1String("pak"), Qt::CaseInsensitive) != 0) continue;
+            for (const QString &ext : {QStringLiteral("pak"), QStringLiteral("ucas"),
+                                       QStringLiteral("utoc")}) {
+                const QString src = fi.absolutePath() + QLatin1Char('/')
+                                    + fi.completeBaseName() + QLatin1Char('.') + ext;
+                if (QFileInfo::exists(src))
+                    QFile::copy(src, zipStage + QStringLiteral("/Paks/")
+                                         + QFileInfo(src).fileName());
+            }
+            bundled << QStringLiteral("- %1").arg(fi.completeBaseName());
+        }
+
         QStringList modNames;
         for (const auto &m : m_mods) modNames << QStringLiteral("- %1").arg(m.name);
         int selectedCount = 0;
@@ -755,6 +803,18 @@ QString AppController::runMerge(const QString &outDir) {
                                   modNames.join(QLatin1Char('\n')))
                              .arg(selectedCount)
                              .toUtf8());
+            // Si hubo paks incluidos sin modificar, el zip ya trae todo: hay que
+            // decir que esos archivos extra son parte del paquete, no un descuido.
+            if (!bundled.isEmpty()) {
+                readme.write(tr("\nEste zip incluye ademas, SIN MODIFICAR, los paks de:\n%1\n"
+                                "Traen animaciones/blueprints/mallas ademas de tablas, y eso no se\n"
+                                "puede reescribir dentro del pak mergeado. Copialos junto con el\n"
+                                "mergeado: sin ellos las tablas quedan sin el contenido que\n"
+                                "referencian y el mod deja de funcionar. El pak mergeado carga\n"
+                                "ultimo (zzz_) y sigue ganando en las tablas.\n")
+                                 .arg(bundled.join(QLatin1Char('\n')))
+                                 .toUtf8());
+            }
             readme.close();
         }
         if (!m_pak->createZip(zipStage, outDir + QStringLiteral("/zzz_StellarTool_Merged.zip"), &err))

@@ -31,6 +31,17 @@ public:
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
     // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
     bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
+    // Global "compat" para revertir mods Zen. El global.utoc del juego es
+    // versión PartitionSize y los paks de mods son DirectoryIndex; retoc no
+    // compone contenedores de versiones distintas, así que sin esto to-legacy
+    // no puede resolver los script objects y falla en TODOS los assets del mod.
+    // Se reempaqueta el global del juego con la versión del manifest cambiada.
+    // Se genera de los archivos del propio usuario y se cachea en AppData.
+    // Devuelve la carpeta que contiene global.utoc/.ucas, o vacío si no se pudo.
+    static QString compatGlobalDir(QString *error = nullptr);
+    // to-legacy de un mod Zen usando ese global. Devuelve cuántos .uasset salieron.
+    int toLegacyWithGlobal(const QString &utocPath, const QString &outDir,
+                           QString *error = nullptr);
     bool extractZip(const QString &zipPath, const QString &outDir, QString *error = nullptr);
     // Comprime el contenido de srcDir (recursivo) en outZip.
     bool createZip(const QString &srcDir, const QString &outZip, QString *error = nullptr);

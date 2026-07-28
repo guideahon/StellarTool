@@ -61,10 +61,22 @@ tar -a -c -f "%ZIP%" -C "%STAGE%" .
 if errorlevel 1 ( echo [ERROR] zip fallo & goto :fail )
 rmdir /s /q "%STAGE%"
 
+REM Copia para subir a Nexus: dist_nexus\ es la carpeta desde donde se publica.
+set NEXUSDIR=%~dp0dist_nexus
+set NEXUSZIP=%NEXUSDIR%\StellarTool-%VERSION%.zip
+if not exist "%NEXUSDIR%" mkdir "%NEXUSDIR%"
+copy /y "%ZIP%" "%NEXUSZIP%" >nul
+if errorlevel 1 (
+  echo [WARN] no se pudo copiar el zip a dist_nexus\
+) else (
+  echo [INFO] Copia para Nexus: %NEXUSZIP%
+)
+
 for %%A in ("%ZIP%") do set ZSIZE=%%~zA
 echo.
 echo === Release listo ===
 echo %ZIP%  (%ZSIZE% bytes)
+echo %NEXUSZIP%
 if "%NO_PAUSE%"=="0" pause
 exit /b 0
 

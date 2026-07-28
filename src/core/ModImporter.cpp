@@ -119,7 +119,13 @@ int ModImporter::importZenTables(const QString &utoc, const QString &modWorkDir,
         if (!f.open(QIODevice::ReadOnly)) continue;
         const QJsonObject doc = cue4ToDataTableDoc(f.readAll());
         f.close();
-        if (!isDataTableJson(doc)) continue;
+        if (!isDataTableJson(doc)) {
+            // Animaciones, AnimBP, mallas: CUE4Parse las lee, pero no hay camino
+            // de vuelta a .uasset, así que no pueden ir al pak mergeado. Se
+            // registran para poder avisarlo en vez de perderlas en silencio.
+            pkg.zenAssetsNotMerged << it.key();
+            continue;
+        }
         const QString convPath = convDir + QLatin1Char('/') + it.key() + QStringLiteral(".json");
         QFile o(convPath);
         if (!o.open(QIODevice::WriteOnly)) continue;
@@ -149,6 +155,12 @@ bool ModImporter::unpackPakInto(const QString &pak, const QString &extractDir,
             emit progress(t(QStringLiteral("core_converting_zen")).arg(fi.fileName()));
             QString convErr;
             if (m_pak->toLegacy(utoc, extractDir, &convErr) > 0)
+                return true;
+            // 1b) Reintento con el global "compat" del juego. Sin él, to-legacy
+            // no puede resolver los script objects del mod y falla en todos los
+            // assets. Con él salen TODOS, incluidos los que no son DataTables
+            // (animaciones, AnimBP, mallas), que CUE4Parse no puede devolver.
+            if (m_pak->toLegacyWithGlobal(utoc, extractDir, &convErr) > 0)
                 return true;
         }
         // 2) CUE4Parse (lee Zen que retoc no puede revertir).

@@ -1,11 +1,18 @@
 #include "PakService.h"
 
+#include "core/GamePaths.h"
+
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QStandardPaths>
 #include <QLoggingCategory>
 
 Q_LOGGING_CATEGORY(lcPak, "st.pak")
@@ -171,6 +178,126 @@ QStringList PakService::listZenAssets(const QString &utocPath) {
     QDir(tmp).removeRecursively();
     names.sort();
     return names;
+}
+
+QString PakService::compatGlobalDir(QString *error) {
+    const QStringList globals = GamePaths::globalContainerFiles();
+    if (globals.isEmpty()) {
+        if (error) *error = QStringLiteral("No hay global.utoc del juego (falta la ruta del juego).");
+        return {};
+    }
+    QString srcGlobal;
+    for (const QString &g : globals)
+        if (g.endsWith(QLatin1String(".utoc"), Qt::CaseInsensitive)) srcGlobal = g;
+    if (srcGlobal.isEmpty()) {
+        if (error) *error = QStringLiteral("No se encontró global.utoc.");
+        return {};
+    }
+
+    const QString cache = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                          + QStringLiteral("/cache/zenglobal");
+    const QString outDir = cache + QStringLiteral("/global");
+    const QString stampPath = cache + QStringLiteral("/source.stamp");
+    const QFileInfo si(srcGlobal);
+    const QString stamp = QStringLiteral("%1|%2|%3")
+                              .arg(srcGlobal)
+                              .arg(si.size())
+                              .arg(si.lastModified().toMSecsSinceEpoch());
+
+    // Cache válida = mismo global de origen (el juego se pudo actualizar).
+    if (QFileInfo::exists(outDir + QStringLiteral("/global.utoc"))) {
+        QFile sf(stampPath);
+        if (sf.open(QIODevice::ReadOnly)
+            && QString::fromUtf8(sf.readAll()) == stamp)
+            return outDir;
+    }
+
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral("retoc.exe no está disponible.");
+        return {};
+    }
+    QDir(cache).removeRecursively();
+    // unpack-raw crea el directorio y falla si ya existe ("os error 183"),
+    // así que sólo se prepara el padre.
+    const QString rawDir = cache + QStringLiteral("/raw");
+    QDir().mkpath(cache);
+    QDir().mkpath(outDir);
+
+    PakService svc;   // sólo para reutilizar runProcess
+    if (!svc.runProcess(retoc, {QStringLiteral("unpack-raw"),
+                                QDir::toNativeSeparators(srcGlobal),
+                                QDir::toNativeSeparators(rawDir)}, error))
+        return {};
+
+    // El volcado raw guarda la versión del contenedor en su manifiesto: se
+    // cambia ahí y pack-raw emite el mismo global en la versión de los mods.
+    const QString manifestPath = rawDir + QStringLiteral("/manifest.json");
+    QFile mf(manifestPath);
+    if (!mf.open(QIODevice::ReadOnly)) {
+        if (error) *error = QStringLiteral("unpack-raw no dejó manifest.json en %1").arg(rawDir);
+        return {};
+    }
+    QJsonObject manifest = QJsonDocument::fromJson(mf.readAll()).object();
+    mf.close();
+    manifest.insert(QStringLiteral("version"), QStringLiteral("DirectoryIndex"));
+    if (!mf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        if (error) *error = QStringLiteral("No se pudo reescribir %1").arg(manifestPath);
+        return {};
+    }
+    mf.write(QJsonDocument(manifest).toJson(QJsonDocument::Indented));
+    mf.close();
+
+    if (!svc.runProcess(retoc, {QStringLiteral("pack-raw"),
+                                QDir::toNativeSeparators(rawDir),
+                                QDir::toNativeSeparators(outDir + QStringLiteral("/global.utoc"))},
+                        error))
+        return {};
+    if (!QFileInfo::exists(outDir + QStringLiteral("/global.utoc"))) {
+        if (error) *error = QStringLiteral("pack-raw no generó global.utoc");
+        return {};
+    }
+    QDir(rawDir).removeRecursively();
+    QFile sf(stampPath);
+    if (sf.open(QIODevice::WriteOnly)) sf.write(stamp.toUtf8());
+    return outDir;
+}
+
+int PakService::toLegacyWithGlobal(const QString &utocPath, const QString &outDir, QString *error) {
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) return 0;
+    const QString global = compatGlobalDir(error);
+    if (global.isEmpty()) return 0;
+
+    // to-legacy convierte todos los contenedores del directorio, así que el
+    // stage lleva el global compat + el mod (y nada más).
+    const QFileInfo mi(utocPath);
+    const QString stage = outDir + QStringLiteral("/../zenstage_") + mi.completeBaseName();
+    QDir(stage).removeRecursively();
+    if (!QDir().mkpath(stage)) return 0;
+    for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas")}) {
+        const QString g = global + QStringLiteral("/global.") + ext;
+        if (QFileInfo::exists(g))
+            QFile::copy(g, stage + QStringLiteral("/global.") + ext);
+    }
+    for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"), QStringLiteral("pak")}) {
+        const QString f = mi.absolutePath() + QLatin1Char('/') + mi.completeBaseName()
+                          + QLatin1Char('.') + ext;
+        if (QFileInfo::exists(f))
+            QFile::copy(f, stage + QLatin1Char('/') + QFileInfo(f).fileName());
+    }
+
+    QDir().mkpath(outDir);
+    const bool ok = runProcess(retoc, {QStringLiteral("to-legacy"),
+                                       QStringLiteral("--version"), QStringLiteral("UE4_26"),
+                                       QDir::toNativeSeparators(stage),
+                                       QDir::toNativeSeparators(outDir)}, error);
+    QDir(stage).removeRecursively();
+    if (!ok) return 0;
+    int n = 0;
+    QDirIterator it(outDir, {QStringLiteral("*.uasset")}, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) { it.next(); ++n; }
+    return n;
 }
 
 bool PakService::extractZip(const QString &zipPath, const QString &outDir, QString *error) {

@@ -35,6 +35,10 @@ struct ModPackage {
     QString extractDir;    // dir temporal con el contenido extraído
     int loadOrder = 0;     // menor = mayor prioridad por defecto
     QList<ModAsset> assets;
+    // Assets NO tabulares de un mod Zen (animaciones, AnimBP, mallas...). Se leen
+    // con CUE4Parse pero no se pueden volver a escribir como .uasset, así que NO
+    // entran al pak mergeado: el mod de origen tiene que seguir instalado.
+    QStringList zenAssetsNotMerged;
 
     int tableCount() const;
     int otherCount() const;
