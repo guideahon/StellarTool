@@ -236,7 +236,19 @@ const QHash<QString, QStringList> &AppController::usmapEnums() {
     return m_usmapEnums;
 }
 
-void AppController::runAnalysis() {
+AppController::AnalysisChoices AppController::captureChoices() const {
+    AnalysisChoices c;
+    for (const ChangeItem &item : m_items) {
+        const QString key = item.key() + QLatin1Char('|') + item.modId;
+        if (!item.selected) c.selections.insert(key, false);
+        if (item.edited) c.edits.insert(key, item.newValue);
+    }
+    for (const ConflictGroup &g : m_groups)
+        if (!g.resolvedModId.isEmpty()) c.resolutions.insert(g.key, g.resolvedModId);
+    return c;
+}
+
+void AppController::runAnalysis(const AnalysisChoices &choices) {
     QList<ChangeItem> items;
     for (const ModPackage &mod : m_mods) {
         for (const ModAsset &asset : mod.assets) {
@@ -277,7 +289,31 @@ void AppController::runAnalysis() {
             }
         }
     }
+    // Reponer lo elegido antes de buscar conflictos: un valor editado a mano
+    // cambia si el cambio choca con otro mod, así que tiene que estar puesto
+    // cuando se arman los grupos.
+    if (!choices.isEmpty()) {
+        for (ChangeItem &item : items) {
+            const QString key = item.key() + QLatin1Char('|') + item.modId;
+            const auto sel = choices.selections.constFind(key);
+            if (sel != choices.selections.constEnd()) item.selected = sel.value();
+            const auto edit = choices.edits.constFind(key);
+            if (edit != choices.edits.constEnd()) {
+                item.newValue = edit.value();
+                item.edited = true;
+            }
+        }
+    }
+
     QList<ConflictGroup> groups = TableDiffEngine::findConflicts(items);
+    for (ConflictGroup &g : groups) {
+        const auto res = choices.resolutions.constFind(g.key);
+        if (res == choices.resolutions.constEnd()) continue;
+        // Solo si el mod ganador sigue participando del conflicto: si se quitó,
+        // el grupo vuelve a quedar sin resolver en vez de apuntar a la nada.
+        for (int idx : g.itemIndexes)
+            if (items.at(idx).modId == res.value()) { g.resolvedModId = res.value(); break; }
+    }
     for (auto &c : items)
         c.summaryCache = c.summary(m_i18n);   // precalcular para listas grandes
     QMetaObject::invokeMethod(this, [this, items, groups] {
@@ -300,13 +336,16 @@ void AppController::analyze() {
         && (!m_baseline->hasBaseline() || m_baseline->isStale(GamePaths::paksDir()));
     const QString paks = GamePaths::paksDir();
     const QString usmap = m_uasset->usmapPath();
-    std::ignore = QtConcurrent::run([this, needBaseline, paks, usmap] {
+    // Agregar o quitar un mod obliga a re-analizar; sin esto el usuario perdía
+    // cada casilla destildada, cada valor editado y cada conflicto resuelto.
+    const AnalysisChoices choices = captureChoices();
+    std::ignore = QtConcurrent::run([this, needBaseline, paks, usmap, choices] {
         if (needBaseline) {
             QString e; int n = 0;
             m_baseline->buildFromGame(paks, usmap, &e, &n);
             QMetaObject::invokeMethod(this, [this] { emit baselineChanged(); }, Qt::QueuedConnection);
         }
-        runAnalysis();
+        runAnalysis(choices);
     });
 }
 
@@ -1145,23 +1184,10 @@ void AppController::loadProject(const QUrl &fileUrl) {
             m_mods = mods;
             m_modModel.setMods(m_mods);
             setBusy(true, t(QStringLiteral("core_analyzing")));
-            std::ignore = QtConcurrent::run([this, state] {
-                runAnalysis();
-                QMetaObject::invokeMethod(this, [this, state] {
-                    // Restaurar selecciones y resoluciones sobre el análisis fresco.
-                    for (int i = 0; i < m_items.size(); ++i) {
-                        const QString key = m_items.at(i).key() + QLatin1Char('|') + m_items.at(i).modId;
-                        if (state.selections.contains(key))
-                            m_items[i].selected = state.selections.value(key);
-                    }
-                    for (auto &g : m_groups) {
-                        if (state.resolutions.contains(g.key))
-                            g.resolvedModId = state.resolutions.value(g.key);
-                    }
-                    m_changeModel.refresh();
-                    m_conflictModel.refresh();
-                }, Qt::QueuedConnection);
-            });
+            AnalysisChoices choices;
+            choices.selections = state.selections;
+            choices.resolutions = state.resolutions;
+            std::ignore = QtConcurrent::run([this, choices] { runAnalysis(choices); });
         }, Qt::QueuedConnection);
     });
 }

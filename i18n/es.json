@@ -22,6 +22,7 @@
   "home_tables_assets": "%1 tablas · %2 otros assets",
   "home_unreadable": " · %1 no analizables",
   "home_remove": "Quitar",
+  "home_show_tables": "Tablas",
   "home_empty": "Todavía no hay mods cargados",
   "changes_title": "Cambios",
   "changes_only_conflicts": "Solo conflictos",

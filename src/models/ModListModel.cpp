@@ -1,5 +1,7 @@
 #include "ModListModel.h"
 
+#include <QFileInfo>
+
 namespace st {
 
 ModListModel::ModListModel(QObject *parent) : QAbstractListModel(parent) {}
@@ -18,6 +20,17 @@ QVariant ModListModel::data(const QModelIndex &index, int role) const {
     case OtherCountRole: return m.otherCount();
     case UnreadableCountRole: return m.unreadableCount();
     case ModIdRole: return m.id;
+    // Qué tablas trae el mod, cambien o no respecto de vanilla: la lista de
+    // cambios solo muestra las que difieren, así que sin esto no hay forma de
+    // ver el contenido real del pak.
+    case TableNamesRole: {
+        QStringList names;
+        for (const ModAsset &a : m.assets)
+            if (a.kind == ModAsset::DataTable)
+                names << QFileInfo(a.gamePath).completeBaseName();
+        names.sort(Qt::CaseInsensitive);
+        return names;
+    }
     }
     return {};
 }
@@ -30,6 +43,7 @@ QHash<int, QByteArray> ModListModel::roleNames() const {
         {OtherCountRole, "otherCount"},
         {UnreadableCountRole, "unreadableCount"},
         {ModIdRole, "modId"},
+        {TableNamesRole, "tableNames"},
     };
 }
 

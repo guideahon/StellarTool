@@ -153,7 +153,19 @@ private:
     QString t(const QString &key) const;   // traducción vía Translator
     QString workRoot() const;
     void importNextMod();                    // drena m_pendingMods de a uno
-    void runAnalysis();                      // en worker thread
+    // Lo que el usuario decidió sobre un análisis y no debe perderse al volver
+    // a analizar (agregar/quitar un mod obliga a re-analizar).
+    struct AnalysisChoices {
+        QMap<QString, bool> selections;        // ChangeItem::key + "|" + modId
+        QMap<QString, QJsonValue> edits;       // misma clave -> valor editado a mano
+        QMap<QString, QString> resolutions;    // ConflictGroup::key -> modId ganador
+        bool isEmpty() const {
+            return selections.isEmpty() && edits.isEmpty() && resolutions.isEmpty();
+        }
+    };
+    AnalysisChoices captureChoices() const;
+
+    void runAnalysis(const AnalysisChoices &choices = {}); // en worker thread
     QString runMerge(const QString &outDir); // en worker thread; devuelve error o vacío
     // Stage con los contenedores raíz del juego (hardlinks); cachea por proceso.
     QString ensureVanillaStage();

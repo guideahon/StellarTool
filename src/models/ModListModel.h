@@ -18,6 +18,7 @@ public:
         OtherCountRole,
         UnreadableCountRole,
         ModIdRole,
+        TableNamesRole,   // nombres de las DataTables que trae el mod
     };
 
     explicit ModListModel(QObject *parent = nullptr);

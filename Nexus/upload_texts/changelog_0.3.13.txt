@@ -1,0 +1,13 @@
+Version 0.3.13
+
+- Your choices survive a re-analysis. Adding or removing a mod forced a fresh
+  analysis, and that wiped every unticked change, every hand-edited value and
+  every conflict you had already resolved. They are now carried over. If the
+  mod that won a conflict is gone, that conflict goes back to unresolved
+  instead of pointing at nothing.
+- The mod list can now show which tables each mod actually contains. The
+  changes list only shows tables that differ from vanilla, so there was no way
+  to see the full contents of a pak. Click "Tables" on a mod to list them.
+
+Reminder, since it is easy to miss: the Conflicts page has a button per mod to
+give that mod every conflict at once, instead of resolving them one by one.

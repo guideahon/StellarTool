@@ -121,42 +121,70 @@ Item {
             readonly property real rowWidth: width - 6 - (vbar.visible ? vbar.width : 0)
             ScrollBar.vertical: ThemedScrollBar { id: vbar }
             delegate: Rectangle {
+                id: modRow
                 required property string name
                 required property string source
                 required property int tableCount
                 required property int otherCount
                 required property int unreadableCount
+                required property var tableNames
                 required property int index
+                // Las tablas del mod se muestran a pedido: son varias y el
+                // listado no tiene por qué ocupar lugar mientras no se miren.
+                property bool showTables: false
                 width: ListView.view.rowWidth
-                height: 64
+                height: rowContent.height + 24
                 radius: Theme.radius
                 color: Theme.panel
                 border.color: Theme.border
 
-                RowLayout {
-                    anchors.fill: parent
+                ColumnLayout {
+                    id: rowContent
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
                     anchors.margins: 12
-                    spacing: 12
-                    Label {
-                        text: (index + 1) + "."
-                        color: Theme.accent
-                        font.bold: true
-                    }
-                    ColumnLayout {
+                    spacing: 6
+
+                    RowLayout {
                         Layout.fillWidth: true
-                        spacing: 2
-                        Label { text: name; color: Theme.text; font.pixelSize: 16; font.bold: true }
+                        spacing: 12
                         Label {
-                            text: I18n.s.home_tables_assets.replace("%1", tableCount).replace("%2", otherCount)
-                                  + (unreadableCount > 0 ? I18n.s.home_unreadable.replace("%1", unreadableCount) : "")
-                            color: unreadableCount > 0 ? Theme.warn : Theme.textDim
-                            font.pixelSize: 12
+                            text: (index + 1) + "."
+                            color: Theme.accent
+                            font.bold: true
+                        }
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Label { text: modRow.name; color: Theme.text; font.pixelSize: 16; font.bold: true }
+                            Label {
+                                text: I18n.s.home_tables_assets.replace("%1", modRow.tableCount).replace("%2", modRow.otherCount)
+                                      + (modRow.unreadableCount > 0 ? I18n.s.home_unreadable.replace("%1", modRow.unreadableCount) : "")
+                                color: modRow.unreadableCount > 0 ? Theme.warn : Theme.textDim
+                                font.pixelSize: 12
+                            }
+                        }
+                        Button {
+                            visible: modRow.tableCount > 0
+                            text: (modRow.showTables ? "▾ " : "▸ ") + I18n.s.home_show_tables
+                            onClicked: modRow.showTables = !modRow.showTables
+                        }
+                        Button {
+                            text: I18n.s.home_remove
+                            enabled: !App.busy
+                            onClicked: App.removeMod(modRow.index)
                         }
                     }
-                    Button {
-                        text: I18n.s.home_remove
-                        enabled: !App.busy
-                        onClicked: App.removeMod(index)
+
+                    Label {
+                        visible: modRow.showTables && modRow.tableCount > 0
+                        Layout.fillWidth: true
+                        Layout.leftMargin: 24
+                        text: modRow.tableNames.join("  ·  ")
+                        color: Theme.textDim
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
                     }
                 }
             }
