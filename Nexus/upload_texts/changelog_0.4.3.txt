@@ -1,0 +1,18 @@
+Version 0.4.3
+
+- "Build my mod" is clickable again. 0.4.2 started blocking builds whose output
+  folder sits inside ~mods (the game loads that folder recursively, so the
+  build's own working folders end up loaded as mods), but the field still
+  defaulted to ~mods, so the button was greyed out from the start. New builds
+  default to Documents\StellarTool\builds, outside the game. If you had already
+  picked another folder, nothing changes.
+- A build can be cancelled. While compiling, a Cancel button appears next to
+  the spinner and stops the whole build, including the compiler processes it
+  spawned (repak, retoc, UAssetGUI), which used to keep writing after the app
+  said it was done.
+- Cancelling puts everything back. Before installing, the Builder now backs up
+  the mod and helper you already had installed, plus mods.txt. If you cancel,
+  the previous install is restored and the half-written output (stage,
+  compile*, the partial zip) is deleted, so you are never left with a pak
+  without its .utoc or a helper folder replaced halfway. If nothing was
+  installed before, the game is left clean.
