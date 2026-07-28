@@ -264,6 +264,30 @@ def test_quantified_extras_apply_custom_values():
     assert extras._get(player, "StackConsumable1") == 123
 
 
+def test_advanced_quantities_apply_each_internal_stack_independently():
+    import extras
+    fields = {
+        **{f"StackBullet{i}": i for i in range(1, 7)},
+        **{f"StackConsumable{i}": i for i in range(1, 8)},
+    }
+    player = {"Name": "Player", "Value": [
+        {"Name": name, "Value": value, "IsZero": False}
+        for name, value in fields.items()
+    ]}
+    doc = {"Exports": [{"Table": {"Data": [player]}}]}
+    bullet_values = {f"StackBullet{i}": 100 + i for i in range(1, 7)}
+    consumable_values = {f"StackConsumable{i}": 200 + i for i in range(1, 8)}
+    assert extras.ammo_stacks(doc, stack_size=999, values=bullet_values) == 6
+    assert extras.consumable_stacks(
+        doc, stack_size=99, values=consumable_values) == 7
+    for name, value in {**bullet_values, **consumable_values}.items():
+        assert extras._get(player, name) == value
+    capacity_values = {f"StackBullet{i}": 1000 + i for i in range(1, 7)}
+    assert extras.ammo_100x(doc, multiplier=100, values=capacity_values) == 6
+    for name, value in capacity_values.items():
+        assert extras._get(player, name) == value
+
+
 def test_base_attribute_enhancement_effect_transforms():
     import effect_extras
     rows = []
@@ -468,6 +492,15 @@ def test_builder_exposes_quantities_and_named_presets():
     assert "component NumericEditor: RowLayout" in qml
     assert "component QuantifiedExtra: ColumnLayout" in qml
     assert "gameplayExtraValues:" in qml
+    assert "advancedQuantitySelection:" in qml
+    assert "id: advancedQuantities" in qml
+    for field in (
+        "StackBullet1", "StackBullet2", "StackBullet3", "StackBullet4",
+        "StackBullet5", "StackBullet6", "StackConsumable1",
+        "StackConsumable2", "StackConsumable3", "StackConsumable4",
+        "StackConsumable5", "StackConsumable6", "StackConsumable7",
+    ):
+        assert field in qml
     assert "App.saveBuilderPreset(" in qml
     assert "App.deleteBuilderPreset(" in qml
     assert "root.applyTemplate(modelData.answers)" in qml

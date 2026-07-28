@@ -124,6 +124,7 @@ Item {
         variety.checked = a.enemyVariety === true
         var ex = a.gameplayExtras || []
         var xv = a.gameplayExtraValues || {}
+        advancedQuantities.checked = a.advancedQuantitySelection === true
         function extraValue(group, key, fallback) {
             return xv[group] && xv[group][key] !== undefined
                     ? Number(xv[group][key]) : fallback
@@ -165,6 +166,28 @@ Item {
         ammoStacksValue.scaledValue = extraValue("ammo_stacks", "stack_size", 999)
         ammoMultiplier.scaledValue = extraValue("ammo_100x", "multiplier", 100)
         consumableStacksValue.scaledValue = extraValue("consumable_stacks", "stack_size", 99)
+        var ammoValues = xv.ammo_stacks && xv.ammo_stacks.values || {}
+        ammoStack1.scaledValue = Number(ammoValues.StackBullet1 || ammoStacksValue.realValue)
+        ammoStack2.scaledValue = Number(ammoValues.StackBullet2 || ammoStacksValue.realValue)
+        ammoStack3.scaledValue = Number(ammoValues.StackBullet3 || ammoStacksValue.realValue)
+        ammoStack4.scaledValue = Number(ammoValues.StackBullet4 || ammoStacksValue.realValue)
+        ammoStack5.scaledValue = Number(ammoValues.StackBullet5 || ammoStacksValue.realValue)
+        ammoStack6.scaledValue = Number(ammoValues.StackBullet6 || ammoStacksValue.realValue)
+        var capacityValues = xv.ammo_100x && xv.ammo_100x.values || {}
+        ammoCapacity1.scaledValue = Number(capacityValues.StackBullet1 || 3000)
+        ammoCapacity2.scaledValue = Number(capacityValues.StackBullet2 || 300)
+        ammoCapacity3.scaledValue = Number(capacityValues.StackBullet3 || 1600)
+        ammoCapacity4.scaledValue = Number(capacityValues.StackBullet4 || 1200)
+        ammoCapacity5.scaledValue = Number(capacityValues.StackBullet5 || 6000)
+        ammoCapacity6.scaledValue = Number(capacityValues.StackBullet6 || 800)
+        var consumableValues = xv.consumable_stacks && xv.consumable_stacks.values || {}
+        consumableStack1.scaledValue = Number(consumableValues.StackConsumable1 || consumableStacksValue.realValue)
+        consumableStack2.scaledValue = Number(consumableValues.StackConsumable2 || consumableStacksValue.realValue)
+        consumableStack3.scaledValue = Number(consumableValues.StackConsumable3 || consumableStacksValue.realValue)
+        consumableStack4.scaledValue = Number(consumableValues.StackConsumable4 || consumableStacksValue.realValue)
+        consumableStack5.scaledValue = Number(consumableValues.StackConsumable5 || consumableStacksValue.realValue)
+        consumableStack6.scaledValue = Number(consumableValues.StackConsumable6 || consumableStacksValue.realValue)
+        consumableStack7.scaledValue = Number(consumableValues.StackConsumable7 || consumableStacksValue.realValue)
         shieldNormal.scaledValue = extraValue("shield_regen", "normal", 120)
         shieldCombat.scaledValue = extraValue("shield_regen", "combat", 30)
         attributeShieldNormal.scaledValue = extraValue("attribute_shield_regen", "normal", 160)
@@ -795,6 +818,21 @@ Item {
                                     onClicked: root.setBaseAttributeEnhancement(false)
                                 }
                             }
+                            CheckBox {
+                                id: advancedQuantities
+                                Layout.fillWidth: true
+                                text: I18n.s.builder_advanced_selection || "Selección avanzada"
+                            }
+                            Text {
+                                visible: advancedQuantities.checked
+                                Layout.fillWidth: true
+                                Layout.leftMargin: 36
+                                text: I18n.s.builder_advanced_selection_hint
+                                      || "Personalizá por separado cada propiedad interna agrupada."
+                                color: Theme.textDim
+                                font.pixelSize: 11
+                                wrapMode: Text.Wrap
+                            }
                             QuantifiedExtra {
                                 id: exBaseAttributes
                                 text: I18n.s.builder_ex_base_attributes || "Base HP 3000, shield 1000 and shield reduction 20%"
@@ -813,8 +851,19 @@ Item {
                                     {control: exAmmo},
                                     [{control: exAmmo100x, label: exAmmo100x.text}],
                                     exAmmo.text)
-                                onVanillaRequested: { checked = false; ammoStacksValue.scaledValue = 30 }
-                                NumericEditor { id: ammoStacksValue; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                onVanillaRequested: {
+                                    checked = false; ammoStacksValue.scaledValue = 30
+                                    ammoStack1.scaledValue = 30; ammoStack2.scaledValue = 3
+                                    ammoStack3.scaledValue = 16; ammoStack4.scaledValue = 12
+                                    ammoStack5.scaledValue = 60; ammoStack6.scaledValue = 8
+                                }
+                                NumericEditor { id: ammoStacksValue; visible: !advancedQuantities.checked; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack1; visible: advancedQuantities.checked; label: "StackBullet1"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack2; visible: advancedQuantities.checked; label: "StackBullet2"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack3; visible: advancedQuantities.checked; label: "StackBullet3"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack4; visible: advancedQuantities.checked; label: "StackBullet4"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack5; visible: advancedQuantities.checked; label: "StackBullet5"; minimum: 1; maximum: 9999; scaledValue: 999 }
+                                NumericEditor { id: ammoStack6; visible: advancedQuantities.checked; label: "StackBullet6"; minimum: 1; maximum: 9999; scaledValue: 999 }
                             }
                             QuantifiedExtra {
                                 id: exAmmo100x
@@ -823,14 +872,38 @@ Item {
                                     {control: exAmmo100x},
                                     [{control: exAmmo, label: exAmmo.text}],
                                     exAmmo100x.text)
-                                onVanillaRequested: { checked = false; ammoMultiplier.scaledValue = 1 }
-                                NumericEditor { id: ammoMultiplier; label: I18n.s.builder_value_multiplier || "Multiplicador"; minimum: 1; maximum: 500; scaledValue: 100 }
+                                onVanillaRequested: {
+                                    checked = false; ammoMultiplier.scaledValue = 1
+                                    ammoCapacity1.scaledValue = 30; ammoCapacity2.scaledValue = 3
+                                    ammoCapacity3.scaledValue = 16; ammoCapacity4.scaledValue = 12
+                                    ammoCapacity5.scaledValue = 60; ammoCapacity6.scaledValue = 8
+                                }
+                                NumericEditor { id: ammoMultiplier; visible: !advancedQuantities.checked; label: I18n.s.builder_value_multiplier || "Multiplicador"; minimum: 1; maximum: 500; scaledValue: 100 }
+                                NumericEditor { id: ammoCapacity1; visible: advancedQuantities.checked; label: "StackBullet1"; minimum: 1; maximum: 30000; scaledValue: 3000 }
+                                NumericEditor { id: ammoCapacity2; visible: advancedQuantities.checked; label: "StackBullet2"; minimum: 1; maximum: 30000; scaledValue: 300 }
+                                NumericEditor { id: ammoCapacity3; visible: advancedQuantities.checked; label: "StackBullet3"; minimum: 1; maximum: 30000; scaledValue: 1600 }
+                                NumericEditor { id: ammoCapacity4; visible: advancedQuantities.checked; label: "StackBullet4"; minimum: 1; maximum: 30000; scaledValue: 1200 }
+                                NumericEditor { id: ammoCapacity5; visible: advancedQuantities.checked; label: "StackBullet5"; minimum: 1; maximum: 30000; scaledValue: 6000 }
+                                NumericEditor { id: ammoCapacity6; visible: advancedQuantities.checked; label: "StackBullet6"; minimum: 1; maximum: 30000; scaledValue: 800 }
                             }
                             QuantifiedExtra {
                                 id: exConsumables
                                 text: I18n.s.builder_ex_consumables || "Consumable stack size: 99"
-                                onVanillaRequested: { checked = false; consumableStacksValue.scaledValue = 10 }
-                                NumericEditor { id: consumableStacksValue; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                onVanillaRequested: {
+                                    checked = false; consumableStacksValue.scaledValue = 10
+                                    consumableStack1.scaledValue = 10; consumableStack2.scaledValue = 10
+                                    consumableStack3.scaledValue = 10; consumableStack4.scaledValue = 10
+                                    consumableStack5.scaledValue = 10; consumableStack6.scaledValue = 10
+                                    consumableStack7.scaledValue = 10
+                                }
+                                NumericEditor { id: consumableStacksValue; visible: !advancedQuantities.checked; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack1; visible: advancedQuantities.checked; label: "StackConsumable1"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack2; visible: advancedQuantities.checked; label: "StackConsumable2"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack3; visible: advancedQuantities.checked; label: "StackConsumable3"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack4; visible: advancedQuantities.checked; label: "StackConsumable4"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack5; visible: advancedQuantities.checked; label: "StackConsumable5"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack6; visible: advancedQuantities.checked; label: "StackConsumable6"; minimum: 1; maximum: 999; scaledValue: 99 }
+                                NumericEditor { id: consumableStack7; visible: advancedQuantities.checked; label: "StackConsumable7"; minimum: 1; maximum: 999; scaledValue: 99 }
                             }
                             QuantifiedExtra {
                                 id: exShieldRegen
@@ -1288,15 +1361,47 @@ Item {
                                 exAirDodge.checked ? "extraAirDodge" : "",
                                 exTumbler.checked ? "tumblerHeal" : ""
                             ].filter(function(x){ return x.length > 0 }),
+                            advancedQuantitySelection: advancedQuantities.checked,
                             gameplayExtraValues: {
                                 base_attributes: {
                                     max_hp: baseHp.realValue,
                                     max_shield: baseShield.realValue,
                                     shield_reduction_percent: baseReduction.realValue
                                 },
-                                ammo_stacks: {stack_size: ammoStacksValue.realValue},
-                                ammo_100x: {multiplier: ammoMultiplier.realValue},
-                                consumable_stacks: {stack_size: consumableStacksValue.realValue},
+                                ammo_stacks: {
+                                    stack_size: ammoStacksValue.realValue,
+                                    values: advancedQuantities.checked ? {
+                                        StackBullet1: ammoStack1.realValue,
+                                        StackBullet2: ammoStack2.realValue,
+                                        StackBullet3: ammoStack3.realValue,
+                                        StackBullet4: ammoStack4.realValue,
+                                        StackBullet5: ammoStack5.realValue,
+                                        StackBullet6: ammoStack6.realValue
+                                    } : {}
+                                },
+                                ammo_100x: {
+                                    multiplier: ammoMultiplier.realValue,
+                                    values: advancedQuantities.checked ? {
+                                        StackBullet1: ammoCapacity1.realValue,
+                                        StackBullet2: ammoCapacity2.realValue,
+                                        StackBullet3: ammoCapacity3.realValue,
+                                        StackBullet4: ammoCapacity4.realValue,
+                                        StackBullet5: ammoCapacity5.realValue,
+                                        StackBullet6: ammoCapacity6.realValue
+                                    } : {}
+                                },
+                                consumable_stacks: {
+                                    stack_size: consumableStacksValue.realValue,
+                                    values: advancedQuantities.checked ? {
+                                        StackConsumable1: consumableStack1.realValue,
+                                        StackConsumable2: consumableStack2.realValue,
+                                        StackConsumable3: consumableStack3.realValue,
+                                        StackConsumable4: consumableStack4.realValue,
+                                        StackConsumable5: consumableStack5.realValue,
+                                        StackConsumable6: consumableStack6.realValue,
+                                        StackConsumable7: consumableStack7.realValue
+                                    } : {}
+                                },
                                 shield_regen: {
                                     normal: shieldNormal.realValue,
                                     combat: shieldCombat.realValue

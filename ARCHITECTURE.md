@@ -111,6 +111,10 @@ idioma de la guía de instalación se toma de `I18n.language`; no se configura
 por separado dentro del Builder.
 Los valores editables de extras viajan en `gameplayExtraValues`; el registro de
 transforms los entrega como parámetros tipados a las funciones de cada tabla.
+En selección avanzada, los grupos `ammo_stacks`, `ammo_100x` y
+`consumable_stacks` incluyen un mapa `values` indexado por el nombre real de la
+propiedad (`StackBullet1..6` / `StackConsumable1..7`); sin ese mapa se mantiene
+el valor agregado compatible con configuraciones anteriores.
 Los presets nombrados guardan el mismo objeto de respuestas completo en
 `QSettings` (`builder/presets`), mientras el historial de builds sigue viviendo
 en `%LOCALAPPDATA%\StellarSoulsBuilder\history`.

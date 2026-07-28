@@ -85,7 +85,9 @@ sostenida por acciones perfectas, dash de 4 s, escaneo 5/10 s y rotación
 GunGorgon. Los extras cuantitativos de atributos, munición, consumibles,
 regeneración, gauges, pesca y velocidad de ataque incluyen slider y campo
 numérico sincronizados; **Vanilla** desactiva el cambio y restaura sus valores
-originales.
+originales. **Selección avanzada** despliega las propiedades internas agrupadas:
+las seis capacidades de munición y los siete stacks de consumibles se pueden
+ajustar por separado, y esa granularidad también se conserva en los presets.
 La curación base del Tumbler se activa por separado y permite elegir cualquier
 nivel de 10% a 100% en pasos de 10%; los proyectos anteriores conservan 60%.
 Los grupos largos se distribuyen en varias filas para mantenerse dentro de la

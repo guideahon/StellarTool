@@ -295,6 +295,8 @@
   "builder_conflict_keep": "Keep %1",
   "builder_conflict_use": "Use %1",
   "builder_vanilla": "Vanilla",
+  "builder_advanced_selection": "Advanced selection",
+  "builder_advanced_selection_hint": "Customize every grouped internal property separately.",
   "builder_value_shield": "Shield",
   "builder_value_reduction": "Reduction (%)",
   "builder_value_quantity": "Quantity",

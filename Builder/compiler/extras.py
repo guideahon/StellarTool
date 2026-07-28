@@ -78,16 +78,20 @@ def _qol_fields(ct_doc, fields) -> int:
     return sum(1 for name in fields if _set(player, name, _QOL_VALUES[name]))
 
 
-def ammo_stacks(ct_doc, stack_size=999) -> int:
+def ammo_stacks(ct_doc, stack_size=999, values=None) -> int:
     player = _find(_rows(ct_doc), "Player")
-    return sum(1 for name in _QOL_VALUES if name.startswith("StackBullet")
-               and player and _set(player, name, int(stack_size)))
+    fields = [name for name in _QOL_VALUES if name.startswith("StackBullet")]
+    selected = values if isinstance(values, dict) else {}
+    return sum(1 for name in fields
+               if player and _set(player, name, int(selected.get(name, stack_size))))
 
 
-def consumable_stacks(ct_doc, stack_size=99) -> int:
+def consumable_stacks(ct_doc, stack_size=99, values=None) -> int:
     player = _find(_rows(ct_doc), "Player")
-    return sum(1 for name in _QOL_VALUES if name.startswith("StackConsumable")
-               and player and _set(player, name, int(stack_size)))
+    fields = [name for name in _QOL_VALUES if name.startswith("StackConsumable")]
+    selected = values if isinstance(values, dict) else {}
+    return sum(1 for name in fields
+               if player and _set(player, name, int(selected.get(name, stack_size))))
 
 
 def shield_regen(ct_doc, normal=120.0, combat=30.0) -> int:
@@ -147,7 +151,7 @@ def fishing_power(ct_doc, power=50.0) -> bool:
     return bool(player and _set(player, "FishingAttackPower", float(power)))
 
 
-def ammo_100x(ct_doc, multiplier=100.0) -> int:
+def ammo_100x(ct_doc, multiplier=100.0, values=None) -> int:
     player = _find(_rows(ct_doc), "Player")
     if not player:
         return 0
@@ -155,8 +159,10 @@ def ammo_100x(ct_doc, multiplier=100.0) -> int:
         "StackBullet1": 30, "StackBullet2": 3, "StackBullet3": 16,
         "StackBullet4": 12, "StackBullet5": 60, "StackBullet6": 8,
     }
+    selected = values if isinstance(values, dict) else {}
     return sum(1 for name, value in vanilla.items()
-               if _set(player, name, int(round(value * float(multiplier)))))
+               if _set(player, name, int(selected.get(
+                   name, round(value * float(multiplier))))))
 
 
 def longer_tachy(ct_doc, gauge=18000) -> bool:

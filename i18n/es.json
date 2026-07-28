@@ -295,6 +295,8 @@
   "builder_conflict_keep": "Conservar %1",
   "builder_conflict_use": "Usar %1",
   "builder_vanilla": "Vanilla",
+  "builder_advanced_selection": "Selección avanzada",
+  "builder_advanced_selection_hint": "Personalizá por separado cada propiedad interna agrupada.",
   "builder_value_shield": "Escudo",
   "builder_value_reduction": "Reducción (%)",
   "builder_value_quantity": "Cantidad",
