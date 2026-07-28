@@ -120,6 +120,13 @@ se verificaron en juego: el swap y el restore del outfit siguen funcionando
 igual. Aplican tanto
 al pak de outfit compilado como al combinado con mini-bosses y a First Run; el
 fallback a paks precompilados los ignora y avisa (`outfitFixesIgnored`).
+La carpeta de salida no puede estar dentro de `~mods`: el juego la carga de
+forma **recursiva**, así que las carpetas intermedias del build (`stage\Paks`,
+`compile_mb`) quedarían cargadas como mods fantasma que pisan al mod instalado
+sin aparecer en ningún lado. La app deshabilita Compilar y Re-exportar si la
+ruta elegida cae ahí, y `build_custom` la rechaza igual desde la CLI. Además, el
+estado de instalación lista los **paks fantasma** que encuentra en `~mods`:
+copias en subcarpetas del pak instalado y paks propios que la tool no instaló.
 El helper CNS aleatorio espera el flanco confirmado de escudo completo
 (detach de BS_102/salida de SkinSuit). Antes de elegir o escribir un outfit
 vuelve a leer la malla actual y cancela si EVE todavía usa SkinSuit, Tachy o

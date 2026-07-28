@@ -121,6 +121,24 @@ def resolve(a: dict) -> dict:
     }
 
 
+def check_out_dir(out_dir, game: str | None = None) -> None:
+    """Rechaza una carpeta de salida dentro de ~mods.
+
+    build() deja ahi ``stage\\Paks`` y ``compile_mb`` con paks completos, y el
+    juego carga ~mods recursivamente: quedan como mods fantasma que pisan al
+    instalado, no aparecen en installed_status y --uninstall-paks no los toca.
+    """
+    import gamepaths
+    if gamepaths.is_inside_mods(out_dir, game):
+        raise SystemExit(
+            "[builder] La carpeta de salida esta dentro de ~mods: "
+            f"{out_dir}. El juego carga ~mods de forma recursiva, asi que las "
+            "carpetas intermedias del build quedarian cargadas como mods "
+            "fantasma. Elegi una carpeta fuera del juego (ej. "
+            "Documents\\StellarSouls-builds) y usa la instalacion de la tool "
+            "para copiar el pak a ~mods.")
+
+
 def build_install_guide(a: dict, plan: dict, paks: list[str], has_helper: bool) -> str:
     lang = a["lang"]
     tpl_path = INSTALL_TEMPLATES / f"{lang}.txt"
@@ -170,7 +188,7 @@ def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = Non
     install = install or {}
     if install.get("helper"):
         import gamepaths, installer
-        game = install.get("game") or gamepaths.detect_game()
+        game = gamepaths.detect_game(install.get("game"))
         if not game:
             raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
         installer.install_helper(game, ue4ss, approved=True)
@@ -185,6 +203,12 @@ def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = Non
 
 def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     a = normalize(answers)
+    check_out_dir(out_dir, (install or {}).get("game"))
+    # La ruta elegida en la UI tambien la necesita el compilador (baselines
+    # vanilla escribibles), no solo el instalador.
+    if (install or {}).get("game"):
+        import gamepaths
+        gamepaths.remember_game(install["game"])
     # Solo la ALPHA del helper vanilla: no hay pak que compilar ni preset que
     # resolver, asi que se saltea todo el pipeline de gameplay.
     if only_vanilla_helper(a):
@@ -324,7 +348,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     install = install or {}
     if install.get("paks") or install.get("helper"):
         import gamepaths, installer
-        game = install.get("game") or gamepaths.detect_game()
+        game = gamepaths.detect_game(install.get("game"))
         if not game:
             raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
         if install.get("paks"):
@@ -356,13 +380,17 @@ def main():
     ap.add_argument("--uninstall-helper", action="store_true", help="desinstalar el helper que la tool instalo.")
     args = ap.parse_args()
 
+    if args.game:
+        import gamepaths
+        gamepaths.remember_game(args.game)
+
     if args.installed_status:
         import installer
         print(json.dumps(installer.installed_status(args.game)))
         return
     if args.uninstall_paks or args.uninstall_helper:
         import installer, gamepaths
-        game = args.game or gamepaths.detect_game()
+        game = gamepaths.detect_game(args.game)
         if not game:
             raise SystemExit("[builder] juego no encontrado")
         res = {}
@@ -380,6 +408,7 @@ def main():
         return
     if args.reexport:
         import history
+        check_out_dir(args.out or ".", args.game)
         print(f"OK -> {history.reexport(args.reexport, args.out or '.')}")
         return
 

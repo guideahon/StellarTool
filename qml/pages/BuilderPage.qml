@@ -22,10 +22,15 @@ Item {
 
     Component.onCompleted: {
         gamePath = App.detectStellarBlade()
+        // Sin juego no se pueden generar baselines vanilla (hardcore, dificultad):
+        // se pide la carpeta una vez, en vez de fallar recien al compilar.
+        if (gamePath.length === 0)
+            gameMissingDialog.open()
         refreshHistory()
         refreshPresets()
         refreshInstalled()
     }
+    function refreshGamePath() { gamePath = App.detectStellarBlade() }
     function refreshHistory() {
         try { historyModel = JSON.parse(App.builderHistory() || "[]") }
         catch (e) { historyModel = [] }
@@ -37,6 +42,20 @@ Item {
     function refreshInstalled() {
         try { installed = JSON.parse(App.installedStatus() || "{}") }
         catch (e) { installed = { paks: [], helper: false, helpers: [] } }
+    }
+    // El juego carga ~mods recursivamente: compilar ahi adentro deja las
+    // carpetas intermedias del build como mods fantasma. Mismo chequeo que
+    // build_custom.check_out_dir, adelantado para no dejar apretar Compilar.
+    function normalizePath(p) {
+        return String(p).replace(/^file:\/\/\//, "").replace(/\//g, "\\")
+                        .replace(/\\+$/, "").toLowerCase()
+    }
+    function outDirInsideMods() {
+        if (root.gamePath.length === 0 || outField.text.length === 0)
+            return false
+        var mods = normalizePath(root.gamePath) + "\\sb\\content\\paks\\~mods"
+        var out = normalizePath(outField.text)
+        return out === mods || out.indexOf(mods + "\\") === 0
     }
     function applyHistoryTemplate(id) {
         try {
@@ -368,6 +387,46 @@ Item {
         target: App
         function onBuilderFinished(zipPath) { root.resultZip = zipPath; root.refreshHistory(); root.refreshInstalled() }
         function onUninstalled() { root.refreshInstalled() }
+        function onGamePathChanged() { root.refreshGamePath(); root.refreshInstalled() }
+    }
+
+    FolderDialog {
+        id: gameDialog
+        title: I18n.s.builder_game_pick || "Elegir la carpeta del juego"
+        onAccepted: App.setGamePath(gameDialog.selectedFolder)
+    }
+
+    Dialog {
+        id: gameMissingDialog
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        title: I18n.s.builder_game_prompt_title || "No se encontró Stellar Blade"
+        contentItem: ColumnLayout {
+            width: 440
+            spacing: 12
+            Text {
+                Layout.fillWidth: true
+                text: (I18n.s.builder_game_prompt_body
+                       || "Stellar Tool no encontró tu instalación de Stellar Blade. Algunas opciones (enemigos hardcore, escalado de dificultad) la necesitan para compilar. Elegí la carpeta del juego: la que contiene SB\\Content\\Paks.")
+                color: Theme.text
+                wrapMode: Text.Wrap
+            }
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: 8
+                Button {
+                    Layout.fillWidth: true
+                    text: I18n.s.builder_game_later || "Ahora no"
+                    onClicked: gameMissingDialog.close()
+                }
+                Button {
+                    Layout.fillWidth: true
+                    highlighted: true
+                    text: I18n.s.builder_game_pick || "Elegir la carpeta del juego"
+                    onClicked: { gameMissingDialog.close(); gameDialog.open() }
+                }
+            }
+        }
     }
 
     FolderDialog {
@@ -1208,6 +1267,13 @@ Item {
                             }
                             Button { text: "📁"; onClicked: outDialog.open() }
                         }
+                        Text {
+                            visible: root.outDirInsideMods()
+                            text: "⚠ " + (I18n.s.builder_out_in_mods
+                                  || "Esa carpeta esta dentro de ~mods. El juego la carga recursivamente, asi que los archivos intermedios del build quedarian como mods fantasma que pisan al mod instalado. Elegi una carpeta fuera del juego; la tool instala el pak en ~mods por su cuenta.")
+                            color: Theme.warn
+                            wrapMode: Text.Wrap; Layout.fillWidth: true
+                        }
                     }
                 }
 
@@ -1224,6 +1290,11 @@ Item {
                                    : "⚠ " + (I18n.s.builder_game_missing || "Juego no detectado — se generara ZIP para instalar manual"))
                             color: root.gamePath.length > 0 ? Theme.ok : Theme.warn
                             wrapMode: Text.WrapAnywhere; Layout.fillWidth: true
+                        }
+                        Button {
+                            text: I18n.s.builder_game_pick || "Elegir la carpeta del juego"
+                            highlighted: root.gamePath.length === 0
+                            onClicked: gameDialog.open()
                         }
                         RowLayout {
                             spacing: 10; enabled: root.gamePath.length > 0
@@ -1305,7 +1376,7 @@ Item {
                     id: buildButton
                     Layout.fillWidth: true
                     text: I18n.s.builder_build || "Compilar mi mod"
-                    enabled: !App.busy && outField.text.length > 0
+                    enabled: !App.busy && outField.text.length > 0 && !root.outDirInsideMods()
                     function currentAnswers() {
                         var mb = anyMiniBossRegion() ? "allRegions" : "off"
                         return {
@@ -1510,6 +1581,26 @@ Item {
                     }
                 }
 
+                // ---- Paks fantasma: cargables, pero no instalados por la tool ----
+                Card {
+                    visible: root.installed.shadowPaks && root.installed.shadowPaks.length > 0
+                    Layout.fillWidth: true
+                    color: Theme.panelAlt
+                    implicitHeight: shadowCol.implicitHeight + 24
+                    ColumnLayout {
+                        id: shadowCol
+                        anchors.fill: parent; anchors.margins: 12; spacing: 6
+                        Text { text: "⚠ " + (I18n.s.builder_shadow_title || "Paks fantasma en ~mods")
+                               color: Theme.warn; font.bold: true }
+                        Text { text: I18n.s.builder_shadow_hint
+                                     || "El juego carga ~mods recursivamente. Estos paks se cargan pero no los instalo esta herramienta (suelen quedar de un build compilado adentro de ~mods) y pueden pisar al mod instalado. Borralos a mano."
+                               color: Theme.textDim; font.pixelSize: 11
+                               wrapMode: Text.Wrap; Layout.fillWidth: true }
+                        Text { text: root.installed.shadowPaks ? root.installed.shadowPaks.join("\n") : ""
+                               color: Theme.textDim; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                    }
+                }
+
                 // ---- Historial ----
                 ColumnLayout {
                     visible: root.historyModel.length > 0
@@ -1531,6 +1622,7 @@ Item {
                                          onClicked: root.applyHistoryTemplate(modelData.id) }
                                 Button { text: I18n.s.builder_reexport || "Re-exportar ZIP"
                                          enabled: !App.busy && outField.text.length > 0
+                                                  && !root.outDirInsideMods()
                                          onClicked: App.reexportBuild(modelData.id, toFolderUrl(outField.text)) }
                             }
                         }

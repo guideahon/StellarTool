@@ -31,6 +31,9 @@ void TestBuilderUi::itemLabelsAreLocalized() {
         QStringLiteral("builder_q_rest_fx"),
         QStringLiteral("builder_q_shield_regen"),
         QStringLiteral("builder_outfit_fix_hint"),
+        QStringLiteral("builder_out_in_mods"),
+        QStringLiteral("builder_shadow_title"),
+        QStringLiteral("builder_shadow_hint"),
     };
 
     QDir translations(sourceDir + QStringLiteral("/i18n"));

@@ -91,6 +91,9 @@ colaterales del outfit** (2026-07-28, los dos activados por defecto):
 > y su propia EffectTable, tapando el pak de prueba. Tres rondas dieron el mismo
 > resultado por eso. Antes de cualquier A/B in-game: verificar que el pak bajo
 > prueba sea el único `.utoc` cargable con esa tabla.
+>
+> Ya no debería repetirse: `build_custom.check_out_dir` rechaza compilar dentro
+> de `~mods` (UI y CLI) e `installer.shadow_paks` lista los que hayan quedado.
 
 ---
 
