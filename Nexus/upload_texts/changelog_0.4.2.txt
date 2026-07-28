@@ -1,0 +1,21 @@
+Version 0.4.2
+
+- The Builder refuses to compile into ~mods. The game loads that folder
+  recursively, so choosing it as the output left the build's own working
+  folders (stage\Paks, compile_mb) sitting there as fully loadable mods. They
+  overrode the mod you actually installed, never showed up anywhere in the app,
+  and "Uninstall mod" did not touch them. Compile and Re-export are now blocked
+  with an explanation if the output folder is inside ~mods.
+- Shadow paks are reported. If earlier builds already left copies behind, the
+  install status lists them so you can delete them by hand. Mods from other
+  authors live in subfolders legitimately and are not flagged.
+- The game folder you pick in the app now reaches the Builder. Options that
+  need vanilla tables (hardcore enemies, difficulty scaling) failed with
+  "needs the Stellar Blade installation" even after choosing the folder,
+  because the Builder process never received it. If the game is not found you
+  are asked for the folder, and it accepts the game root, SB\Content\Paks or
+  ~mods.
+
+If you build Stellar Souls with the outfit swap, 0.4.1 already restores the
+camp rest FX and the vanilla 4-second shield-regen lock that the swap used to
+overwrite. Both are on by default and can be unticked.
