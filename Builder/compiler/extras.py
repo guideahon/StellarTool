@@ -78,66 +78,85 @@ def _qol_fields(ct_doc, fields) -> int:
     return sum(1 for name in fields if _set(player, name, _QOL_VALUES[name]))
 
 
-def ammo_stacks(ct_doc) -> int:
-    return _qol_fields(ct_doc, [x for x in _QOL_VALUES if x.startswith("StackBullet")])
-
-
-def consumable_stacks(ct_doc) -> int:
-    return _qol_fields(ct_doc, [x for x in _QOL_VALUES if x.startswith("StackConsumable")])
-
-
-def shield_regen(ct_doc) -> int:
-    return _qol_fields(ct_doc, ["ShieldRegenPerSecond", "ShieldRegenPerSecondWhenBattle"])
-
-
-def attack_speed(ct_doc) -> int:
-    return _qol_fields(ct_doc, ["AttackSpeed"])
-
-
-def base_attributes(ct_doc) -> int:
+def ammo_stacks(ct_doc, stack_size=999) -> int:
     player = _find(_rows(ct_doc), "Player")
-    if not player:
-        return 0
-    return sum(1 for name, value in _BASE_ATTRIBUTE_VALUES.items()
-               if _set(player, name, value))
+    return sum(1 for name in _QOL_VALUES if name.startswith("StackBullet")
+               and player and _set(player, name, int(stack_size)))
 
 
-def attribute_shield_regen(ct_doc) -> int:
+def consumable_stacks(ct_doc, stack_size=99) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    return sum(1 for name in _QOL_VALUES if name.startswith("StackConsumable")
+               and player and _set(player, name, int(stack_size)))
+
+
+def shield_regen(ct_doc, normal=120.0, combat=30.0) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    return sum(1 for name, value in {
+        "ShieldRegenPerSecond": normal,
+        "ShieldRegenPerSecondWhenBattle": combat,
+    }.items() if player and _set(player, name, float(value)))
+
+
+def attack_speed(ct_doc, multiplier=1.3) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    return int(bool(player and _set(player, "AttackSpeed", float(multiplier))))
+
+
+def base_attributes(ct_doc, max_hp=3000, max_shield=1000,
+                    shield_reduction_percent=20.0) -> int:
     player = _find(_rows(ct_doc), "Player")
     if not player:
         return 0
     values = {
-        "ShieldRegenPerSecond": 160.0,
-        "ShieldRegenPerSecondWhenBattle": 20.0,
+        "MaxHP": int(max_hp),
+        "MaxShield": int(max_shield),
+        "DamageReductionPerShieldBock": float(shield_reduction_percent) / 100.0,
+    }
+    return sum(1 for name, value in values.items()
+               if _set(player, name, value))
+
+
+def attribute_shield_regen(ct_doc, normal=160.0, combat=20.0) -> int:
+    player = _find(_rows(ct_doc), "Player")
+    if not player:
+        return 0
+    values = {
+        "ShieldRegenPerSecond": float(normal),
+        "ShieldRegenPerSecondWhenBattle": float(combat),
     }
     return sum(1 for name, value in values.items() if _set(player, name, value))
 
 
-def high_gauge_capacity(ct_doc) -> int:
+def high_gauge_capacity(ct_doc, beta=1500, burst=2000) -> int:
     player = _find(_rows(ct_doc), "Player")
     if not player:
         return 0
     return sum(1 for name, value in {
-        "MaxBetaGauge": 1500, "MaxBurstGauge": 2000,
+        "MaxBetaGauge": int(beta), "MaxBurstGauge": int(burst),
     }.items() if _set(player, name, value))
 
 
-def passive_hp_regen(ct_doc) -> bool:
+def passive_hp_regen(ct_doc, per_second=20.0) -> bool:
     player = _find(_rows(ct_doc), "Player")
-    return bool(player and _set(player, "HPRegenPerSecond", 20.0))
+    return bool(player and _set(player, "HPRegenPerSecond", float(per_second)))
 
 
-def fishing_power(ct_doc) -> bool:
+def fishing_power(ct_doc, power=50.0) -> bool:
     player = _find(_rows(ct_doc), "Player")
-    return bool(player and _set(player, "FishingAttackPower", 50.0))
+    return bool(player and _set(player, "FishingAttackPower", float(power)))
 
 
-def ammo_100x(ct_doc) -> int:
+def ammo_100x(ct_doc, multiplier=100.0) -> int:
     player = _find(_rows(ct_doc), "Player")
     if not player:
         return 0
-    return sum(1 for name, value in _AMMO_100X_VALUES.items()
-               if _set(player, name, value))
+    vanilla = {
+        "StackBullet1": 30, "StackBullet2": 3, "StackBullet3": 16,
+        "StackBullet4": 12, "StackBullet5": 60, "StackBullet6": 8,
+    }
+    return sum(1 for name, value in vanilla.items()
+               if _set(player, name, int(round(value * float(multiplier)))))
 
 
 def longer_tachy(ct_doc, gauge=18000) -> bool:

@@ -225,6 +225,45 @@ def test_base_attribute_enhancement_character_transforms():
     assert {name: extras._get(player, name) for name in expected} == expected
 
 
+def test_quantified_extras_apply_custom_values():
+    import extras
+    fields = {
+        "MaxHP": 2000, "MaxShield": 500,
+        "DamageReductionPerShieldBock": 0.175,
+        "ShieldRegenPerSecond": 80.0,
+        "ShieldRegenPerSecondWhenBattle": 10.0,
+        "MaxBetaGauge": 1000, "MaxBurstGauge": 1600,
+        "HPRegenPerSecond": 0.0, "FishingAttackPower": 15.0,
+        "AttackSpeed": 1.0, "StackBullet1": 30, "StackConsumable1": 10,
+    }
+    player = {"Name": "Player", "Value": [
+        {"Name": name, "Value": value, "IsZero": value == 0}
+        for name, value in fields.items()
+    ]}
+    doc = {"Exports": [{"Table": {"Data": [player]}}]}
+    extras.base_attributes(doc, max_hp=4200, max_shield=1250,
+                           shield_reduction_percent=27.5)
+    extras.shield_regen(doc, normal=145, combat=22)
+    extras.high_gauge_capacity(doc, beta=1750, burst=2400)
+    extras.passive_hp_regen(doc, per_second=12.5)
+    extras.fishing_power(doc, power=85)
+    extras.attack_speed(doc, multiplier=1.6)
+    extras.ammo_stacks(doc, stack_size=777)
+    extras.consumable_stacks(doc, stack_size=123)
+    assert extras._get(player, "MaxHP") == 4200
+    assert extras._get(player, "MaxShield") == 1250
+    assert extras._get(player, "DamageReductionPerShieldBock") == 0.275
+    assert extras._get(player, "ShieldRegenPerSecond") == 145
+    assert extras._get(player, "ShieldRegenPerSecondWhenBattle") == 22
+    assert extras._get(player, "MaxBetaGauge") == 1750
+    assert extras._get(player, "MaxBurstGauge") == 2400
+    assert extras._get(player, "HPRegenPerSecond") == 12.5
+    assert extras._get(player, "FishingAttackPower") == 85
+    assert extras._get(player, "AttackSpeed") == 1.6
+    assert extras._get(player, "StackBullet1") == 777
+    assert extras._get(player, "StackConsumable1") == 123
+
+
 def test_base_attribute_enhancement_effect_transforms():
     import effect_extras
     rows = []
@@ -419,6 +458,22 @@ def test_incompatible_builder_options_require_an_explicit_choice():
             "builder_conflict_keep", "builder_conflict_use",
         ):
             assert translations[key]
+
+
+def test_builder_exposes_quantities_and_named_presets():
+    root = Path(__file__).resolve().parents[2]
+    qml = (root / "qml" / "pages" / "BuilderPage.qml").read_text(encoding="utf-8")
+    cpp = (root / "src" / "AppController.cpp").read_text(encoding="utf-8")
+    header = (root / "src" / "AppController.h").read_text(encoding="utf-8")
+    assert "component NumericEditor: RowLayout" in qml
+    assert "component QuantifiedExtra: ColumnLayout" in qml
+    assert "gameplayExtraValues:" in qml
+    assert "App.saveBuilderPreset(" in qml
+    assert "App.deleteBuilderPreset(" in qml
+    assert "root.applyTemplate(modelData.answers)" in qml
+    for method in ("builderPresets", "saveBuilderPreset", "deleteBuilderPreset"):
+        assert method in header
+        assert f"AppController::{method}" in cpp
 
 
 def test_miniboss_density_scales():

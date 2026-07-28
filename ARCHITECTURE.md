@@ -109,6 +109,11 @@ selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
 solamente los subconjuntos elegidos desde las bases autoritativas del mod. El
 idioma de la guía de instalación se toma de `I18n.language`; no se configura
 por separado dentro del Builder.
+Los valores editables de extras viajan en `gameplayExtraValues`; el registro de
+transforms los entrega como parámetros tipados a las funciones de cada tabla.
+Los presets nombrados guardan el mismo objeto de respuestas completo en
+`QSettings` (`builder/presets`), mientras el historial de builds sigue viviendo
+en `%LOCALAPPDATA%\StellarSoulsBuilder\history`.
 `hardcoreEnemyBoost` compila un pak independiente desde la baseline local de
 `DifficultyStatGroupTable`. Sólo recorre filas `HardMode`, clasifica los grupos
 específicos de boss por ID (301+) y excluye aliases Maelstrom. Los presets Main

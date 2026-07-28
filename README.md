@@ -82,9 +82,14 @@ Los extras permiten recrear de forma granular Base Attribute Enhancement:
 HP/escudo y reducción base, regeneración de escudo 160/20, capacidad
 Beta/Burst 1500/2000, HP pasivo 20/s, pesca 50, munición x100, recuperación
 sostenida por acciones perfectas, dash de 4 s, escaneo 5/10 s y rotación
-GunGorgon.
+GunGorgon. Los extras cuantitativos de atributos, munición, consumibles,
+regeneración, gauges, pesca y velocidad de ataque incluyen slider y campo
+numérico sincronizados; **Vanilla** desactiva el cambio y restaura sus valores
+originales.
 La curación base del Tumbler se activa por separado y permite elegir cualquier
 nivel de 10% a 100% en pasos de 10%; los proyectos anteriores conservan 60%.
+Las configuraciones completas también se pueden guardar como presets con nombre,
+cargar y eliminar independientemente del historial de compilaciones.
 El perfil nativo de Stellar Souls modifica sólo enemigos normales. Los
 mini-bosses se agregan de forma independiente y el extra **Bosses más duros**
 ofrece presets Main e Insane limitados a Hardcore desde

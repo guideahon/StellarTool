@@ -89,6 +89,10 @@ public:
     Q_INVOKABLE QString builderHistory();
     // Respuestas (JSON) de una config previa, para usar como plantilla.
     Q_INVOKABLE QString builderTemplate(const QString &id);
+    // Presets nombrados del Builder, persistidos en QSettings.
+    Q_INVOKABLE QString builderPresets() const;
+    Q_INVOKABLE bool saveBuilderPreset(const QString &name, const QString &answersJson);
+    Q_INVOKABLE void deleteBuilderPreset(const QString &name);
     // Re-exporta el zip de una config previa a outDir (copia o recompila).
     Q_INVOKABLE void reexportBuild(const QString &id, const QUrl &outDirUrl);
     // Estado de lo instalado por la tool: JSON {game, paks:[...], helper:bool}.

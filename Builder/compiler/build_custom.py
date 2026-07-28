@@ -209,6 +209,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     table_compiler.PARAMS["just_mult"] = float(a.get("forgivingJustMult", 1.5))
     table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
     table_compiler.PARAMS["tumbler_value"] = float(a.get("tumblerHealPercent", 60))
+    table_compiler.PARAMS["extra_values"] = a.get("gameplayExtraValues") or {}
     if a.get("combatProfile") == "firstRun" and not a.get("forcePreset"):
         # First Run = variante fija (repack del staging legacy).
         import miniboss_builder

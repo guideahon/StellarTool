@@ -1090,6 +1090,51 @@ QString AppController::builderTemplate(const QString &id) {
     return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
 }
 
+QString AppController::builderPresets() const {
+    QSettings settings;
+    const QByteArray raw = settings.value(QStringLiteral("builder/presets"), QByteArray("[]")).toByteArray();
+    const QJsonDocument doc = QJsonDocument::fromJson(raw);
+    return doc.isArray() ? QString::fromUtf8(doc.toJson(QJsonDocument::Compact))
+                         : QStringLiteral("[]");
+}
+
+bool AppController::saveBuilderPreset(const QString &name, const QString &answersJson) {
+    const QString cleanName = name.trimmed();
+    const QJsonDocument answers = QJsonDocument::fromJson(answersJson.toUtf8());
+    if (cleanName.isEmpty() || !answers.isObject())
+        return false;
+
+    QJsonArray presets = QJsonDocument::fromJson(builderPresets().toUtf8()).array();
+    QJsonObject preset{
+        {QStringLiteral("name"), cleanName},
+        {QStringLiteral("answers"), answers.object()}
+    };
+    bool replaced = false;
+    for (qsizetype i = 0; i < presets.size(); ++i) {
+        if (presets.at(i).toObject().value(QStringLiteral("name")).toString()
+                .compare(cleanName, Qt::CaseInsensitive) == 0) {
+            presets.replace(i, preset);
+            replaced = true;
+            break;
+        }
+    }
+    if (!replaced)
+        presets.prepend(preset);
+    QSettings().setValue(QStringLiteral("builder/presets"),
+                         QJsonDocument(presets).toJson(QJsonDocument::Compact));
+    return true;
+}
+
+void AppController::deleteBuilderPreset(const QString &name) {
+    QJsonArray presets = QJsonDocument::fromJson(builderPresets().toUtf8()).array();
+    for (qsizetype i = presets.size(); i-- > 0;) {
+        if (presets.at(i).toObject().value(QStringLiteral("name")).toString() == name)
+            presets.removeAt(i);
+    }
+    QSettings().setValue(QStringLiteral("builder/presets"),
+                         QJsonDocument(presets).toJson(QJsonDocument::Compact));
+}
+
 QString AppController::installedStatus() {
     return runBuilderSync({QStringLiteral("--installed-status")}).trimmed();
 }

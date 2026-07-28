@@ -345,6 +345,13 @@ def _reg_extra(tid, table, base, fn_name, module):
             n = fn(doc, PARAMS.get("air_count", 2))
         elif _f == "tumbler_heal":
             n = fn(doc, PARAMS.get("tumbler_value", 60.0))
+        elif _f in {
+                "ammo_stacks", "ammo_100x", "consumable_stacks",
+                "shield_regen", "attribute_shield_regen", "base_attributes",
+                "high_gauge_capacity", "passive_hp_regen", "fishing_power",
+                "attack_speed"}:
+            values = PARAMS.get("extra_values", {}).get(_f, {})
+            n = fn(doc, **values)
         else:
             n = fn(doc)
         doc.setdefault("_report", {})[_f] = n

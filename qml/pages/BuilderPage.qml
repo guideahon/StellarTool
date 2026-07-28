@@ -14,6 +14,7 @@ Item {
     property string resultZip: ""
     property string gamePath: ""
     property var historyModel: []
+    property var presetModel: []
     property var installed: ({ paks: [], helper: false, helpers: [] })
     property string conflictNewLabel: ""
     property string conflictCurrentLabel: ""
@@ -22,11 +23,16 @@ Item {
     Component.onCompleted: {
         gamePath = App.detectStellarBlade()
         refreshHistory()
+        refreshPresets()
         refreshInstalled()
     }
     function refreshHistory() {
         try { historyModel = JSON.parse(App.builderHistory() || "[]") }
         catch (e) { historyModel = [] }
+    }
+    function refreshPresets() {
+        try { presetModel = JSON.parse(App.builderPresets() || "[]") }
+        catch (e) { presetModel = [] }
     }
     function refreshInstalled() {
         try { installed = JSON.parse(App.installedStatus() || "{}") }
@@ -117,6 +123,11 @@ Item {
         mbScale2.checked = scaleMult === 2
         variety.checked = a.enemyVariety === true
         var ex = a.gameplayExtras || []
+        var xv = a.gameplayExtraValues || {}
+        function extraValue(group, key, fallback) {
+            return xv[group] && xv[group][key] !== undefined
+                    ? Number(xv[group][key]) : fallback
+        }
         var legacyQol = ex.indexOf("playerQol") >= 0
         exAmmo.checked = legacyQol || ex.indexOf("ammoStacks") >= 0
         exAmmo100x.checked = ex.indexOf("ammo100x") >= 0
@@ -148,6 +159,21 @@ Item {
         harderMain.checked = hardcore === "main"
         harderInsane.checked = hardcore === "insane"
         exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
+        baseHp.scaledValue = extraValue("base_attributes", "max_hp", 3000)
+        baseShield.scaledValue = extraValue("base_attributes", "max_shield", 1000)
+        baseReduction.scaledValue = extraValue("base_attributes", "shield_reduction_percent", 20) * 10
+        ammoStacksValue.scaledValue = extraValue("ammo_stacks", "stack_size", 999)
+        ammoMultiplier.scaledValue = extraValue("ammo_100x", "multiplier", 100)
+        consumableStacksValue.scaledValue = extraValue("consumable_stacks", "stack_size", 99)
+        shieldNormal.scaledValue = extraValue("shield_regen", "normal", 120)
+        shieldCombat.scaledValue = extraValue("shield_regen", "combat", 30)
+        attributeShieldNormal.scaledValue = extraValue("attribute_shield_regen", "normal", 160)
+        attributeShieldCombat.scaledValue = extraValue("attribute_shield_regen", "combat", 20)
+        highGaugeBeta.scaledValue = extraValue("high_gauge_capacity", "beta", 1500)
+        highGaugeBurst.scaledValue = extraValue("high_gauge_capacity", "burst", 2000)
+        passiveHpValue.scaledValue = extraValue("passive_hp_regen", "per_second", 20) * 10
+        fishingValue.scaledValue = extraValue("fishing_power", "power", 50)
+        attackSpeedValue.scaledValue = extraValue("attack_speed", "multiplier", 1.3) * 10
         var tumbler = Number(a.tumblerHealPercent || 60)
         tumbler10.checked = tumbler === 10; tumbler20.checked = tumbler === 20
         tumbler30.checked = tumbler === 30; tumbler40.checked = tumbler === 40
@@ -371,6 +397,29 @@ Item {
         onClosed: root.conflictApplyNew = null
     }
 
+    Dialog {
+        id: savePresetDialog
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        title: I18n.s.builder_preset_save || "Guardar preset"
+        standardButtons: Dialog.Save | Dialog.Cancel
+        contentItem: TextField {
+            id: presetNameField
+            width: 360
+            placeholderText: I18n.s.builder_preset_name || "Nombre del preset"
+            onAccepted: savePresetDialog.accept()
+        }
+        onOpened: {
+            presetNameField.text = ""
+            presetNameField.forceActiveFocus()
+        }
+        onAccepted: {
+            if (App.saveBuilderPreset(presetNameField.text,
+                                      JSON.stringify(buildButton.currentAnswers())))
+                root.refreshPresets()
+        }
+    }
+
     // Confirmacion de desinstalacion (accion destructiva sobre el juego).
     Dialog {
         id: uninstallDialog
@@ -489,6 +538,78 @@ Item {
                                 onClicked: changeRowRoot.userToggled(checked)
                             }
                             RowLayout { id: choiceBox; enabled: toggle.checked; spacing: 3 }
+                        }
+                        component NumericEditor: RowLayout {
+                            id: numericEditorRoot
+                            property string label: ""
+                            property int scaledValue: 0
+                            property int factor: 1
+                            property int minimum: 0
+                            property int maximum: 100
+                            property int step: 1
+                            readonly property real realValue: scaledValue / factor
+                            Layout.fillWidth: true
+                            Layout.leftMargin: 36
+                            spacing: 8
+                            Text {
+                                text: numericEditorRoot.label
+                                color: Theme.textDim
+                                Layout.preferredWidth: 145
+                            }
+                            Slider {
+                                Layout.fillWidth: true
+                                from: numericEditorRoot.minimum
+                                to: numericEditorRoot.maximum
+                                stepSize: numericEditorRoot.step
+                                value: numericEditorRoot.scaledValue
+                                onMoved: numericEditorRoot.scaledValue = Math.round(value)
+                            }
+                            SpinBox {
+                                editable: true
+                                from: numericEditorRoot.minimum
+                                to: numericEditorRoot.maximum
+                                stepSize: numericEditorRoot.step
+                                value: numericEditorRoot.scaledValue
+                                onValueModified: numericEditorRoot.scaledValue = value
+                                textFromValue: function(value) {
+                                    return numericEditorRoot.factor === 1
+                                            ? String(value)
+                                            : (value / numericEditorRoot.factor).toFixed(1)
+                                }
+                                valueFromText: function(text) {
+                                    var parsed = Number(text.replace(",", "."))
+                                    return isNaN(parsed) ? numericEditorRoot.scaledValue
+                                                        : Math.round(parsed * numericEditorRoot.factor)
+                                }
+                            }
+                        }
+                        component QuantifiedExtra: ColumnLayout {
+                            id: quantifiedExtraRoot
+                            property alias text: quantifiedToggle.text
+                            property alias checked: quantifiedToggle.checked
+                            default property alias editors: quantifiedEditors.data
+                            signal clicked()
+                            signal vanillaRequested()
+                            Layout.fillWidth: true
+                            spacing: 4
+                            RowLayout {
+                                Layout.fillWidth: true
+                                CheckBox {
+                                    id: quantifiedToggle
+                                    Layout.fillWidth: true
+                                    onClicked: quantifiedExtraRoot.clicked()
+                                }
+                                Button {
+                                    text: I18n.s.builder_vanilla || "Vanilla"
+                                    onClicked: quantifiedExtraRoot.vanillaRequested()
+                                }
+                            }
+                            ColumnLayout {
+                                id: quantifiedEditors
+                                Layout.fillWidth: true
+                                enabled: quantifiedToggle.checked
+                                opacity: enabled ? 1 : 0.45
+                            }
                         }
                         ChangeRow { id: betaRow; label: I18n.s.builder_damage_beta || "Beta/Burst damage"
                             CheckBox { id: combatBeta; checked: betaRow.selected; visible: false }
@@ -674,28 +795,44 @@ Item {
                                     onClicked: root.setBaseAttributeEnhancement(false)
                                 }
                             }
-                            CheckBox {
+                            QuantifiedExtra {
                                 id: exBaseAttributes
                                 text: I18n.s.builder_ex_base_attributes || "Base HP 3000, shield 1000 and shield reduction 20%"
+                                onVanillaRequested: {
+                                    checked = false; baseHp.scaledValue = 2000
+                                    baseShield.scaledValue = 500; baseReduction.scaledValue = 175
+                                }
+                                NumericEditor { id: baseHp; label: "HP"; minimum: 100; maximum: 10000; step: 100; scaledValue: 3000 }
+                                NumericEditor { id: baseShield; label: I18n.s.builder_value_shield || "Escudo"; minimum: 0; maximum: 5000; step: 50; scaledValue: 1000 }
+                                NumericEditor { id: baseReduction; label: I18n.s.builder_value_reduction || "Reducción (%)"; factor: 10; minimum: 0; maximum: 1000; step: 5; scaledValue: 200 }
                             }
-                            CheckBox {
+                            QuantifiedExtra {
                                 id: exAmmo
                                 text: I18n.s.builder_ex_ammo || "Ammo stack size: 999"
                                 onClicked: root.requestOption(
                                     {control: exAmmo},
                                     [{control: exAmmo100x, label: exAmmo100x.text}],
                                     exAmmo.text)
+                                onVanillaRequested: { checked = false; ammoStacksValue.scaledValue = 30 }
+                                NumericEditor { id: ammoStacksValue; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 9999; scaledValue: 999 }
                             }
-                            CheckBox {
+                            QuantifiedExtra {
                                 id: exAmmo100x
                                 text: I18n.s.builder_ex_ammo_100x || "Ammo capacity x100"
                                 onClicked: root.requestOption(
                                     {control: exAmmo100x},
                                     [{control: exAmmo, label: exAmmo.text}],
                                     exAmmo100x.text)
+                                onVanillaRequested: { checked = false; ammoMultiplier.scaledValue = 1 }
+                                NumericEditor { id: ammoMultiplier; label: I18n.s.builder_value_multiplier || "Multiplicador"; minimum: 1; maximum: 500; scaledValue: 100 }
                             }
-                            CheckBox { id: exConsumables; text: I18n.s.builder_ex_consumables || "Consumable stack size: 99" }
-                            CheckBox {
+                            QuantifiedExtra {
+                                id: exConsumables
+                                text: I18n.s.builder_ex_consumables || "Consumable stack size: 99"
+                                onVanillaRequested: { checked = false; consumableStacksValue.scaledValue = 10 }
+                                NumericEditor { id: consumableStacksValue; label: I18n.s.builder_value_quantity || "Cantidad"; minimum: 1; maximum: 999; scaledValue: 99 }
+                            }
+                            QuantifiedExtra {
                                 id: exShieldRegen
                                 text: I18n.s.builder_ex_shield_regen || "Increased shield regeneration"
                                 onClicked: root.requestOption(
@@ -703,16 +840,28 @@ Item {
                                     [{control: exAttributeShieldRegen,
                                       label: exAttributeShieldRegen.text}],
                                     exShieldRegen.text)
+                                onVanillaRequested: {
+                                    checked = false; shieldNormal.scaledValue = 80
+                                    shieldCombat.scaledValue = 10
+                                }
+                                NumericEditor { id: shieldNormal; label: I18n.s.builder_value_normal || "Normal / s"; minimum: 0; maximum: 500; scaledValue: 120 }
+                                NumericEditor { id: shieldCombat; label: I18n.s.builder_value_combat || "Combate / s"; minimum: 0; maximum: 200; scaledValue: 30 }
                             }
-                            CheckBox {
+                            QuantifiedExtra {
                                 id: exAttributeShieldRegen
                                 text: I18n.s.builder_ex_attribute_shield_regen || "Shield regeneration: 160/s, 20/s in combat"
                                 onClicked: root.requestOption(
                                     {control: exAttributeShieldRegen},
                                     [{control: exShieldRegen, label: exShieldRegen.text}],
                                     exAttributeShieldRegen.text)
+                                onVanillaRequested: {
+                                    checked = false; attributeShieldNormal.scaledValue = 80
+                                    attributeShieldCombat.scaledValue = 10
+                                }
+                                NumericEditor { id: attributeShieldNormal; label: I18n.s.builder_value_normal || "Normal / s"; minimum: 0; maximum: 500; scaledValue: 160 }
+                                NumericEditor { id: attributeShieldCombat; label: I18n.s.builder_value_combat || "Combate / s"; minimum: 0; maximum: 200; scaledValue: 20 }
                             }
-                            CheckBox {
+                            QuantifiedExtra {
                                 id: exHighGauge
                                 text: I18n.s.builder_ex_high_gauge || "Beta 1500 / Burst 2000 capacity"
                                 onClicked: root.requestOption(
@@ -720,9 +869,25 @@ Item {
                                     [{control: capacityRow, propertyName: "selected",
                                       label: capacityRow.label}],
                                     exHighGauge.text)
+                                onVanillaRequested: {
+                                    checked = false; highGaugeBeta.scaledValue = 1000
+                                    highGaugeBurst.scaledValue = 1600
+                                }
+                                NumericEditor { id: highGaugeBeta; label: "Beta"; minimum: 100; maximum: 5000; step: 50; scaledValue: 1500 }
+                                NumericEditor { id: highGaugeBurst; label: "Burst"; minimum: 100; maximum: 5000; step: 50; scaledValue: 2000 }
                             }
-                            CheckBox { id: exPassiveHp; text: I18n.s.builder_ex_passive_hp || "Passive HP regeneration: 20/s" }
-                            CheckBox { id: exFishing; text: I18n.s.builder_ex_fishing || "Fishing power: 50" }
+                            QuantifiedExtra {
+                                id: exPassiveHp
+                                text: I18n.s.builder_ex_passive_hp || "Passive HP regeneration: 20/s"
+                                onVanillaRequested: { checked = false; passiveHpValue.scaledValue = 0 }
+                                NumericEditor { id: passiveHpValue; label: I18n.s.builder_value_per_second || "Por segundo"; factor: 10; minimum: 0; maximum: 1000; step: 5; scaledValue: 200 }
+                            }
+                            QuantifiedExtra {
+                                id: exFishing
+                                text: I18n.s.builder_ex_fishing || "Fishing power: 50"
+                                onVanillaRequested: { checked = false; fishingValue.scaledValue = 15 }
+                                NumericEditor { id: fishingValue; label: I18n.s.builder_value_power || "Potencia"; minimum: 0; maximum: 500; scaledValue: 50 }
+                            }
                             Rectangle {
                                 Layout.fillWidth: true
                                 Layout.topMargin: 4
@@ -730,7 +895,12 @@ Item {
                                 height: 1
                                 color: Theme.border
                             }
-                            CheckBox { id: exAttackSpeed; text: I18n.s.builder_ex_attack_speed || "Attack speed x1.3" }
+                            QuantifiedExtra {
+                                id: exAttackSpeed
+                                text: I18n.s.builder_ex_attack_speed || "Attack speed x1.3"
+                                onVanillaRequested: { checked = false; attackSpeedValue.scaledValue = 10 }
+                                NumericEditor { id: attackSpeedValue; label: I18n.s.builder_value_multiplier || "Multiplicador"; factor: 10; minimum: 5; maximum: 30; scaledValue: 13 }
+                            }
                             RowLayout { spacing: 10
                                 CheckBox { id: exTachy }
                                 Text { text: I18n.s.builder_ex_tachy || "Tachy más largo"
@@ -957,13 +1127,68 @@ Item {
                     }
                 }
 
+                Card {
+                    Layout.fillWidth: true
+                    implicitHeight: presetColumn.implicitHeight + 28
+                    ColumnLayout {
+                        id: presetColumn
+                        anchors.fill: parent
+                        anchors.margins: 14
+                        spacing: 8
+                        RowLayout {
+                            Layout.fillWidth: true
+                            Text {
+                                Layout.fillWidth: true
+                                text: I18n.s.builder_presets || "Presets"
+                                color: Theme.text
+                                font.bold: true
+                                font.pixelSize: 16
+                            }
+                            Button {
+                                text: I18n.s.builder_preset_save || "Guardar preset"
+                                onClicked: savePresetDialog.open()
+                            }
+                        }
+                        Text {
+                            visible: root.presetModel.length === 0
+                            text: I18n.s.builder_preset_empty || "Todavía no guardaste presets."
+                            color: Theme.textDim
+                        }
+                        Repeater {
+                            model: root.presetModel
+                            delegate: RowLayout {
+                                required property var modelData
+                                Layout.fillWidth: true
+                                Text {
+                                    Layout.fillWidth: true
+                                    text: modelData.name
+                                    color: Theme.text
+                                    elide: Text.ElideRight
+                                }
+                                Button {
+                                    text: I18n.s.builder_preset_load || "Cargar"
+                                    onClicked: root.applyTemplate(modelData.answers)
+                                }
+                                Button {
+                                    text: I18n.s.builder_preset_delete || "Eliminar"
+                                    onClicked: {
+                                        App.deleteBuilderPreset(modelData.name)
+                                        root.refreshPresets()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
                 Button {
+                    id: buildButton
                     Layout.fillWidth: true
                     text: I18n.s.builder_build || "Compilar mi mod"
                     enabled: !App.busy && outField.text.length > 0
-                    onClicked: {
+                    function currentAnswers() {
                         var mb = anyMiniBossRegion() ? "allRegions" : "off"
-                        var a = {
+                        return {
                             combatProfile: "full",
                             combatEconomyFeatures: [
                                 gainRow.selected ? "slowerGain" : "",
@@ -1041,6 +1266,31 @@ Item {
                                 exAirDodge.checked ? "extraAirDodge" : "",
                                 exTumbler.checked ? "tumblerHeal" : ""
                             ].filter(function(x){ return x.length > 0 }),
+                            gameplayExtraValues: {
+                                base_attributes: {
+                                    max_hp: baseHp.realValue,
+                                    max_shield: baseShield.realValue,
+                                    shield_reduction_percent: baseReduction.realValue
+                                },
+                                ammo_stacks: {stack_size: ammoStacksValue.realValue},
+                                ammo_100x: {multiplier: ammoMultiplier.realValue},
+                                consumable_stacks: {stack_size: consumableStacksValue.realValue},
+                                shield_regen: {
+                                    normal: shieldNormal.realValue,
+                                    combat: shieldCombat.realValue
+                                },
+                                attribute_shield_regen: {
+                                    normal: attributeShieldNormal.realValue,
+                                    combat: attributeShieldCombat.realValue
+                                },
+                                high_gauge_capacity: {
+                                    beta: highGaugeBeta.realValue,
+                                    burst: highGaugeBurst.realValue
+                                },
+                                passive_hp_regen: {per_second: passiveHpValue.realValue},
+                                fishing_power: {power: fishingValue.realValue},
+                                attack_speed: {multiplier: attackSpeedValue.realValue}
+                            },
                             hardcoreEnemyBoost: hardcoreValue(),
                             forgivingJustMult: just15.checked ? 1.5 : (just2.checked ? 2 : 3),
                             airDodgeCount: air2.checked ? 2 : 3,
@@ -1051,6 +1301,9 @@ Item {
                             vanillaHelperBuild: vanillaHelperValue(),
                             lang: I18n.language
                         }
+                    }
+                    onClicked: {
+                        var a = currentAnswers()
                         root.resultZip = ""
                         App.runBuilder(JSON.stringify(a), toFolderUrl(outField.text),
                                        instPaks.checked, instHelper.checked, root.gamePath)
