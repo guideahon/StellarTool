@@ -246,13 +246,19 @@ def restore_shield_regen_block(et_doc) -> int:
     return n
 
 
+def keep_outfit_restore_running_during_qte(et_doc) -> bool:
+    """ALPHA: mantiene el watcher table-side activo durante QTE/cinemáticas."""
+    row = _idx(et_doc).get("nanosuit_break")
+    return bool(row and _set(row, "bPauseWhenPlayerAttachLevelSequence", False))
+
+
 # Que extras tocan EffectTable (para saber si hace falta el pase tojson/fromjson).
 EFFECT_EXTRAS = {
     "noFallDamage", "noEnvDeath", "tachyReduce", "strongerGear",
     "autoGaugeRecovery", "noWaterDeath", "noSandDeath", "betaParryRecovery",
     "burstDodgeRecovery", "tumblerHeal",
     "gaugeRecoveryOverTime", "droneScanBoost", "gunGorgonRotation",
-    "vanillaRestFX", "vanillaShieldRegenBlock",
+    "vanillaRestFX", "vanillaShieldRegenBlock", "outfitQteRestoreAlpha",
 }
 
 
@@ -289,4 +295,6 @@ def apply_effect_extras(et_doc, extras: list, gear_mult=2.0,
         rep["vanillaRestFX"] = restore_camp_rest_fx(et_doc)
     if "vanillaShieldRegenBlock" in extras:
         rep["vanillaShieldRegenBlock"] = restore_shield_regen_block(et_doc)
+    if "outfitQteRestoreAlpha" in extras:
+        rep["outfitQteRestoreAlpha"] = keep_outfit_restore_running_during_qte(et_doc)
     return rep

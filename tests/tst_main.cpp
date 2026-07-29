@@ -4,10 +4,26 @@ void runTestDiffEngine(int &failures, int argc, char **argv);
 void runTestMergeEngine(int &failures, int argc, char **argv);
 void runTestUpdateService(int &failures, int argc, char **argv);
 void runTestBuilderUi(int &failures, int argc, char **argv);
+void runTestCnsConverter(int &failures, int argc, char **argv);
+void runTestCnsIdFixer(int &failures, int argc, char **argv);
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
     int failures = 0;
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char fixerLog[] = "test_cns_id_fixer.txt,txt";
+        char *args[] = {arg0, argOut, fixerLog};
+        runTestCnsIdFixer(failures, 3, args);
+    }
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char cnsLog[] = "test_cns_converter.txt,txt";
+        char *args[] = {arg0, argOut, cnsLog};
+        runTestCnsConverter(failures, 3, args);
+    }
     {
         char arg0[] = "StellarToolTests";
         char argOut[] = "-o";

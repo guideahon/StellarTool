@@ -135,4 +135,21 @@ int HeadlessRunner::run(const QString &command, const QStringList &mods,
     return m_controller->lastMergeOk() ? 0 : 5;
 }
 
+int HeadlessRunner::runCns(const QString &command, const QString &input,
+                           const QString &outDir, const QString &name,
+                           const QString &replacement, const QString &selection) {
+    if (input.isEmpty() || outDir.isEmpty()) {
+        out(QStringLiteral("[ERROR] CNS requiere --mod <entrada> y --out <dir>"));
+        return 2;
+    }
+    out(QStringLiteral("[INFO] Convirtiendo %1 a %2…")
+            .arg(input, command == QLatin1String("cns") ? QStringLiteral("CNS")
+                                                        : QStringLiteral("replacer")));
+    m_controller->convertCns(QUrl::fromLocalFile(input), QUrl::fromLocalFile(outDir),
+                             name, command, replacement, selection);
+    if (!waitIdle()) return 3;
+    out(m_controller->lastCnsResult());
+    return m_controller->lastCnsResult().contains(QLatin1String("assets convertidos")) ? 0 : 5;
+}
+
 } // namespace st

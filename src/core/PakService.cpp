@@ -44,6 +44,22 @@ QString PakService::retocPath() {
     return {};
 }
 
+QString PakService::cnsRetocPath() {
+    const QString env = QProcessEnvironment::systemEnvironment()
+                            .value(QStringLiteral("ST_CNS_RETOC"));
+    if (!env.isEmpty() && QFileInfo::exists(env)) return env;
+    const QStringList candidates{
+        QCoreApplication::applicationDirPath() + QStringLiteral("/tools/CNSRepacker/retoc.exe"),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools/CNSRepacker/retoc.exe"),
+        GamePaths::gameRoot() + QStringLiteral("/CNSRepacker/tools/retoc/retoc.exe"),
+        QStringLiteral("C:/Program Files (x86)/Steam/steamapps/common/StellarBlade/"
+                       "CNSRepacker/tools/retoc/retoc.exe")
+    };
+    for (const QString &candidate : candidates)
+        if (QFileInfo::exists(candidate)) return QFileInfo(candidate).absoluteFilePath();
+    return {};
+}
+
 bool PakService::zenAvailable() const { return !retocPath().isEmpty(); }
 
 bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QString *error) {
@@ -137,6 +153,35 @@ int PakService::toLegacy(const QString &utocPath, const QString &outDir, QString
     // retoc no falla aunque no extraiga nada; contamos los .uasset producidos.
     int n = 0;
     QDirIterator it(outDir, {QStringLiteral("*.uasset")}, QDir::Files, QDirIterator::Subdirectories);
+    while (it.hasNext()) { it.next(); ++n; }
+    return n;
+}
+
+int PakService::toLegacyMounted(const QString &modDir, const QString &outDir,
+                                QString *error) {
+    const QString retoc = cnsRetocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral(
+            "Falta tools/CNSRepacker/retoc.exe (fork con --mount-folder).");
+        return 0;
+    }
+    if (!GamePaths::hasGame()) {
+        if (error) *error = QStringLiteral("Falta configurar la carpeta del juego.");
+        return 0;
+    }
+    QDir(outDir).removeRecursively();
+    QDir().mkpath(outDir);
+    if (!runProcess(retoc, {QStringLiteral("to-legacy"),
+                            QStringLiteral("--mount-folder"),
+                            QDir::toNativeSeparators(GamePaths::paksDir()),
+                            QDir::toNativeSeparators(modDir),
+                            QDir::toNativeSeparators(outDir),
+                            QStringLiteral("--no-ver-check"),
+                            QStringLiteral("--check-subfolders")}, error, 600000))
+        return 0;
+    int n = 0;
+    QDirIterator it(outDir, {QStringLiteral("*.uasset")}, QDir::Files,
+                    QDirIterator::Subdirectories);
     while (it.hasNext()) { it.next(); ++n; }
     return n;
 }

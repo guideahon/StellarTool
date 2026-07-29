@@ -28,6 +28,8 @@ OUTFIT_FIXES = [
     ("outfitVanillaRestFX", True, "outfit.vanillaRestFX", "vanillaRestFX"),
     ("outfitVanillaShieldRegen", True, "outfit.vanillaShieldRegenBlock",
      "vanillaShieldRegenBlock"),
+    ("outfitQteRestoreAlpha", False, "outfit.qteRestoreAlpha",
+     "outfitQteRestoreAlpha"),
 ]
 
 

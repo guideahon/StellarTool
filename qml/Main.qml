@@ -62,11 +62,15 @@ ApplicationWindow {
                                { key: "nav_conflicts", icon: "⚔️", page: 3 },
                                { key: "nav_merge", icon: "🔀", page: 4 },
                                { key: "nav_builder", icon: "🛠️", page: 6 },
+                               { key: "nav_cns", icon: "👗", page: 7 },
+                               { label: "CNS ID Fixer", icon: "🆔", page: 8 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                            : [
                                { key: "nav_easy", icon: "⚡", page: 0 },
                                { key: "nav_builder", icon: "🛠️", page: 6 },
+                               { key: "nav_cns", icon: "👗", page: 7 },
+                               { label: "CNS ID Fixer", icon: "🆔", page: 8 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                     delegate: Rectangle {
@@ -90,7 +94,7 @@ ApplicationWindow {
                                 horizontalAlignment: Text.AlignHCenter
                             }
                             Label {
-                                text: I18n.s[modelData.key]
+                                text: modelData.label || I18n.s[modelData.key]
                                 color: win.currentPage === modelData.page ? Theme.text : Theme.textDim
                                 font.pixelSize: 15
                                 elide: Text.ElideRight
@@ -245,6 +249,8 @@ ApplicationWindow {
             MergePage {}
             SettingsPage {}
             BuilderPage {}
+            CnsConverterPage {}
+            CnsIdFixerPage {}
         }
     }
 

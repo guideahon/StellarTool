@@ -48,6 +48,7 @@ def normalize(answers: dict) -> dict:
     a = dict(answers)
     a.setdefault("combatProfile", "full")
     a.setdefault("outfitSkinSuit", True)
+    a.setdefault("outfitQteRestoreAlpha", False)
     a.setdefault("miniBoss", "off")
     # Build ALPHA del helper vanilla (sin CNS). "off" = no incluirlo.
     a.setdefault("vanillaHelperBuild", "off")

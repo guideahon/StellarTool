@@ -53,7 +53,9 @@ int main(int argc, char *argv[]) {
         parser.setApplicationDescription(QStringLiteral(
             "Stellar Tool headless.\n"
             "  StellarTool --headless analyze --mod <ruta>... [--baseline <dir>]\n"
-            "  StellarTool --headless merge   --mod <ruta>... --out <dir> [--baseline <dir>] [--prefer <mod>]"));
+            "  StellarTool --headless merge   --mod <ruta>... --out <dir> [--baseline <dir>] [--prefer <mod>]\n"
+            "  StellarTool --headless cns      --mod <ruta> --out <dir> [--name <nombre>]\n"
+            "  StellarTool --headless replacer --mod <ruta> --out <dir> --replace <outfit> [--select <variante>]"));
         parser.addHelpOption();
         parser.addVersionOption();
         parser.addOption({QStringLiteral("headless"), QStringLiteral("Modo sin UI")});
@@ -64,12 +66,16 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("no-zip"), QStringLiteral("No generar el zip instalable junto al pak")});
         parser.addOption({QStringLiteral("rebuild-baseline"), QStringLiteral("Reconstruir baseline vanilla desde el juego (CUE4Parse) antes de analizar")});
         parser.addOption({QStringLiteral("game"), QStringLiteral("Ruta de instalación de Stellar Blade (para leer mods Zen)"), QStringLiteral("dir")});
+        parser.addOption({QStringLiteral("name"), QStringLiteral("Nombre visible del outfit convertido"), QStringLiteral("nombre")});
+        parser.addOption({QStringLiteral("replace"), QStringLiteral("Nombre del outfit vanilla a reemplazar"), QStringLiteral("outfit")});
+        parser.addOption({QStringLiteral("select"), QStringLiteral("Variante CNS por nombre o índice"), QStringLiteral("variante")});
         parser.process(app);
 
         const QStringList pos = parser.positionalArguments();
         const QString command = pos.isEmpty() ? QStringLiteral("analyze") : pos.first();
-        if (command != QLatin1String("analyze") && command != QLatin1String("merge")) {
-            fprintf(stderr, "Comando desconocido: %s (usar analyze | merge)\n", qPrintable(command));
+        if (command != QLatin1String("analyze") && command != QLatin1String("merge")
+            && command != QLatin1String("cns") && command != QLatin1String("replacer")) {
+            fprintf(stderr, "Comando desconocido: %s (usar analyze | merge | cns | replacer)\n", qPrintable(command));
             return 2;
         }
 
@@ -79,6 +85,12 @@ int main(int argc, char *argv[]) {
         st::AppController controller(&translator);
         controller.setExportZip(!parser.isSet(QStringLiteral("no-zip")));
         st::HeadlessRunner runner(&controller);
+        if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
+            return runner.runCns(command, parser.values(QStringLiteral("mod")).value(0),
+                                 parser.value(QStringLiteral("out")),
+                                 parser.value(QStringLiteral("name")),
+                                 parser.value(QStringLiteral("replace")),
+                                 parser.value(QStringLiteral("select")));
         return runner.run(command, parser.values(QStringLiteral("mod")),
                           parser.value(QStringLiteral("out")),
                           parser.value(QStringLiteral("baseline")),

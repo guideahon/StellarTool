@@ -980,7 +980,10 @@ def _outfit_effect_doc():
          "ArrayPropertyData"),
         ("ActorState1", "ActorState_None", "EnumPropertyData"),
     ])
-    return {"Exports": [{"Table": {"Data": [rest, block]}}]}
+    nanosuit = _effect_row("nanosuit_break", [
+        ("bPauseWhenPlayerAttachLevelSequence", True, "BoolPropertyData"),
+    ])
+    return {"Exports": [{"Table": {"Data": [rest, block, nanosuit]}}]}
 
 
 def test_outfit_fix_restores_camp_rest_fx_keeping_the_swap():
@@ -1015,6 +1018,17 @@ def test_outfit_fix_restores_shield_regen_block_keeping_break_chain():
         row, "ChainEffectAliasArray")["Value"]] == aliases
 
 
+def test_outfit_qte_restore_alpha_only_unpauses_nanosuit_watcher():
+    import effect_extras
+    doc = _outfit_effect_doc()
+    assert effect_extras.keep_outfit_restore_running_during_qte(doc) is True
+    pause = effect_extras._prop(
+        effect_extras._idx(doc)["nanosuit_break"],
+        "bPauseWhenPlayerAttachLevelSequence")
+    assert pause["Value"] is False
+    assert pause["IsZero"] is True
+
+
 def test_outfit_fix_transforms_defaults():
     """Ambos arreglos ON por default; cada uno se puede apagar por separado."""
     import build_specs
@@ -1024,6 +1038,7 @@ def test_outfit_fix_transforms_defaults():
     transforms = targets[0]["transforms"]
     assert "outfit.vanillaRestFX" in transforms
     assert "outfit.vanillaShieldRegenBlock" in transforms
+    assert "outfit.qteRestoreAlpha" not in transforms
     no_shield = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off",
                               "outfitVanillaShieldRegen": False})
     shield_off = build_specs.combo_to_targets(no_shield)[0]["transforms"]
@@ -1032,10 +1047,14 @@ def test_outfit_fix_transforms_defaults():
     no_fx = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off",
                           "outfitVanillaRestFX": False})
     assert "outfit.vanillaRestFX" not in build_specs.combo_to_targets(no_fx)[0]["transforms"]
+    qte_alpha = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True,
+                              "miniBoss": "off", "outfitQteRestoreAlpha": True})
+    assert "outfit.qteRestoreAlpha" in build_specs.combo_to_targets(qte_alpha)[0]["transforms"]
     for tid in transforms:
         assert tid in table_compiler.REGISTRY, tid
     # los paths de staging (mini-boss / First Run) usan los mismos arreglos
     assert build_specs.outfit_fix_extras(no_shield) == ["vanillaRestFX"]
+    assert "outfitQteRestoreAlpha" in build_specs.outfit_fix_extras(qte_alpha)
     import effect_extras
     assert set(build_specs.outfit_fix_extras(a)) <= effect_extras.EFFECT_EXTRAS
 

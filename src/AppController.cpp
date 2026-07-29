@@ -3,6 +3,8 @@
 #include "core/PakService.h"
 #include "core/UAssetService.h"
 #include "core/Cue4Service.h"
+#include "core/CnsConverterService.h"
+#include "core/CnsIdFixerService.h"
 #include "core/GamePaths.h"
 #include "core/UsmapService.h"
 #include "core/ModImporter.h"
@@ -57,6 +59,8 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_uasset(new UAssetService(this)),
       m_usmap(new UsmapService(this)),
       m_cue4(new Cue4Service(this)),
+      m_cns(new CnsConverterService(m_pak, m_uasset, this)),
+      m_cnsIdFixer(new CnsIdFixerService(this)),
       m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
       m_store(new ProjectStore(this)) {
@@ -77,9 +81,66 @@ AppController::AppController(Translator *i18n, QObject *parent)
         }
         emit usmapDownloadDone(ok, msg);
     }, Qt::QueuedConnection);
+    connect(m_cns, &CnsConverterService::progress, this,
+            [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     m_conflictModel.setTranslator(i18n);
     m_changeModel.setItems(&m_items);
     m_conflictModel.setSource(&m_items, &m_groups);
+}
+
+QStringList AppController::cnsReplacementNames() const {
+    QString error;
+    const QStringList names = m_cns->replacementNames(&error);
+    return names;
+}
+
+void AppController::runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes) {
+    if (m_busy) return;
+    const QString directory = directoryUrl.isLocalFile()
+        ? directoryUrl.toLocalFile() : directoryUrl.toString();
+    setBusy(true, applyFixes ? QStringLiteral("Corrigiendo Container_Id…")
+                            : QStringLiteral("Escaneando IDs IoStore…"));
+    std::ignore = QtConcurrent::run([this, directory, applyFixes] {
+        const auto result = m_cnsIdFixer->run(directory, applyFixes);
+        QMetaObject::invokeMethod(this, [this, result, applyFixes] {
+            setBusy(false, result.ok
+                ? (applyFixes ? QStringLiteral("Corrección de IDs terminada.")
+                              : QStringLiteral("Escaneo de IDs terminado."))
+                : QStringLiteral("Falló CNS ID Fixer."));
+            m_cnsIdFixerReport = result.ok ? result.report : result.error;
+            if (!result.ok) emit errorOccurred(result.error);
+            emit cnsIdFixerFinished(result.ok);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
+                               const QString &modName, const QString &mode,
+                               const QString &replacementName,
+                               const QString &selection) {
+    if (m_busy) return;
+    CnsConverterService::Request request;
+    request.inputPath = inputUrl.isLocalFile() ? inputUrl.toLocalFile() : inputUrl.toString();
+    request.outputDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile() : outDirUrl.toString();
+    request.modName = modName;
+    request.mode = mode.compare(QStringLiteral("replacer"), Qt::CaseInsensitive) == 0
+        ? CnsConverterService::Mode::ToReplacer : CnsConverterService::Mode::ToCns;
+    request.replacementName = replacementName;
+    request.selection = selection;
+    setBusy(true, QStringLiteral("Preparando conversión CNS…"));
+    std::ignore = QtConcurrent::run([this, request] {
+        const auto result = m_cns->convert(request);
+        QMetaObject::invokeMethod(this, [this, result] {
+            setBusy(false, result.ok ? QStringLiteral("Conversión CNS terminada.")
+                                     : QStringLiteral("Falló la conversión CNS."));
+            m_lastCnsResult = result.ok
+                ? QStringLiteral("%1 assets convertidos.\n%2")
+                      .arg(result.assetsWritten).arg(result.outputDir)
+                : result.error;
+            if (!result.ok) emit errorOccurred(result.error);
+            emit cnsConversionFinished(result.ok, result.outputDir);
+        }, Qt::QueuedConnection);
+    });
 }
 
 QString AppController::t(const QString &key) const {

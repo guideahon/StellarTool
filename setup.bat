@@ -15,8 +15,25 @@ set CUE4_URL=https://github.com/joric/CUE4Parse.CLI/releases/download/cli-0.1.8/
 REM Runtime de Visual C++ (VS 2015-2022 x64). Se empaqueta en el zip para que
 REM el .exe arranque en equipos sin el runtime instalado (VCRUNTIME140.dll).
 set VCREDIST_URL=https://aka.ms/vs/17/release/vc_redist.x64.exe
+REM Bases de rutas/dependencias del CNSRepacker original (MIT). El conversor
+REM nativo C++ usa estos datos, no el ejecutable Java.
+set CNS_DATA_URL=https://gitlab.com/DeronFer/cnsrepacker/-/raw/main/data
+set CNS_LICENSE_URL=https://gitlab.com/DeronFer/cnsrepacker/-/raw/main/LICENSE.txt
+set CNS_RETOC_URL=https://gitlab.com/DeronFer/cnsrepacker/-/raw/main/tools/retoc/retoc.exe
 
 if not exist tools mkdir tools
+
+if not exist tools\CNSRepacker\data\rootAssetToInfo.txt (
+    echo [INFO] Descargando datos MIT de CNSRepacker...
+    if not exist tools\CNSRepacker\data mkdir tools\CNSRepacker\data
+    powershell -NoProfile -Command "$names='rootAssetToInfo.txt','assetToRootAsset.txt','assetToImportAsset.txt','excludedAssets.txt'; foreach($n in $names){Invoke-WebRequest ('%CNS_DATA_URL%/'+$n) -OutFile ('tools\\CNSRepacker\\data\\'+$n)}; Invoke-WebRequest '%CNS_LICENSE_URL%' -OutFile 'tools\\CNSRepacker\\LICENSE.txt'"
+    if not exist tools\CNSRepacker\data\assetToImportAsset.txt ( echo [ERROR] No se pudieron descargar los datos de CNSRepacker & exit /b 1 )
+)
+if not exist tools\CNSRepacker\retoc.exe (
+    echo [INFO] Descargando retoc compatible con CNS --mount-folder...
+    powershell -NoProfile -Command "Invoke-WebRequest '%CNS_RETOC_URL%' -OutFile 'tools\\CNSRepacker\\retoc.exe'"
+    if not exist tools\CNSRepacker\retoc.exe ( echo [ERROR] Falta retoc compatible con CNS & exit /b 1 )
+)
 
 if not exist tools\repak.exe (
     echo [INFO] Descargando repak v0.2.3...

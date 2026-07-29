@@ -97,6 +97,18 @@
    "ru": "Сохранить ванильную блокировку регена щита (4 с)",
    "zh_Hans": "保留原版护盾回复封锁(4 秒)"
   },
+  "builder.q.outfitQteRestoreAlpha": {
+   "es": "ALPHA: restaurar outfit durante QTE/cinemáticas (sin helper)",
+   "en": "ALPHA: restore outfit during QTEs/cutscenes (no helper)",
+   "fr": "ALPHA : restaurer la tenue pendant les QTE/cinématiques (sans helper)",
+   "it": "ALPHA: ripristina l'outfit durante QTE/filmati (senza helper)",
+   "de": "ALPHA: Outfit während QTEs/Zwischensequenzen wiederherstellen (ohne Helper)",
+   "ja": "ALPHA：QTE/カットシーン中に衣装を復元（ヘルパー不要）",
+   "ko": "ALPHA: QTE/컷신 중 의상 복원(헬퍼 없음)",
+   "pt_BR": "ALPHA: restaurar outfit durante QTEs/cinemáticas (sem helper)",
+   "ru": "ALPHA: восстанавливать наряд во время QTE/роликов (без helper)",
+   "zh_Hans": "ALPHA：在 QTE/过场动画期间恢复服装（无需 helper）"
+  },
   "builder.q.miniBoss": {
    "es": "Mini-bosses + drops NG+",
    "en": "Mini-bosses + NG+ drops",

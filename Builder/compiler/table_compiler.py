@@ -391,6 +391,8 @@ _reg_extra("outfit.vanillaRestFX", "EffectTable", "full",
            "restore_camp_rest_fx", "effect_extras")
 _reg_extra("outfit.vanillaShieldRegenBlock", "EffectTable", "full",
            "restore_shield_regen_block", "effect_extras")
+_reg_extra("outfit.qteRestoreAlpha", "EffectTable", "full",
+           "keep_outfit_restore_running_during_qte", "effect_extras")
 # SkillTable (sensacion de combate)
 _reg_extra("extras.forgivingJust", "SkillTable", "full", "forgiving_just", "skill_extras")
 _reg_extra("extras.extraAirDodge", "SkillTable", "full", "extra_air_dodge", "skill_extras")

@@ -112,6 +112,7 @@ Item {
         // Proyectos previos a los arreglos: mismo default que el builder.
         outfitRestFx.checked = a.outfitVanillaRestFX !== false
         outfitShieldRegen.checked = a.outfitVanillaShieldRegen !== false
+        outfitQteRestoreAlpha.checked = a.outfitQteRestoreAlpha === true
         var densities = a.miniBossRegionDensity || {}
         function loadRegionRow(row, code) {
             var value = Number(densities[code] || 0); row.selected = value > 0
@@ -780,6 +781,16 @@ Item {
                                          || "El swap de outfit engancha dos filas vanilla. Esto devuelve lo que pisa: el FX visual del campamento y los 4 s sin regen de escudo tras romperlo."
                                    color: Theme.textDim; font.pixelSize: 11
                                    wrapMode: Text.Wrap; Layout.fillWidth: true }
+                            CheckBox { id: outfitQteRestoreAlpha; checked: false
+                                text: I18n.s.builder_q_outfit_qte_alpha
+                                      || "ALPHA: restaurar outfit durante QTE/cinemáticas (sin helper)" }
+                            Text {
+                                visible: outfitQteRestoreAlpha.checked
+                                text: I18n.s.builder_outfit_qte_alpha_hint
+                                      || "Experimental y sin confirmar in-game. Puede interferir con outfits especiales de historia."
+                                color: Theme.warning; font.pixelSize: 11
+                                wrapMode: Text.Wrap; Layout.fillWidth: true
+                            }
                         }
 
                         // El comportamiento del outfit CNS depende del check de
@@ -1419,6 +1430,7 @@ Item {
                             outfitSkinSuit: outfit.checked,
                             outfitVanillaRestFX: outfitRestFx.checked,
                             outfitVanillaShieldRegen: outfitShieldRegen.checked,
+                            outfitQteRestoreAlpha: outfitQteRestoreAlpha.checked,
                             miniBoss: mb,
                             miniBossRegionDensity: miniBossDensities(),
                             miniBossConfig: {

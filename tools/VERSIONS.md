@@ -10,6 +10,18 @@ También se pueden apuntar con variables de entorno `ST_REPAK` / `ST_UASSETGUI`.
 | `retoc.exe` | https://github.com/trumank/retoc/releases | v0.1.5 | Zen/IoStore: extraer tablas vanilla del juego (`to-legacy`) y empaquetar el merge (`to-zen` + `verify`) |
 | `cue4parse.exe` | https://github.com/joric/CUE4Parse.CLI/releases | cli-0.1.8 | Lee contenedores Zen/IoStore de mods (que retoc no puede revertir) a JSON. Requiere el `global.utoc` del juego + usmap para resolver tipos. |
 
+## Datos del conversor CNS
+
+`setup.bat` descarga a `tools/CNSRepacker/data/` las bases
+`rootAssetToInfo.txt`, `assetToRootAsset.txt`, `assetToImportAsset.txt` y
+`excludedAssets.txt` del proyecto
+[StellarBladeCNSRepacker](https://gitlab.com/DeronFer/cnsrepacker), junto con su
+licencia MIT. También descarga el `retoc.exe` usado por ese proyecto, necesario
+porque soporta `to-legacy --mount-folder`; retoc CLI 0.1.5 no incluye esa opción.
+Stellar Tool porta la lógica a C++ y no distribuye ni ejecuta
+`CNSRepacker.exe`. Las variables `ST_CNSREPACKER_DATA` y `ST_CNS_RETOC`
+permiten elegir copias compatibles para desarrollo.
+
 ## Mappings (`StellarBlade.usmap`)
 
 `setup.bat` lo descarga automáticamente a esta carpeta desde el archivo público de

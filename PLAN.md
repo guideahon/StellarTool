@@ -62,6 +62,26 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 6.3. `README.md` usuario final + `docs/baseline.md`.
 6.4. Empaquetado release: `windeployqt` + tools/ + zip.
 
+## Extensión — Conversor CNS
+
+- Implementado conversor nativo C++ replacer → CNS y CNS → replacer.
+- Entrada `.zip`, `.pak`, `.utoc` o carpeta; selección de variante CNS y slot
+  vanilla de destino.
+- Reescritura de referencias por JSON UAssetAPI, empaquetado IoStore UE4.26 y
+  descriptor `.dekcns.json`.
+- UI y comandos headless `cns` / `replacer`.
+- Compatibilidad inicial verificada contra StellarBladeCNSRepacker con
+  `zYgLemi21LatexSuit_v3`: mismo descriptor semántico y las mismas 17 rutas.
+
+## Extensión — CNS ID Fixer
+
+- Sección propia para escanear recursivamente mods IoStore instalados.
+- Detección y corrección de `Container_Id` duplicados con backup y verificación.
+- Reporte de `Package_Id` compartidos entre mods; nunca se modifican porque
+  identifican de forma estable la ruta del recurso.
+- Compatible con `DirectoryIndex` de UE4.26; formatos perfect-hash se reportan
+  y quedan intactos por seguridad.
+
 ## Riesgos y mitigaciones
 | Riesgo | Mitigación |
 |---|---|

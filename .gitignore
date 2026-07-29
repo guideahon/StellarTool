@@ -13,6 +13,7 @@ tools/*.pdb
 tools/*.json
 headless_*.txt
 tools/*.dll
+tools/CNSRepacker/
 hz.txt
 qmlerr.txt
 qmlout.txt

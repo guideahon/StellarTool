@@ -8,6 +8,10 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
 - Lista cada cambio de DataTable (fila/propiedad) con checkbox.
 - Detecta conflictos entre mods y permite elegir con qué valor quedarse.
 - Genera un único `zzz_StellarTool_Merged.pak` verificado, listo para `~mods`.
+- Convierte outfits **replacer ↔ CNS** desde la página Conversor CNS, sin
+  modificar el mod de entrada. Acepta `.zip`, `.pak`, `.utoc` o carpeta.
+- **CNS ID Fixer** escanea mods IoStore, corrige `Container_Id` duplicados con
+  backup verificable y reporta conflictos de `Package_Id` sin alterar esos IDs.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
 Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)
@@ -120,6 +124,10 @@ se verificaron en juego: el swap y el restore del outfit siguen funcionando
 igual. Aplican tanto
 al pak de outfit compilado como al combinado con mini-bosses y a First Run; el
 fallback a paks precompilados los ignora y avisa (`outfitFixesIgnored`).
+La opción opt-in **ALPHA: restaurar outfit durante QTE/cinemáticas (sin
+helper)** mantiene activo el loop de `nanosuit_break` durante `LevelSequence`
+para probar el restore cuando el escudo se llena dentro de una QTE. Viene
+apagada y todavía requiere validación in-game con outfits especiales de historia.
 La carpeta de salida no puede estar dentro de `~mods`: el juego la carga de
 forma **recursiva**, así que las carpetas intermedias del build (`stage\Paks`,
 `compile_mb`) quedarían cargadas como mods fantasma que pisan al mod instalado
@@ -139,6 +147,10 @@ La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicaci
 StellarTool --headless analyze --mod "<pak/zip/carpeta>" --mod "<otro>" [--baseline <dir>]
 StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <dir> ^
                                [--baseline <dir>] [--prefer <nombreMod>]
+StellarTool --headless cns --game "<StellarBlade>" --mod "<outfit.zip>" --out <dir> ^
+                            [--name "Nombre visible"]
+StellarTool --headless replacer --game "<StellarBlade>" --mod "<outfit CNS>" --out <dir> ^
+                                 --replace "Black Pearl" [--select "2"]
 ```
 
 - `analyze` lista todos los cambios y marca conflictos; `merge` además genera el pak

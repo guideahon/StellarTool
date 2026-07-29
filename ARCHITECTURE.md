@@ -89,6 +89,7 @@ Claves de diseño:
 | `ModImporter` | orquesta ingesta: extrae, convierte, clasifica assets, produce `ModPackage`. Corre en `QtConcurrent` con progreso. |
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
 | `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). |
+| `CnsConverterService` | port C++ del algoritmo MIT de StellarBladeCNSRepacker: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta replacer ↔ CNS con retoc. No ejecuta el repacker Java. |
 | `ProjectStore` | guarda/carga sesión (`.stproj` JSON): mods cargados, selecciones, resoluciones. |
 | `AppController` | fachada QObject expuesta a QML (patrón LlamaCode). Modelos: `ModListModel`, `ChangeListModel` (por tabla, con roles para check/conflicto), `ConflictModel`. |
 
@@ -127,6 +128,27 @@ Los transforms nativos `combat.enemyDamage` y `combat.enemyVulnerability`
 excluyen `ActorType_BossMonster`; `CharacterTable` granular parte de la baseline
 vanilla escribible local, nunca de `CharacterTable_sub` (fuente exclusiva del
 pipeline de mini-bosses).
+El alpha table-side de restore durante QTE es opt-in y no requiere helper:
+modifica únicamente
+`nanosuit_break.bPauseWhenPlayerAttachLevelSequence` de `true` a `false`. Se
+aplica por transform directo y también mediante `effect_extras` en los
+pipelines combinados de First Run/mini-boss.
+
+`CnsConverterPage` llama a `CnsConverterService` en un worker. La entrada se
+extrae a una carpeta temporal, los `.uasset` se convierten mediante
+`UAssetService`, y el resultado se empaqueta como IoStore UE4.26 mediante
+`PakService`. Los mapas MIT descargados por `setup.bat` viven en
+`tools/CNSRepacker/data`; durante desarrollo también se acepta
+`ST_CNSREPACKER_DATA` o la instalación del repacker junto al juego.
+
+`CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
+servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
+`Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos.
+Al corregir conserva el primer contenedor, genera IDs determinísticos únicos,
+crea un `.cnsidfixer.bak`, actualiza el encabezado y el chunk
+`ContainerHeader`, y vuelve a leer el archivo para verificarlo. No modifica
+`Package_Id`: son hashes estables de las rutas. Los TOC con perfect-hash se
+rechazan porque cambiar un chunk ID exigiría reconstruir sus índices.
 
 ## 6. Manejo de errores
 

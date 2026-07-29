@@ -93,6 +93,15 @@
       "whenTrue": { "transforms": ["outfit.vanillaShieldRegenBlock"] }
     },
     {
+      "id": "outfitQteRestoreAlpha",
+      "type": "bool",
+      "i18nKey": "builder.q.outfitQteRestoreAlpha",
+      "default": false,
+      "showIf": { "outfitSkinSuit": [true] },
+      "comment": "ALPHA sin helper: mantiene el loop de nanosuit_break durante LevelSequence/QTE.",
+      "whenTrue": { "transforms": ["outfit.qteRestoreAlpha"] }
+    },
+    {
       "id": "miniBoss",
       "type": "single",
       "i18nKey": "builder.q.miniBoss",

@@ -22,6 +22,9 @@ public:
     int run(const QString &command, const QStringList &mods,
             const QString &outDir, const QString &baselineDir,
             const QString &preferMod, bool rebuildBaseline = false);
+    int runCns(const QString &command, const QString &input, const QString &outDir,
+               const QString &name, const QString &replacement,
+               const QString &selection);
 
 private:
     bool waitIdle();   // procesa el event loop hasta que controller no esté busy

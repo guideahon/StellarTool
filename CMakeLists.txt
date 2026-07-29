@@ -17,6 +17,8 @@ set(CORE_SOURCES
     src/core/PakService.cpp
     src/core/UAssetService.cpp
     src/core/Cue4Service.cpp
+    src/core/CnsConverterService.cpp
+    src/core/CnsIdFixerService.cpp
     src/core/GamePaths.cpp
     src/core/UsmapService.cpp
     src/core/BaselineManager.cpp
@@ -37,6 +39,8 @@ set(CORE_HEADERS
     src/core/PakService.h
     src/core/UAssetService.h
     src/core/Cue4Service.h
+    src/core/CnsConverterService.h
+    src/core/CnsIdFixerService.h
     src/core/GamePaths.h
     src/core/UsmapService.h
     src/core/BaselineManager.h
@@ -98,6 +102,8 @@ if (BUILD_TESTS)
         tests/TestMergeEngine.cpp
         tests/TestUpdateService.cpp
         tests/TestBuilderUi.cpp
+        tests/TestCnsConverter.cpp
+        tests/TestCnsIdFixer.cpp
         src/core/UpdateService.cpp
         src/core/UpdateService.h
         ${CORE_SOURCES}

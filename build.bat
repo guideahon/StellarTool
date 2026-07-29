@@ -42,6 +42,10 @@ if not exist "%~dp0build\%CONFIG%\tools" mkdir "%~dp0build\%CONFIG%\tools"
 for %%F in (repak.exe retoc.exe UAssetGUI.exe cue4parse.exe StellarBlade.usmap) do (
     if exist "%~dp0tools\%%F" copy /Y "%~dp0tools\%%F" "%~dp0build\%CONFIG%\tools\" >nul
 )
+if exist "%~dp0tools\CNSRepacker\data\rootAssetToInfo.txt" (
+    if not exist "%~dp0build\%CONFIG%\tools\CNSRepacker" mkdir "%~dp0build\%CONFIG%\tools\CNSRepacker"
+    robocopy "%~dp0tools\CNSRepacker" "%~dp0build\%CONFIG%\tools\CNSRepacker" /E /NFL /NDL /NJH /NJS /NP >nul
+)
 
 REM Runtime de VC++ junto al exe (por si el equipo del usuario no lo tiene).
 REM windeployqt --compiler-runtime solo lo copia con VCINSTALLDIR seteado (dev

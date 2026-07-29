@@ -16,6 +16,8 @@ class PakService;
 class UAssetService;
 class UsmapService;
 class Cue4Service;
+class CnsConverterService;
+class CnsIdFixerService;
 class ModImporter;
 class BaselineManager;
 class ProjectStore;
@@ -47,6 +49,8 @@ class AppController : public QObject {
     // Hay un build en curso que se puede cortar (solo runBuilder: es el único
     // proceso largo del que guardamos el pid).
     Q_PROPERTY(bool cancellable READ cancellable NOTIFY cancellableChanged)
+    Q_PROPERTY(QString lastCnsResult READ lastCnsResult NOTIFY cnsConversionFinished)
+    Q_PROPERTY(QString cnsIdFixerReport READ cnsIdFixerReport NOTIFY cnsIdFixerFinished)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
     ~AppController() override;
@@ -146,6 +150,15 @@ public:
     // Importa un patch TOML como un "mod" de cambios literales (row/prop=value).
     Q_INVOKABLE void importTomlPatch(const QUrl &fileUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;
+    // Conversor nativo de outfits. mode: "cns" o "replacer".
+    Q_INVOKABLE QStringList cnsReplacementNames() const;
+    Q_INVOKABLE void convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
+                                const QString &modName, const QString &mode,
+                                const QString &replacementName = {},
+                                const QString &selection = {});
+    QString lastCnsResult() const { return m_lastCnsResult; }
+    Q_INVOKABLE void runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes);
+    QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
 
 signals:
     void busyChanged();
@@ -164,6 +177,8 @@ signals:
     void exportZipChanged();
     void cancellableChanged();
     void buildCancelled();
+    void cnsConversionFinished(bool ok, const QString &outputPath);
+    void cnsIdFixerFinished(bool ok);
     void errorOccurred(const QString &message);
 
 private:
@@ -200,6 +215,8 @@ private:
     UAssetService *m_uasset;
     UsmapService *m_usmap;
     Cue4Service *m_cue4;
+    CnsConverterService *m_cns;
+    CnsIdFixerService *m_cnsIdFixer;
     ModImporter *m_importer;
     BaselineManager *m_baseline;
     ProjectStore *m_store;
@@ -220,6 +237,8 @@ private:
     bool m_downloadingUsmap = false;
     QString m_statusText;
     QString m_lastMergeResult;
+    QString m_lastCnsResult;
+    QString m_cnsIdFixerReport;
     QHash<QString, QStringList> m_usmapEnums;
     bool m_usmapEnumsLoaded = false;
     // pid del build en curso (0 = ninguno) y si el usuario lo canceló: los lee

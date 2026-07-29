@@ -14,6 +14,7 @@ public:
 
     static QString repakPath();       // tools/repak.exe junto al exe (o override por env ST_REPAK)
     static QString retocPath();       // tools/retoc.exe (o env ST_RETOC); Zen/IoStore
+    static QString cnsRetocPath();    // fork con --mount-folder usado por CNS
     bool available() const;
     bool zenAvailable() const;
 
@@ -42,6 +43,10 @@ public:
     // to-legacy de un mod Zen usando ese global. Devuelve cuántos .uasset salieron.
     int toLegacyWithGlobal(const QString &utocPath, const QString &outDir,
                            QString *error = nullptr);
+    // Extrae uno o más contenedores de mod resolviendo imports contra los paks
+    // del juego. Es el modo requerido por outfits CNS ya reubicados.
+    int toLegacyMounted(const QString &modDir, const QString &outDir,
+                        QString *error = nullptr);
     bool extractZip(const QString &zipPath, const QString &outDir, QString *error = nullptr);
     // Comprime el contenido de srcDir (recursivo) en outZip.
     bool createZip(const QString &srcDir, const QString &outZip, QString *error = nullptr);
