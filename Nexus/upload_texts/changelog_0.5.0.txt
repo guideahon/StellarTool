@@ -1,0 +1,37 @@
+Version 0.5.0
+
+New: CNS Converter
+
+- Converts outfit mods between replacer and CNS, both ways, from its own
+  section in the app. Drop in a .zip, .pak, .utoc or a folder; the input mod is
+  never modified.
+- The output is a ZIP that installs with Vortex as-is. The intermediate working
+  folder is deleted once the ZIP exists, so nothing is left lying around.
+- Keeps a persistent history of your conversions with a shortcut to each output
+  folder.
+- Converting to replacer lets you pick which outfit it replaces, and which
+  variant to use when the CNS mod ships several.
+- Runs headless too:
+  StellarTool --headless cns --game "<StellarBlade>" --mod "<outfit.zip>" --out <dir>
+  StellarTool --headless replacer --game "<StellarBlade>" --mod "<CNS mod>" --out <dir> --replace "Black Pearl"
+
+New: CNS ID Fixer
+
+- Scans a folder of IoStore mods and reports duplicate Container_Id values,
+  the usual reason two CNS outfits refuse to load together.
+- Fixing keeps the first container and assigns deterministic IDs to the
+  duplicates. Every file it writes is backed up first as
+  <file>.cnsidfixer.bak.
+- Package_Id conflicts are reported but never touched: changing those breaks
+  the mods.
+
+Builder
+
+- New opt-in ALPHA option: restore the outfit during QTEs and cutscenes without
+  the helper. It keeps the shield check running during LevelSequence. Off by
+  default, still unconfirmed in-game, and it may interfere with special story
+  outfits.
+
+Everything from 0.4.3 is included: the Cancel button for builds with full
+rollback of a cancelled install, and the output folder defaulting outside the
+game so "Build my mod" is clickable from the start.
