@@ -50,6 +50,7 @@ class AppController : public QObject {
     // proceso largo del que guardamos el pid).
     Q_PROPERTY(bool cancellable READ cancellable NOTIFY cancellableChanged)
     Q_PROPERTY(QString lastCnsResult READ lastCnsResult NOTIFY cnsConversionFinished)
+    Q_PROPERTY(QString cnsHistoryJson READ cnsHistory NOTIFY cnsHistoryChanged)
     Q_PROPERTY(QString cnsIdFixerReport READ cnsIdFixerReport NOTIFY cnsIdFixerFinished)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
@@ -157,6 +158,8 @@ public:
                                 const QString &replacementName = {},
                                 const QString &selection = {});
     QString lastCnsResult() const { return m_lastCnsResult; }
+    Q_INVOKABLE QString cnsHistory() const;
+    Q_INVOKABLE void openCnsOutputDir();
     Q_INVOKABLE void runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes);
     QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
 
@@ -178,6 +181,7 @@ signals:
     void cancellableChanged();
     void buildCancelled();
     void cnsConversionFinished(bool ok, const QString &outputPath);
+    void cnsHistoryChanged();
     void cnsIdFixerFinished(bool ok);
     void errorOccurred(const QString &message);
 

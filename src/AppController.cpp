@@ -130,17 +130,57 @@ void AppController::convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
     setBusy(true, QStringLiteral("Preparando conversión CNS…"));
     std::ignore = QtConcurrent::run([this, request] {
         const auto result = m_cns->convert(request);
-        QMetaObject::invokeMethod(this, [this, result] {
+        QMetaObject::invokeMethod(this, [this, result, request] {
             setBusy(false, result.ok ? QStringLiteral("Conversión CNS terminada.")
                                      : QStringLiteral("Falló la conversión CNS."));
             m_lastCnsResult = result.ok
                 ? QStringLiteral("%1 assets convertidos.\nZIP para Vortex: %2")
                       .arg(result.assetsWritten).arg(result.zipPath)
                 : result.error;
+            if (result.ok) {
+                QSettings settings;
+                QJsonArray history;
+                const auto stored = QJsonDocument::fromJson(
+                    settings.value(QStringLiteral("cns/history")).toByteArray());
+                if (stored.isArray()) history = stored.array();
+                QJsonObject entry{
+                    {QStringLiteral("name"), QFileInfo(result.zipPath).completeBaseName()},
+                    {QStringLiteral("zip"), result.zipPath},
+                    {QStringLiteral("timestamp"),
+                     QDateTime::currentDateTime().toString(Qt::ISODate)},
+                    {QStringLiteral("direction"),
+                     request.mode == CnsConverterService::Mode::ToCns
+                         ? QStringLiteral("Replacer → CNS")
+                         : QStringLiteral("CNS → replacer")},
+                    {QStringLiteral("assets"), result.assetsWritten}
+                };
+                history.prepend(entry);
+                while (history.size() > 100) history.removeLast();
+                settings.setValue(QStringLiteral("cns/history"),
+                                  QJsonDocument(history).toJson(QJsonDocument::Compact));
+                settings.setValue(QStringLiteral("cns/outputDir"),
+                                  QFileInfo(result.zipPath).absolutePath());
+                emit cnsHistoryChanged();
+            }
             if (!result.ok) emit errorOccurred(result.error);
             emit cnsConversionFinished(result.ok, result.zipPath);
         }, Qt::QueuedConnection);
     });
+}
+
+QString AppController::cnsHistory() const {
+    const auto doc = QJsonDocument::fromJson(
+        QSettings().value(QStringLiteral("cns/history")).toByteArray());
+    return QString::fromUtf8(doc.isArray()
+        ? doc.toJson(QJsonDocument::Compact)
+        : QByteArrayLiteral("[]"));
+}
+
+void AppController::openCnsOutputDir() {
+    QSettings settings;
+    QString dir = settings.value(QStringLiteral("cns/outputDir")).toString();
+    if (dir.isEmpty()) dir = defaultBuildOutDir();
+    if (!dir.isEmpty()) openDir(dir);
 }
 
 QString AppController::t(const QString &key) const {

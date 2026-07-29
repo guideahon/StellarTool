@@ -652,8 +652,14 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         result.error = error;
         return result;
     }
+    if (!QDir(outFolder).removeRecursively()) {
+        result.error = QStringLiteral(
+            "El ZIP se creó, pero no se pudo borrar la carpeta intermedia: %1")
+                           .arg(outFolder);
+        return result;
+    }
     result.ok = true;
-    result.outputDir = outFolder;
+    result.outputDir.clear();
     result.utocPath = utoc;
     result.zipPath = zipPath;
     return result;

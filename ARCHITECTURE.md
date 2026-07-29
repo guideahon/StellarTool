@@ -142,7 +142,9 @@ extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `ST_CNSREPACKER_DATA` o la instalación del repacker junto al juego.
 Al terminar, el directorio convertido se comprime con `PakService::createZip`;
 el ZIP deja `.pak/.ucas/.utoc/.dekcns.json` en la raíz para instalación directa
-con Vortex.
+con Vortex y luego se elimina el directorio descomprimido. `AppController`
+persiste hasta 100 entradas de historial en `QSettings` (`cns/history`) y
+recuerda `cns/outputDir` para la acción **Abrir carpeta**.
 
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa

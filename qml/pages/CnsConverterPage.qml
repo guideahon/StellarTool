@@ -9,6 +9,15 @@ Item {
     property string inputPath: ""
     property string outputPath: App.defaultBuildOutDir()
     property bool toReplacer: mode.currentIndex === 1
+    property var historyItems: []
+
+    function refreshHistory() {
+        try {
+            historyItems = JSON.parse(App.cnsHistory())
+        } catch (e) {
+            historyItems = []
+        }
+    }
 
     ScrollView {
         anchors.fill: parent
@@ -112,6 +121,10 @@ Item {
                             onTextEdited: page.outputPath = text
                         }
                         Button { text: "Elegir…"; onClicked: outputFolder.open() }
+                        Button {
+                            text: "Abrir carpeta"
+                            onClicked: App.openCnsOutputDir()
+                        }
                     }
 
                     Button {
@@ -139,6 +152,75 @@ Item {
                 color: Theme.text
                 wrapMode: Text.Wrap
             }
+
+            RowLayout {
+                Layout.fillWidth: true
+                Label {
+                    text: "Historial de CNS creados"
+                    color: Theme.text
+                    font.pixelSize: 18
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                Button {
+                    text: "Abrir carpeta"
+                    onClicked: App.openCnsOutputDir()
+                }
+            }
+
+            Label {
+                visible: page.historyItems.length === 0
+                Layout.fillWidth: true
+                text: "Todavía no hay conversiones CNS guardadas."
+                color: Theme.textDim
+            }
+
+            Repeater {
+                model: page.historyItems
+                delegate: Rectangle {
+                    required property var modelData
+                    Layout.fillWidth: true
+                    implicitHeight: historyRow.implicitHeight + 20
+                    radius: Theme.radius
+                    color: Theme.panel
+                    border.color: Theme.border
+
+                    RowLayout {
+                        id: historyRow
+                        anchors.fill: parent
+                        anchors.margins: 10
+                        spacing: 12
+                        ColumnLayout {
+                            Layout.fillWidth: true
+                            spacing: 2
+                            Label {
+                                text: modelData.name || "CNS"
+                                color: Theme.text
+                                font.bold: true
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: (modelData.timestamp || "").replace("T", " ")
+                                      + " · " + (modelData.direction || "")
+                                      + " · " + (modelData.assets || 0) + " assets"
+                                color: Theme.textDim
+                                elide: Text.ElideRight
+                            }
+                            Label {
+                                Layout.fillWidth: true
+                                text: modelData.zip || ""
+                                color: Theme.textDim
+                                elide: Text.ElideMiddle
+                            }
+                        }
+                        Button {
+                            text: "Abrir carpeta"
+                            onClicked: App.openDir(
+                                (modelData.zip || "").replace(/[\\\\/][^\\\\/]+$/, ""))
+                        }
+                    }
+                }
+            }
             Item { Layout.fillHeight: true }
         }
     }
@@ -161,5 +243,11 @@ Item {
         title: "Elegir carpeta de salida"
         onAccepted: page.outputPath = decodeURIComponent(
                         selectedFolder.toString().replace("file:///", ""))
+    }
+
+    Component.onCompleted: refreshHistory()
+    Connections {
+        target: App
+        function onCnsHistoryChanged() { page.refreshHistory() }
     }
 }
