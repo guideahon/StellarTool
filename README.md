@@ -9,7 +9,8 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
 - Detecta conflictos entre mods y permite elegir con qué valor quedarse.
 - Genera un único `zzz_StellarTool_Merged.pak` verificado, listo para `~mods`.
 - Convierte outfits **replacer ↔ CNS** desde la sección **CNS Converter**, sin
-  modificar el mod de entrada. Acepta `.zip`, `.pak`, `.utoc` o carpeta.
+  modificar el mod de entrada. Acepta `.zip`, `.pak`, `.utoc` o carpeta y
+  genera automáticamente un ZIP instalable con Vortex.
 - **CNS ID Fixer** escanea mods IoStore, corrige `Container_Id` duplicados con
   backup verificable y reporta conflictos de `Package_Id` sin alterar esos IDs.
 

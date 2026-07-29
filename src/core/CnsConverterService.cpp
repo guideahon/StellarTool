@@ -646,9 +646,16 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         }
         result.descriptorPath = descriptorPath;
     }
+    const QString zipPath = QDir(request.outputDir).filePath(safeName + QStringLiteral(".zip"));
+    emit progress(QStringLiteral("Creando ZIP instalable para Vortex…"));
+    if (!m_pak->createZip(outFolder, zipPath, &error)) {
+        result.error = error;
+        return result;
+    }
     result.ok = true;
     result.outputDir = outFolder;
     result.utocPath = utoc;
+    result.zipPath = zipPath;
     return result;
 }
 

@@ -34,6 +34,7 @@ public:
         QString outputDir;
         QString descriptorPath;
         QString utocPath;
+        QString zipPath;
         QString error;
         QStringList warnings;
         int assetsWritten = 0;

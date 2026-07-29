@@ -134,11 +134,11 @@ void AppController::convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
             setBusy(false, result.ok ? QStringLiteral("Conversión CNS terminada.")
                                      : QStringLiteral("Falló la conversión CNS."));
             m_lastCnsResult = result.ok
-                ? QStringLiteral("%1 assets convertidos.\n%2")
-                      .arg(result.assetsWritten).arg(result.outputDir)
+                ? QStringLiteral("%1 assets convertidos.\nZIP para Vortex: %2")
+                      .arg(result.assetsWritten).arg(result.zipPath)
                 : result.error;
             if (!result.ok) emit errorOccurred(result.error);
-            emit cnsConversionFinished(result.ok, result.outputDir);
+            emit cnsConversionFinished(result.ok, result.zipPath);
         }, Qt::QueuedConnection);
     });
 }
