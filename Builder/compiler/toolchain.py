@@ -35,7 +35,16 @@ def _run(args: list[str], timeout: int = 900, extra_path: Path | None = None) ->
     if extra_path is not None:
         env = dict(os.environ)
         env["PATH"] = str(extra_path) + os.pathsep + env.get("PATH", "")
-    return subprocess.run(args, capture_output=True, text=True, timeout=timeout, env=env)
+    # encoding explicito: con text=True Python decodifica con el locale (cp936 en
+    # Windows chino) y la salida UTF-8 de retoc/UAssetGUI revienta el hilo lector
+    # dejando stdout=None -> el error real quedaba tapado por un TypeError.
+    return subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", timeout=timeout, env=env)
+
+
+def out_err(cp: subprocess.CompletedProcess, limit: int = 500) -> str:
+    """Cola de stdout+stderr, tolerante a None (proceso sin salida capturada)."""
+    return ((cp.stdout or "") + (cp.stderr or ""))[-limit:]
 
 
 def fromjson(json_path: Path, out_uasset: Path) -> Path:
@@ -47,7 +56,7 @@ def fromjson(json_path: Path, out_uasset: Path) -> Path:
     if not out_uasset.exists() or out_uasset.stat().st_size == 0:
         raise RuntimeError(
             f"fromjson no escribio {out_uasset.name} (probable FName faltante en NameMap). "
-            f"stdout={cp.stdout[-400:]} stderr={cp.stderr[-400:]}"
+            f"salida={out_err(cp, 800)}"
         )
     return out_uasset
 
@@ -99,13 +108,13 @@ def to_zen(package_dir: Path, out_utoc: Path, version: str = "UE4_26") -> Path:
     cp = _retoc(["to-zen", str(package_dir), str(out_utoc), "--version", version])
     produced = out_utoc.with_suffix(".pak")
     if cp.returncode != 0 or not produced.exists():
-        raise RuntimeError(f"to-zen fallo: {cp.stdout[-400:]} {cp.stderr[-400:]}")
+        raise RuntimeError(f"to-zen fallo: {out_err(cp, 800)}")
     return out_utoc
 
 
 def verify(utoc: Path) -> bool:
     cp = _retoc(["verify", str(utoc)])
-    out = (cp.stdout + cp.stderr).lower()
+    out = out_err(cp, 100000).lower()
     return "verified" in out
 
 

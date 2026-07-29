@@ -27,6 +27,14 @@ from pathlib import Path
 # para que los modulos hermanos (helper_compiler, etc.) importen.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# La app lee nuestra salida como UTF-8; con el locale por defecto (cp936 en
+# Windows chino) los acentos o rutas no-ASCII rompen el print.
+for _s in (sys.stdout, sys.stderr):
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from helper_compiler import compile_helper
 import build_specs
 import table_compiler

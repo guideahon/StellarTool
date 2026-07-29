@@ -445,6 +445,12 @@ def _generate_writable_vanilla(table, output):
             "Tool (la que contiene SB\\Content\\Paks) o definí la variable de entorno "
             f"{gamepaths.ENV_VAR} con esa ruta y volvé a compilar.")
     paks = Path(game) / "SB" / "Content" / "Paks"
+    if toolchain.oodle_dir() is None:
+        raise FileNotFoundError(
+            f"{table} se extrae de los paks del juego con retoc, que necesita "
+            "oo2core_9_win64.dll (Oodle) de la instalación de Stellar Blade y no "
+            f"se encontró bajo {game}. Verificá la instalación o definí "
+            "STELLAR_OODLE_DIR con la carpeta que contiene el DLL.")
     stage = Path(tempfile.mkdtemp(prefix="~st_builder_vanilla_", dir=paks))
     extracted = Path(tempfile.mkdtemp(prefix="st_builder_legacy_"))
     try:
@@ -459,8 +465,8 @@ def _generate_writable_vanilla(table, output):
         uasset = next(extracted.rglob(f"{table}.uasset"), None)
         if cp.returncode != 0 or not uasset:
             raise RuntimeError(
-                f"No se pudo extraer {table} de los contenedores vanilla: "
-                f"{(cp.stdout + cp.stderr)[-500:]}")
+                f"No se pudo extraer {table} de los contenedores vanilla "
+                f"(retoc rc={cp.returncode}): {toolchain.out_err(cp)}")
         output = Path(output)
         output.parent.mkdir(parents=True, exist_ok=True)
         usmap = toolchain.tools_dir() / "StellarBlade.usmap"
@@ -470,8 +476,8 @@ def _generate_writable_vanilla(table, output):
         ], timeout=600)
         if cp.returncode != 0 or not output.exists():
             raise RuntimeError(
-                f"UAssetGUI no generó la baseline escribible de {table}: "
-                f"{(cp.stdout + cp.stderr)[-500:]}")
+                f"UAssetGUI no generó la baseline escribible de {table} "
+                f"(rc={cp.returncode}): {toolchain.out_err(cp)}")
     finally:
         shutil.rmtree(extracted, ignore_errors=True)
         shutil.rmtree(stage, ignore_errors=True)

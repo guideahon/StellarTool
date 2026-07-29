@@ -103,12 +103,12 @@ def apply_toml_dir(patch_dir, staged_data_dir, tools_dir=None) -> dict:
         patch = load_toml(toml_file)
         tmp = data / f"_{table}.json"
         subprocess.run([str(uag), "tojson", str(uasset), str(tmp), "VER_UE4_26", str(usmap)],
-                       capture_output=True, text=True, timeout=900)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
         doc = json.loads(tmp.read_text(encoding="utf-8"))
         n = apply_toml_to_doc(doc, patch)
         tmp.write_text(json.dumps(doc), encoding="utf-8")
         subprocess.run([str(uag), "fromjson", str(tmp), str(uasset), "StellarBlade"],
-                       capture_output=True, text=True, timeout=900)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
         tmp.unlink(missing_ok=True)
         report[table] = n
     return report

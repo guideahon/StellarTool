@@ -1,0 +1,26 @@
+Version 0.6.1
+
+Fixed: builds crashed on non-English Windows
+
+Builds that extract a vanilla table from your game install (Hardcore Enemies and
+the other options that need a writable baseline) failed on systems whose Windows
+language is not English - Chinese, Japanese, Korean and others. The tool read the
+output of retoc and UAssetGUI using the system code page instead of UTF-8, so a
+single byte those tools print was enough to kill the reader and end the build in
+"TypeError: can only concatenate str (not NoneType) to str".
+
+That message was never the real problem, only what was left after the real error
+was lost. Every tool call now reads and writes UTF-8 regardless of the Windows
+language, and the Python side of the tool is launched in UTF-8 mode too, so game
+folders with non-Latin characters no longer break the build.
+
+Better errors when a baseline cannot be extracted
+
+- If Oodle (oo2core_9_win64.dll) is missing from the game install, the build now
+  says so up front instead of failing later with an unreadable message.
+- Extraction failures report the exit code and the actual output of the tool that
+  failed, which makes the remaining cases reportable instead of a dead end.
+
+Everything from 0.6.0 is included: the three-way Skin Suit on shield break
+(including the No Helper ALPHA mode), the shield-break timing fix, and installs
+that reconcile with what the build compiled instead of piling up.

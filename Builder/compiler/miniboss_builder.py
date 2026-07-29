@@ -448,13 +448,13 @@ def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0,
     uag = tools / "UAssetGUI.exe"
     tj = data_dir / "_ET_x.json"
     subprocess.run([str(uag), "tojson", str(et), str(tj), "VER_UE4_26", str(usmap)],
-                   capture_output=True, text=True, timeout=900)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     doc = json.loads(tj.read_text(encoding="utf-8"))
     rep = effect_extras.apply_effect_extras(
         doc, sel, gear_mult, tumbler_value)
     tj.write_text(json.dumps(doc), encoding="utf-8")
     subprocess.run([str(uag), "fromjson", str(tj), str(et), "StellarBlade"],
-                   capture_output=True, text=True, timeout=900)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     tj.unlink(missing_ok=True)
     return rep
 
@@ -477,12 +477,12 @@ def _apply_skill_extras_pass(data_dir, extras, just_mult=1.5, air_count=2):
     uag = tools / "UAssetGUI.exe"
     tj = data_dir / "_SK_x.json"
     subprocess.run([str(uag), "tojson", str(sk), str(tj), "VER_UE4_26", str(usmap)],
-                   capture_output=True, text=True, timeout=900)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     doc = json.loads(tj.read_text(encoding="utf-8"))
     rep = skill_extras.apply_skill_extras(doc, sel, just_mult, air_count)
     tj.write_text(json.dumps(doc), encoding="utf-8")
     subprocess.run([str(uag), "fromjson", str(tj), str(sk), "StellarBlade"],
-                   capture_output=True, text=True, timeout=900)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     tj.unlink(missing_ok=True)
     return rep
 
@@ -506,11 +506,11 @@ def _apply_beta_revert(data_dir):
     tmp_json = data_dir / "_SK.json"
     tmp_rev = data_dir / "_SK_rev.json"
     subprocess.run([str(uag), "tojson", str(sk), str(tmp_json), "VER_UE4_26", str(usmap)],
-                   capture_output=True, text=True, timeout=600)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     subprocess.run(["python", str(revert), str(tmp_json), str(tmp_rev), str(van)],
-                   capture_output=True, text=True, timeout=300)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
     subprocess.run([str(uag), "fromjson", str(tmp_rev), str(sk), "StellarBlade"],
-                   capture_output=True, text=True, timeout=600)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
     tmp_json.unlink(missing_ok=True)
     tmp_rev.unlink(missing_ok=True)
 
@@ -529,10 +529,10 @@ def _apply_disable_skinsuit(data_dir):
     tj = data_dir / "_ET.json"
     to = data_dir / "_ET_off.json"
     subprocess.run([str(uag), "tojson", str(et), str(tj), "VER_UE4_26", str(usmap)],
-                   capture_output=True, text=True, timeout=900)
-    subprocess.run(["python", str(script), str(tj), str(to)], capture_output=True, text=True, timeout=300)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+    subprocess.run(["python", str(script), str(tj), str(to)], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
     subprocess.run([str(uag), "fromjson", str(to), str(et), "StellarBlade"],
-                   capture_output=True, text=True, timeout=900)
+                   capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
     tj.unlink(missing_ok=True)
     to.unlink(missing_ok=True)
 

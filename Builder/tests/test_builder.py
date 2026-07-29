@@ -1439,6 +1439,26 @@ def test_prune_keeps_the_helper_this_build_installs(tmp_path=None):
             os.environ["LOCALAPPDATA"] = old_appdata
 
 
+def test_tool_output_is_decoded_as_utf8_not_locale():
+    """retoc/UAssetGUI escriben UTF-8: con el locale (cp936 en Windows chino) el
+    hilo lector moria y stdout quedaba en None, tapando el error real."""
+    import toolchain
+    cp = toolchain._run([sys.executable, "-c",
+                         "import sys;sys.stdout.buffer.write(bytes([0xc3,0xa9,0xaf,0xe4,0xbd,0xa0]))"])
+    assert cp.stdout is not None
+    assert cp.stdout.startswith("é")      # UTF-8 decodificado
+    assert cp.stdout.endswith("你")        # el byte invalido no corta el resto
+
+
+def test_out_err_survives_processes_without_captured_output():
+    import subprocess
+    import toolchain
+    cp = subprocess.CompletedProcess(args=[], returncode=1, stdout=None, stderr=None)
+    assert toolchain.out_err(cp) == ""
+    cp = subprocess.CompletedProcess(args=[], returncode=1, stdout="abc", stderr=None)
+    assert toolchain.out_err(cp, 2) == "bc"
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

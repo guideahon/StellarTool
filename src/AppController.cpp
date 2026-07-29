@@ -1189,11 +1189,16 @@ static QString pythonExe() {
 // El Builder resuelve el juego por su cuenta (gamepaths.py) para extraer
 // baselines vanilla escribibles; sin esto, una instalacion fuera de Steam no
 // le llega aunque el usuario la haya elegido en la app.
-static void applyGameEnv(QProcess &proc, const QString &gameDir = QString()) {
-    const QString root = gameDir.isEmpty() ? GamePaths::gameRoot() : gameDir;
-    if (root.isEmpty()) return;
+// Ademas fuerza UTF-8 en el Python del Builder: leemos su salida como UTF-8, y
+// con el locale por defecto (cp936 en Windows chino) los textos acentuados o las
+// rutas no-ASCII rompian el proceso al imprimir.
+static void applyBuilderEnv(QProcess &proc, const QString &gameDir = QString()) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert(QStringLiteral("STELLARBLADE_DIR"), QDir::toNativeSeparators(root));
+    env.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
+    env.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));
+    const QString root = gameDir.isEmpty() ? GamePaths::gameRoot() : gameDir;
+    if (!root.isEmpty())
+        env.insert(QStringLiteral("STELLARBLADE_DIR"), QDir::toNativeSeparators(root));
     proc.setProcessEnvironment(env);
 }
 
@@ -1202,7 +1207,7 @@ static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = null
     QProcess proc;
     proc.setProgram(pythonExe());
     proc.setArguments(QStringList{builderScript()} + extraArgs);
-    applyGameEnv(proc);
+    applyBuilderEnv(proc);
     proc.start();
     proc.waitForFinished(600000);
     if (exitCode) *exitCode = proc.exitCode();
@@ -1227,7 +1232,7 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
         QProcess proc;
         proc.setProgram(pythonExe());
         proc.setArguments(args);
-        applyGameEnv(proc, game);
+        applyBuilderEnv(proc, game);
         proc.start();
         // El pid habilita Cancelar en la UI; cancelBuild() mata ese arbol.
         if (proc.waitForStarted(30000)) {
@@ -1284,6 +1289,7 @@ QString AppController::detectStellarBlade() {
     proc.setProgram(pythonExe());
     const QString gp = QFileInfo(builderScript()).absolutePath() + QStringLiteral("/gamepaths.py");
     proc.setArguments({gp});
+    applyBuilderEnv(proc);
     proc.start();
     proc.waitForFinished(30000);
     const QString out = QString::fromUtf8(proc.readAllStandardOutput());
@@ -1298,6 +1304,7 @@ QString AppController::builderHistory() {
     proc.setArguments({QStringLiteral("-c"),
         QStringLiteral("import sys,json;sys.path.insert(0,r'%1');import history;print(json.dumps(history.list_records()))")
             .arg(QFileInfo(builderScript()).absolutePath())});
+    applyBuilderEnv(proc);
     proc.start();
     proc.waitForFinished(30000);
     return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
@@ -1309,6 +1316,7 @@ QString AppController::builderTemplate(const QString &id) {
     proc.setArguments({QStringLiteral("-c"),
         QStringLiteral("import sys,json;sys.path.insert(0,r'%1');import history;print(json.dumps(history.as_template('%2') or {}))")
             .arg(QFileInfo(builderScript()).absolutePath(), id)});
+    applyBuilderEnv(proc);
     proc.start();
     proc.waitForFinished(30000);
     return QString::fromUtf8(proc.readAllStandardOutput()).trimmed();
