@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Layouts
 import QtQuick.Dialogs
 import ".."
+import "../components"
 
 Item {
     id: page
@@ -55,7 +56,7 @@ Item {
                     spacing: 10
 
                     Label { text: "Dirección"; color: Theme.text; font.bold: true }
-                    ComboBox {
+                    FieldCombo {
                         id: mode
                         Layout.fillWidth: true
                         model: ["Replacer → CNS", "CNS → replacer"]
@@ -89,12 +90,11 @@ Item {
                         color: Theme.text
                         font.bold: true
                     }
-                    ComboBox {
+                    FieldCombo {
                         id: replacement
                         visible: page.toReplacer
                         Layout.fillWidth: true
                         model: App.cnsReplacementNames()
-                        editable: true
                     }
 
                     Label {

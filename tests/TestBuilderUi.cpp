@@ -14,6 +14,7 @@ class TestBuilderUi : public QObject {
 private slots:
     void itemLabelsAreLocalized();
     void gameRootAcceptsSubfoldersAndParent();
+    void cnsConverterUsesThemedCombos();
 };
 
 void TestBuilderUi::itemLabelsAreLocalized() {
@@ -90,6 +91,16 @@ void TestBuilderUi::gameRootAcceptsSubfoldersAndParent() {
     QCOMPARE(st::GamePaths::normalizeRoot(tmp.path()), root);          // carpeta padre
     QVERIFY(st::GamePaths::normalizeRoot(tmp.path() + QStringLiteral("/nope")).isEmpty());
     QVERIFY(st::GamePaths::normalizeRoot(QString()).isEmpty());
+}
+
+void TestBuilderUi::cnsConverterUsesThemedCombos() {
+    const QString sourceDir = QString::fromUtf8(ST_SOURCE_DIR);
+    QFile qml(sourceDir + QStringLiteral("/qml/pages/CnsConverterPage.qml"));
+    QVERIFY(qml.open(QIODevice::ReadOnly));
+    const QByteArray source = qml.readAll();
+    QVERIFY(source.contains("import \"../components\""));
+    QCOMPARE(source.count("FieldCombo {"), 2);
+    QVERIFY(!source.contains("ComboBox {"));
 }
 
 #include "TestBuilderUi.moc"
