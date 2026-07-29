@@ -307,6 +307,67 @@ def install_helper(game: str, helper_src: Path, approved: bool = False) -> dict:
             "modsTxt": str(mods_txt), "enabled": True}
 
 
+# ---- reconciliacion: sacar lo que la tool instalo y esta build ya no trae ----
+
+def prune_paks(game: str, keep, approved: bool = False) -> dict:
+    """Saca de ~mods los paks del manifest que esta build ya no produce.
+
+    install_paks solo suma, asi que una build que cambia el nombre de su pak
+    (Combat_P -> CombatNoOutfit_P) dejaba los dos cargados y el juego se
+    quedaba con el que montara ultimo. Solo toca lo que figura en el manifest.
+    """
+    if not approved:
+        raise PermissionError("prune_paks requiere aprobacion explicita del usuario")
+    keep = set(keep)
+    dest = gamepaths.paks_dir(game)
+    m = load_manifest()
+    removed = []
+    for base in m.get("paks", []):
+        if base in keep:
+            continue
+        for ext in PAK_SUFFIXES:
+            f = dest / f"{base}{ext}"
+            if f.is_file():
+                f.unlink()
+                removed.append(f.name)
+    m["game"] = game
+    m["paks"] = sorted(keep)
+    _save_manifest(m)
+    return {"removed": removed, "kept": sorted(keep)}
+
+
+def prune_helpers(game: str, keep, approved: bool = False) -> dict:
+    """Borra y pone en 0 los helpers del manifest que esta build ya no incluye.
+
+    El helper CNS y las ALPHA vanilla son mods de UE4SS distintos y no deben
+    correr a la vez; ademas, destildar el outfit tiene que apagar el restore que
+    dejo la build anterior, no dejarlo en `: 1`.
+    """
+    if not approved:
+        raise PermissionError("prune_helpers requiere aprobacion explicita del usuario")
+    keep = set(keep)
+    mods = gamepaths.ue4ss_mods_dir(game)
+    mods_txt = mods / "mods.txt"
+    m = load_manifest()
+    names = m.get("helpers") or ([HELPER_NAME] if m.get("helper") else [])
+    removed, disabled = [], []
+    for name in names:
+        if name in keep:
+            continue
+        dest = mods / name
+        if dest.is_dir():
+            shutil.rmtree(dest)
+            removed.append(name)
+        if mods_txt.is_file():
+            mods_txt.write_text(set_mod_enabled(mods_txt, name, 0), encoding="utf-8")
+            disabled.append(name)
+    m["game"] = game
+    m["helpers"] = sorted(keep)
+    m["helper"] = bool(keep)
+    _save_manifest(m)
+    return {"removed": removed, "disabled": disabled, "kept": sorted(keep)}
+
+
 # ---- desinstalacion (solo lo instalado por la tool) ----
 
 def uninstall_paks(game: str, approved: bool = False) -> dict:

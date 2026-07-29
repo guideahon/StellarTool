@@ -31,9 +31,9 @@ python compiler\build_custom.py --out <carpeta> --answers @answers.json
 ```json
 {
   "combatProfile": "full",        // none | full | firstRun
-  "outfitSkinSuit": true,         // bool -> requiere helper
+  "outfitMode": "helper",         // off | helper | noHelperAlpha
   "miniBoss": "on",               // off | on
-  "helperMode": "randomPeriodic", // last | randomAny | randomPeriodic
+  "helperMode": "randomPeriodic", // last | randomAny | randomPeriodic (CNS) | lastNoCns
   "helperIntervalSeconds": 30,
   "vanillaHelperBuild": "off",    // off | alpha1..alpha6 (helper sin CNS, ALPHA)
   "lang": "es"                    // es en fr it de ja ko pt_BR ru zh_Hans

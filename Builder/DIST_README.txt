@@ -52,10 +52,10 @@ Directo con respuestas:
 respuestas.json:
     {
       "combatProfile": "full",        (none | full | firstRun)
-      "outfitSkinSuit": true,
+      "outfitMode": "helper",         (off | helper | noHelperAlpha)
       "miniBoss": "allRegions",       (off | allRegions | greatDesert)
       "miniBossDensity": "p20",       (p10 | p20 | p33)
-      "helperMode": "randomPeriodic",  (last | randomAny | randomPeriodic)
+      "helperMode": "randomPeriodic",  (last | randomAny | randomPeriodic | lastNoCns)
       "helperIntervalSeconds": 30,
       "lang": "es"
     }

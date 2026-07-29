@@ -128,11 +128,16 @@ Los transforms nativos `combat.enemyDamage` y `combat.enemyVulnerability`
 excluyen `ActorType_BossMonster`; `CharacterTable` granular parte de la baseline
 vanilla escribible local, nunca de `CharacterTable_sub` (fuente exclusiva del
 pipeline de mini-bosses).
-El alpha table-side de restore durante QTE es opt-in y no requiere helper:
-modifica únicamente
-`nanosuit_break.bPauseWhenPlayerAttachLevelSequence` de `true` a `false`. Se
-aplica por transform directo y también mediante `effect_extras` en los
-pipelines combinados de First Run/mini-boss.
+El swap de outfit se pide con `outfitMode` (`off` | `helper` | `noHelperAlpha`);
+`build_custom.normalize` deriva de ahí `outfitSkinSuit` y `outfitHelperless`, que
+son los que lee el resto del pipeline (respuestas viejas con solo el bool siguen
+funcionando). `noHelperAlpha` es el restore table-side: no instala helper y
+modifica únicamente `nanosuit_break.bPauseWhenPlayerAttachLevelSequence` de
+`true` a `false`. Se aplica por transform directo y también mediante
+`effect_extras` en los pipelines combinados de First Run/mini-boss.
+Qué helper se instala lo decide `helperMode`: los tres modos CNS compilan
+`StellarSoulsOutfitRestore`; `lastNoCns` no lo compila y fuerza
+`vanillaHelperBuild` (ALPHA del helper vanilla, `alpha6` por defecto).
 
 `CnsConverterPage` llama a `CnsConverterService` en un worker. La entrada se
 extrae a una carpeta temporal, los `.uasset` se convierten mediante

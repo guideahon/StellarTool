@@ -1,0 +1,41 @@
+Version 0.6.0
+
+Skin Suit on shield break: no helper needed
+
+- The option is now a three-way choice: Don't include / needs helper /
+  No Helper ALPHA. The No Helper mode installs nothing at all - no CNS, no
+  UE4SS, no Lua - and restores your outfit straight from the pak. Confirmed
+  in-game. Meant for replacer setups and for anyone CNS does not work on.
+- It replaces the old "ALPHA: restore outfit during QTEs/cutscenes" checkbox,
+  which did the same thing but could be combined with a helper doing the same
+  job. The three paths are now mutually exclusive.
+- Outfit behavior gained "Restore last outfit (NO CNS)": it skips the CNS
+  helper and installs the vanilla helper with the ALPHA you pick further down.
+  The three CNS modes are labelled (CNS) so it is clear which is which.
+- "Keep vanilla camp rest FX" is gone as an option: it is always on now. There
+  was no reason to leave the camp visual overwritten.
+
+Fixed: the Skin Suit came off at the wrong moment
+
+"Keep vanilla shield regen block (4s)" delayed the whole shield-break chain by
+four seconds: the Skin Suit appeared when your shield started regenerating,
+together with the shield recovery burst, instead of at the break. Chained
+effects fire when an effect ENDS, so restoring the 4s lifetime moved everything
+to the end of it. The break now runs off ActiveTargetEffectAliasArray, which
+fires on activation, and the chain is vanilla again. Instant swap, 4s block
+intact.
+
+Fixed: installing left the previous build behind
+
+Installing now leaves the game as THIS build asks for, instead of piling up on
+the last one. Paks and helpers the tool installed that this build no longer
+includes are removed and disabled (name : 0 in mods.txt). Unticking the outfit
+turns off StellarSoulsOutfitRestore, and switching ALPHA no longer leaves two
+helpers fighting over the same repaint. Which helpers survive is decided by
+what the build compiled, not by the install checkbox, so installing only the
+paks keeps the helper the build does want and still clears the one it does not.
+Third-party mods and the rest of mods.txt are never touched.
+
+Everything from 0.5.0 is included: the CNS Converter (replacer <-> CNS, both
+ways, Vortex-ready ZIPs, conversion history) and the CNS ID Fixer (duplicate
+Container_Id detection and repair, with backups).

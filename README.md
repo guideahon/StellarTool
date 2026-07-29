@@ -117,20 +117,34 @@ atributos de mini-bosses después de cerrar y abrir la aplicación.
 **Sin daño por caída** neutraliza las cinco variantes vanilla de caída
 (`ImmediateDeath`, warp y daño porcentual), incluida la variante que conserva
 la secuencia cinemática.
-El swap Skin-Suit-al-romper-escudo engancha dos filas vanilla de `EffectTable` y
-de paso pisa lo que esas filas ya hacían. Dos checks lo devuelven sin soltar el
-enganche: **Conservar el FX vanilla de descanso en campamento**
-(`P_Eve_InteractCamp_RestFX.ActiveShowPath`) y **Conservar el bloqueo vanilla de
-regen de escudo (4 s)** (`BlockShieldRegenWhenShieldZero_PC`: `LifeTime`,
-`ActorState_BlockShieldRegen` y `ShieldRecover_PC`). Los dos vienen activados y
-se verificaron en juego: el swap y el restore del outfit siguen funcionando
-igual. Aplican tanto
+**Skin Suit al romper escudo** (`outfitMode`) tiene tres estados: *No incluir*,
+*necesita helper* y *ALPHA sin helper*. Con helper, el comportamiento se elige
+en **Comportamiento del outfit**: los tres modos **(CNS)** compilan
+`StellarSoulsOutfitRestore`, y **Restaurar último outfit (SIN CNS)** instala en
+su lugar el helper vanilla con la ALPHA elegida más abajo (`alpha6` si no elegís
+ninguna). El modo *ALPHA sin helper* no instala nada: es solo table-side
+(`nanosuit_break.bPauseWhenPlayerAttachLevelSequence = false`, el loop de restore
+sigue vivo durante `LevelSequence`/QTE). Los tres caminos son excluyentes, así
+que no se pueden instalar dos helpers peleando por el mismo repaint.
+
+El swap engancha dos filas vanilla de `EffectTable` y de paso pisa lo que esas
+filas ya hacían. El **FX vanilla de descanso en campamento**
+(`P_Eve_InteractCamp_RestFX.ActiveShowPath`) se devuelve siempre — dejarlo pisado
+no le sirve a nadie. **Conservar el bloqueo vanilla de regen de escudo (4 s)**
+(`BlockShieldRegenWhenShieldZero_PC`: `LifeTime`, `ActorState_BlockShieldRegen` y
+`ShieldRecover_PC`) sí es opcional, y viene activado.
+Devolver los 4 s obliga a mover el enganche del break: `ChainEffectAliasArray`
+dispara al **terminar** el efecto, así que con `LifeTime 4` toda la cadena
+(`nanosuit_break` incluido) salía recién al arrancar la regen, junto con el +20%
+de `ShieldRecover_PC`. Por eso el break pasa a `ActiveTargetEffectAliasArray`,
+que dispara al **activarse** — la misma vía que ya usa `P_Eve_InteractCamp_RestFX`
+para `breakDispel` — y el chain vuelve a ser el vanilla: skinsuit instantáneo y
+bloqueo intacto. Aplican tanto
 al pak de outfit compilado como al combinado con mini-bosses y a First Run; el
 fallback a paks precompilados los ignora y avisa (`outfitFixesIgnored`).
-La opción opt-in **ALPHA: restaurar outfit durante QTE/cinemáticas (sin
-helper)** mantiene activo el loop de `nanosuit_break` durante `LevelSequence`
-para probar el restore cuando el escudo se llena dentro de una QTE. Viene
-apagada y todavía requiere validación in-game con outfits especiales de historia.
+El modo *ALPHA sin helper* está **confirmado in-game** (2026-07-29): restaura el
+outfit al romper el escudo sin instalar ningún mod de UE4SS. Falta probarlo con
+outfits especiales de historia.
 La carpeta de salida no puede estar dentro de `~mods`: el juego la carga de
 forma **recursiva**, así que las carpetas intermedias del build (`stage\Paks`,
 `compile_mb`) quedarían cargadas como mods fantasma que pisan al mod instalado
@@ -138,6 +152,15 @@ sin aparecer en ningún lado. La app deshabilita Compilar y Re-exportar si la
 ruta elegida cae ahí, y `build_custom` la rechaza igual desde la CLI. Además, el
 estado de instalación lista los **paks fantasma** que encuentra en `~mods`:
 copias en subcarpetas del pak instalado y paks propios que la tool no instaló.
+Instalar deja el juego como pide **esta** build, no acumulado con la anterior:
+los paks y helpers que la tool instaló y esta build ya no incluye se borran y se
+apagan (`nombre : 0` en `mods.txt`). Así, destildar *Skin Suit on shield break*
+apaga `StellarSoulsOutfitRestore`, y cambiar de ALPHA no deja dos helpers
+corriendo a la vez. Los mods de terceros y el resto de `mods.txt` no se tocan.
+Qué helpers se conservan sale de lo que la build **compiló**, no del check de
+instalar helper: instalando solo los paks, el helper que la build sí quiere
+sobrevive intacto y el que sobra se apaga igual — si no, una build sin helper
+dejaba el anterior corriendo solo.
 El helper CNS aleatorio espera el flanco confirmado de escudo completo
 (detach de BS_102/salida de SkinSuit). Antes de elegir o escribir un outfit
 vuelve a leer la malla actual y cancela si EVE todavía usa SkinSuit, Tachy o

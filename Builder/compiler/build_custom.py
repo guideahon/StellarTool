@@ -43,15 +43,39 @@ def load_json(path: Path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
+OUTFIT_MODES = ("off", "helper", "noHelperAlpha")
+# Modos del comportamiento del outfit que configuran el helper CNS. El cuarto,
+# "lastNoCns", no lo usa: pide el helper vanilla (ALPHA) en su lugar.
+CNS_HELPER_MODES = ("last", "randomAny", "randomPeriodic")
+DEFAULT_ALPHA = "alpha6"   # el chain: prueba las tres estrategias y se queda con la que repinta
+
+
 def normalize(answers: dict) -> dict:
     """Rellena defaults y normaliza miniBoss a on/off para la clave de preset."""
     a = dict(answers)
     a.setdefault("combatProfile", "full")
-    a.setdefault("outfitSkinSuit", True)
-    a.setdefault("outfitQteRestoreAlpha", False)
+    # El swap tiene tres estados; `outfitSkinSuit`/`outfitHelperless` se derivan
+    # de ahi y son lo que lee el resto del pipeline. Respuestas viejas traen
+    # solo el bool, asi que se acepta como entrada.
+    mode = a.get("outfitMode")
+    if mode not in OUTFIT_MODES:
+        mode = "helper" if a.get("outfitSkinSuit", True) else "off"
+    a["outfitMode"] = mode
+    a["outfitSkinSuit"] = mode != "off"
+    a["outfitHelperless"] = mode == "noHelperAlpha"
+    # El FX de campamento no es opcional: el swap lo pisa y dejarlo pisado no le
+    # sirve a nadie.
+    a["outfitVanillaRestFX"] = True
+    # El modo sin helper ES el restore table-side; ya no es un check aparte.
+    a["outfitQteRestoreAlpha"] = a["outfitHelperless"]
+    a.setdefault("helperMode", "last")
     a.setdefault("miniBoss", "off")
     # Build ALPHA del helper vanilla (sin CNS). "off" = no incluirlo.
     a.setdefault("vanillaHelperBuild", "off")
+    # "Restaurar ultimo outfit (SIN CNS)" se sirve con el helper vanilla: si no
+    # hay ALPHA elegida, va la del chain.
+    if uses_vanilla_helper_mode(a) and not vanilla_helper.is_enabled(a["vanillaHelperBuild"]):
+        a["vanillaHelperBuild"] = DEFAULT_ALPHA
     # Valor graduable visible en pasos de 10%. Proyectos viejos conservan 60%.
     tumbler = int(round(float(a.get("tumblerHealPercent", 60)) / 10.0) * 10)
     a["tumblerHealPercent"] = max(10, min(100, tumbler))
@@ -59,6 +83,16 @@ def normalize(answers: dict) -> dict:
     if a["lang"] not in SUPPORTED_LANGS:
         a["lang"] = "es"
     return a
+
+
+def uses_vanilla_helper_mode(a: dict) -> bool:
+    """True si el comportamiento del outfit pedido es el restore SIN CNS."""
+    return a.get("outfitMode") == "helper" and a.get("helperMode") == "lastNoCns"
+
+
+def needs_cns_helper(a: dict) -> bool:
+    """True si hay que compilar e instalar StellarSoulsOutfitRestore (CNS)."""
+    return a.get("outfitMode") == "helper" and a.get("helperMode") in CNS_HELPER_MODES
 
 
 def preset_key(a: dict) -> str:
@@ -117,7 +151,7 @@ def resolve(a: dict) -> dict:
         "paks": preset["paks"],
         "releaseRoot": (BUILDER_DIR / preset_map["releaseRoot"]).resolve(),
         "helperBase": helper_base,
-        "needsHelper": bool(a["outfitSkinSuit"]),
+        "needsHelper": needs_cns_helper(a),
         "warnings": warnings,
     }
 
@@ -194,6 +228,8 @@ def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = Non
             raise RuntimeError("Juego no encontrado; instalar manualmente desde el ZIP")
         backup_before_install(game, ue4ss, ue4ss, {"paks": False, "helper": True})
         installer.install_helper(game, ue4ss, approved=True)
+        # Una ALPHA a la vez: apaga el helper CNS y cualquier ALPHA anterior.
+        installer.prune_helpers(game, installer.helper_targets(ue4ss), approved=True)
 
     try:
         import history
@@ -390,10 +426,21 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
                                                  or vanilla_helper.is_enabled(alpha))
         backup_before_install(game, paks_dir, helper_src,
                               {"paks": install.get("paks"), "helper": want_helper})
+        pak_keep, _ = install_targets(
+            paks_dir, helper_src, {"paks": install.get("paks"), "helper": want_helper})
+        # Que helpers PIDE esta build, mire o no el check de instalar helper: si
+        # no se calcula asi, instalar solo los paks borraria el helper que la
+        # build si quiere.
+        helper_keep = installer.helper_targets(helper_src) if helper_src.is_dir() else []
         if install.get("paks"):
             installer.install_paks(game, paks_dir, approved=True)
+            installer.prune_paks(game, pak_keep, approved=True)
         if want_helper:
             installer.install_helper(game, helper_src, approved=True)
+        # Instalar es "dejar el juego como pide esta build": el helper que sobra
+        # (outfit destildado, modo sin helper, otra ALPHA) se apaga aunque el
+        # check de helper este destildado, porque si no queda corriendo solo.
+        installer.prune_helpers(game, helper_keep, approved=True)
 
     # Historial (para 'usar de plantilla' / re-exportar).
     try:

@@ -187,30 +187,47 @@ def gun_gorgon_free_rotation(et_doc) -> bool:
 # tocar el enganche del outfit.
 
 _CAMP_REST_FX = "Common/InteractCamp_LevelReset_FX"
+_SHIELD_RECOVER = "ShieldRecover_PC"
 
 
-def _append_alias(row, prop_name, alias) -> bool:
-    """Agrega un alias al final de un array de NameProperty (sin duplicar)."""
+_ALIAS_ENTRY = {"$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
+                "ArrayIndex": 0, "PropertyGuid": None, "PropertyTagFlags": "None",
+                "PropertyTypeName": None, "PropertyTagExtensions": "NoExtension"}
+
+
+def _alias_entry(template, index, alias) -> dict:
+    entry = dict(template or _ALIAS_ENTRY)
+    entry["Name"] = str(index)   # UAssetAPI numera los elementos del array
+    entry["IsZero"] = False
+    entry["Value"] = alias
+    return entry
+
+
+def _aliases(row, prop_name) -> list:
+    p = _prop(row, prop_name)
+    return [e["Value"] for e in (p.get("Value") or [])] if p else []
+
+
+def _set_aliases(row, prop_name, aliases, template=None) -> bool:
+    """Deja un array de NameProperty con exactamente `aliases`, en ese orden."""
     p = _prop(row, prop_name)
     if p is None:
         return False
     arr = p.get("Value") or []
-    if any(isinstance(e, dict) and e.get("Value") == alias for e in arr):
-        return False
-    if arr:
-        entry = dict(arr[0])
-    else:
-        entry = {"$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
-                 "ArrayIndex": 0, "PropertyGuid": None, "PropertyTagFlags": "None",
-                 "PropertyTypeName": None, "PropertyTagExtensions": "NoExtension"}
+    if not arr:
         p["ArrayType"] = "NameProperty"
-    entry["Name"] = str(len(arr))
-    entry["IsZero"] = False
-    entry["Value"] = alias
-    arr.append(entry)
-    p["Value"] = arr
-    p["IsZero"] = False
+    tpl = template or (arr[0] if arr else None)
+    p["Value"] = [_alias_entry(tpl, i, a) for i, a in enumerate(aliases)]
+    p["IsZero"] = not aliases
     return True
+
+
+def _append_alias(row, prop_name, alias) -> bool:
+    """Agrega un alias al final de un array de NameProperty (sin duplicar)."""
+    current = _aliases(row, prop_name)
+    if _prop(row, prop_name) is None or alias in current:
+        return False
+    return _set_aliases(row, prop_name, current + [alias])
 
 
 def restore_camp_rest_fx(et_doc) -> bool:
@@ -230,8 +247,16 @@ def restore_shield_regen_block(et_doc) -> int:
 
     BlockShieldRegenWhenShieldZero_PC es la fila que el outfit usa como trigger
     del break: le reemplaza el chain (pierde ShieldRecover_PC), le pone LifeTime
-    0 y le saca ActorState_BlockShieldRegen (4 s sin regen en vanilla). Se
-    restauran los tres conservando el chain del break.
+    0 y le saca ActorState_BlockShieldRegen (4 s sin regen en vanilla).
+
+    ChainEffectAliasArray dispara al TERMINAR el efecto, no al activarse: por eso
+    el outfit necesita LifeTime 0. Devolverle los 4 s sin mover el enganche
+    corria todo el break (incluido nanosuit_break) hasta el final del bloqueo, o
+    sea al arrancar la regen y junto con el +20% de ShieldRecover_PC.
+    Los alias del break se pasan a ActiveTargetEffectAliasArray, que dispara al
+    activarse -- la misma via que ya usa P_Eve_InteractCamp_RestFX para
+    breakDispel -- y el chain vuelve a ser el vanilla. Asi el swap sigue siendo
+    instantaneo y el bloqueo queda intacto.
     """
     row = _idx(et_doc).get("BlockShieldRegenWhenShieldZero_PC")
     if not row:
@@ -241,7 +266,16 @@ def restore_shield_regen_block(et_doc) -> int:
                          ("ActorState1", "ActorState_BlockShieldRegen")):
         if _set(row, field, value):
             n += 1
-    if _append_alias(row, "ChainEffectAliasArray", "ShieldRecover_PC"):
+    tpl = (_prop(row, "ChainEffectAliasArray") or {}).get("Value") or []
+    break_aliases = [a for a in _aliases(row, "ChainEffectAliasArray")
+                     if a != _SHIELD_RECOVER]
+    if break_aliases:
+        on_break = _aliases(row, "ActiveTargetEffectAliasArray")
+        on_break += [a for a in break_aliases if a not in on_break]
+        if _set_aliases(row, "ActiveTargetEffectAliasArray", on_break, tpl[0] if tpl else None):
+            n += 1
+    if _aliases(row, "ChainEffectAliasArray") != [_SHIELD_RECOVER] and \
+            _set_aliases(row, "ChainEffectAliasArray", [_SHIELD_RECOVER]):
         n += 1
     return n
 

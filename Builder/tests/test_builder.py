@@ -96,6 +96,51 @@ def test_resolve_combat_only_no_helper():
     assert plan["paks"] == ["StellarSouls-CombatOnly_P"]
 
 
+def test_outfit_mode_decides_which_helper_gets_built():
+    """Los tres estados del swap y los dos caminos de restore, sin cruzarse."""
+    off = bc.normalize({"combatProfile": "full", "outfitMode": "off", "miniBoss": "off"})
+    assert off["outfitSkinSuit"] is False and off["outfitHelperless"] is False
+    assert bc.resolve(off)["needsHelper"] is False
+
+    # Con helper: CNS por default, y nada de ALPHA vanilla.
+    cns = bc.normalize({"combatProfile": "full", "outfitMode": "helper", "miniBoss": "off"})
+    assert cns["outfitSkinSuit"] is True and cns["outfitHelperless"] is False
+    assert cns["outfitQteRestoreAlpha"] is False
+    assert bc.resolve(cns)["needsHelper"] is True
+    assert cns["vanillaHelperBuild"] == "off"
+
+    # Restore SIN CNS: no se compila el helper CNS, se instala el vanilla.
+    nocns = bc.normalize({"combatProfile": "full", "outfitMode": "helper", "miniBoss": "off",
+                          "helperMode": "lastNoCns"})
+    assert bc.resolve(nocns)["needsHelper"] is False
+    assert nocns["vanillaHelperBuild"] == bc.DEFAULT_ALPHA
+    # ...y respeta la ALPHA que el usuario haya elegido abajo.
+    picked = bc.normalize({"combatProfile": "full", "outfitMode": "helper", "miniBoss": "off",
+                           "helperMode": "lastNoCns", "vanillaHelperBuild": "alpha2"})
+    assert picked["vanillaHelperBuild"] == "alpha2"
+
+    # Sin helper: el swap sale igual, pero table-side y sin instalar nada.
+    alpha = bc.normalize({"combatProfile": "full", "outfitMode": "noHelperAlpha",
+                          "miniBoss": "off", "helperMode": "randomPeriodic"})
+    assert alpha["outfitSkinSuit"] is True and alpha["outfitHelperless"] is True
+    assert alpha["outfitQteRestoreAlpha"] is True
+    assert bc.resolve(alpha)["needsHelper"] is False
+    assert alpha["vanillaHelperBuild"] == "off"
+
+
+def test_outfit_mode_falls_back_to_the_old_answers():
+    """Presets e historial viejos traen el bool y el check suelto de QTE."""
+    old_on = bc.normalize({"combatProfile": "full", "outfitSkinSuit": True, "miniBoss": "off"})
+    assert old_on["outfitMode"] == "helper"
+    old_off = bc.normalize({"combatProfile": "full", "outfitSkinSuit": False, "miniBoss": "off"})
+    assert old_off["outfitMode"] == "off"
+    # El check viejo de QTE no elige el modo: sin outfitMode manda el bool.
+    old_qte = bc.normalize({"combatProfile": "full", "outfitSkinSuit": True, "miniBoss": "off",
+                            "outfitQteRestoreAlpha": True})
+    assert old_qte["outfitMode"] == "helper"
+    assert old_qte["outfitQteRestoreAlpha"] is False
+
+
 def test_resolve_warns_ignored_subfeatures():
     a = bc.normalize({"combatProfile": "full", "outfitSkinSuit": True, "miniBoss": "on",
                       "gaugeTweaks": ["betaGaugeReduce"]})
@@ -954,7 +999,8 @@ def _effect_row(name, props):
     def p(pname, value, ptype="FloatPropertyData"):
         return {"$type": f"UAssetAPI.PropertyTypes.Objects.{ptype}, UAssetAPI",
                 "Name": pname, "ArrayIndex": 0, "PropertyGuid": None,
-                "IsZero": value in (0, 0.0, "+0", None), "PropertyTagFlags": "None",
+                "IsZero": value == [] or value in (0, 0.0, "+0", None),
+                "PropertyTagFlags": "None",
                 "PropertyTypeName": None, "PropertyTagExtensions": "NoExtension",
                 "Value": value}
     return {"Name": name, "Value": [p(*args) for args in props]}
@@ -976,6 +1022,8 @@ def _outfit_effect_doc():
     ])
     block = _effect_row("BlockShieldRegenWhenShieldZero_PC", [
         ("LifeTime", "+0"),
+        # la fila trae el array de "al activarse" vacio; ahi va a parar el break
+        ("ActiveTargetEffectAliasArray", [], "ArrayPropertyData"),
         ("ChainEffectAliasArray", [_alias(0, "breakFX"), _alias(1, "shield_break")],
          "ArrayPropertyData"),
         ("ActorState1", "ActorState_None", "EnumPropertyData"),
@@ -1001,21 +1049,47 @@ def test_outfit_fix_restores_camp_rest_fx_keeping_the_swap():
     assert aliases == ["breakDispel"]
 
 
-def test_outfit_fix_restores_shield_regen_block_keeping_break_chain():
+def test_outfit_fix_restores_shield_regen_block_without_delaying_the_break():
+    """Los 4 s vuelven, pero el break sigue disparando al instante.
+
+    El chain corre al TERMINAR el efecto: dejar ahi los alias del break con
+    LifeTime 4 corria el skinsuit hasta el arranque de la regen.
+    """
     import effect_extras
     doc = _outfit_effect_doc()
-    assert effect_extras.restore_shield_regen_block(doc) == 3
+    assert effect_extras.restore_shield_regen_block(doc) == 4
     row = effect_extras._idx(doc)["BlockShieldRegenWhenShieldZero_PC"]
     assert effect_extras._prop(row, "LifeTime")["Value"] == 4.0
     assert effect_extras._prop(row, "ActorState1")["Value"] == "ActorState_BlockShieldRegen"
-    aliases = [e["Value"] for e in effect_extras._prop(row, "ChainEffectAliasArray")["Value"]]
-    assert aliases == ["breakFX", "shield_break", "ShieldRecover_PC"]
-    # indices consecutivos (UAssetAPI) y sin duplicar al reaplicar
+    # el break pasa a dispararse al activarse la fila (instantaneo)
+    on_break = [e["Value"] for e in effect_extras._prop(
+        row, "ActiveTargetEffectAliasArray")["Value"]]
+    assert on_break == ["breakFX", "shield_break"]
+    # y el chain vuelve a ser exactamente el vanilla
+    chain = effect_extras._prop(row, "ChainEffectAliasArray")
+    assert [e["Value"] for e in chain["Value"]] == ["ShieldRecover_PC"]
+    assert chain["IsZero"] is False
+    # indices consecutivos (UAssetAPI)
     assert [e["Name"] for e in effect_extras._prop(
-        row, "ChainEffectAliasArray")["Value"]] == ["0", "1", "2"]
-    effect_extras.restore_shield_regen_block(doc)
+        row, "ActiveTargetEffectAliasArray")["Value"]] == ["0", "1"]
+    # reaplicar no duplica ni vuelve a mover nada
+    assert effect_extras.restore_shield_regen_block(doc) == 2
     assert [e["Value"] for e in effect_extras._prop(
-        row, "ChainEffectAliasArray")["Value"]] == aliases
+        row, "ActiveTargetEffectAliasArray")["Value"]] == on_break
+    assert [e["Value"] for e in effect_extras._prop(
+        row, "ChainEffectAliasArray")["Value"]] == ["ShieldRecover_PC"]
+
+
+def test_outfit_fix_shield_regen_block_is_a_noop_on_the_vanilla_row():
+    """Sin swap enganchado no hay nada que mover: solo LifeTime/ActorState."""
+    import effect_extras
+    doc = _outfit_effect_doc()
+    row = effect_extras._idx(doc)["BlockShieldRegenWhenShieldZero_PC"]
+    effect_extras._set_aliases(row, "ChainEffectAliasArray", ["ShieldRecover_PC"])
+    assert effect_extras.restore_shield_regen_block(doc) == 2
+    assert [e["Value"] for e in effect_extras._prop(
+        row, "ActiveTargetEffectAliasArray")["Value"]] == []
+    assert effect_extras._prop(row, "ActiveTargetEffectAliasArray")["IsZero"] is True
 
 
 def test_outfit_qte_restore_alpha_only_unpauses_nanosuit_watcher():
@@ -1030,25 +1104,28 @@ def test_outfit_qte_restore_alpha_only_unpauses_nanosuit_watcher():
 
 
 def test_outfit_fix_transforms_defaults():
-    """Ambos arreglos ON por default; cada uno se puede apagar por separado."""
+    """El FX de campamento es fijo; el bloqueo de regen se puede apagar."""
     import build_specs
     import table_compiler
-    a = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off"})
+    a = bc.normalize({"combatProfile": "none", "outfitMode": "helper", "miniBoss": "off"})
     targets = build_specs.combo_to_targets(a)
     transforms = targets[0]["transforms"]
     assert "outfit.vanillaRestFX" in transforms
     assert "outfit.vanillaShieldRegenBlock" in transforms
     assert "outfit.qteRestoreAlpha" not in transforms
-    no_shield = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off",
+    no_shield = bc.normalize({"combatProfile": "none", "outfitMode": "helper", "miniBoss": "off",
                               "outfitVanillaShieldRegen": False})
     shield_off = build_specs.combo_to_targets(no_shield)[0]["transforms"]
     assert "outfit.vanillaShieldRegenBlock" not in shield_off
     assert "outfit.vanillaRestFX" in shield_off
-    no_fx = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True, "miniBoss": "off",
-                          "outfitVanillaRestFX": False})
-    assert "outfit.vanillaRestFX" not in build_specs.combo_to_targets(no_fx)[0]["transforms"]
-    qte_alpha = bc.normalize({"combatProfile": "none", "outfitSkinSuit": True,
-                              "miniBoss": "off", "outfitQteRestoreAlpha": True})
+    # Pedir que se pise el FX de campamento ya no es una opcion.
+    forced_fx = bc.normalize({"combatProfile": "none", "outfitMode": "helper", "miniBoss": "off",
+                              "outfitVanillaRestFX": False})
+    assert forced_fx["outfitVanillaRestFX"] is True
+    assert "outfit.vanillaRestFX" in build_specs.combo_to_targets(forced_fx)[0]["transforms"]
+    # El restore table-side lo trae el modo sin helper, no un check aparte.
+    qte_alpha = bc.normalize({"combatProfile": "none", "outfitMode": "noHelperAlpha",
+                              "miniBoss": "off"})
     assert "outfit.qteRestoreAlpha" in build_specs.combo_to_targets(qte_alpha)[0]["transforms"]
     for tid in transforms:
         assert tid in table_compiler.REGISTRY, tid
@@ -1212,6 +1289,149 @@ def test_rollback_removes_install_that_did_not_exist_before(tmp_path=None):
         assert not (mods / "StellarSouls-Custom.pak").exists()
         assert not (ue4ss / installer.HELPER_NAME).exists()
         assert not (ue4ss / "mods.txt").exists()
+    finally:
+        if old_appdata is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = old_appdata
+
+
+def test_install_prunes_what_the_build_no_longer_includes(tmp_path=None):
+    """Instalar deja el juego como pide esta build, no acumulado con la anterior."""
+    import os
+    import tempfile
+    import installer
+
+    base = Path(tmp_path or tempfile.mkdtemp())
+    game, mods = _fake_game(base / "game")
+    ue4ss = Path(game) / "SB" / "Binaries" / "Win64" / "ue4ss" / "Mods"
+    (ue4ss / installer.HELPER_NAME / "Scripts").mkdir(parents=True)
+    (ue4ss / "StellarSoulsVanillaRestore" / "Scripts").mkdir(parents=True)
+    (ue4ss / "mods.txt").write_text(
+        "JiggleControl : 1\n"
+        "StellarSoulsOutfitRestore : 1\n"
+        "StellarSoulsVanillaRestore : 1\n"
+        "\n; Built-in keybinds, do not move up!\nKeybinds : 1\n", encoding="utf-8")
+    for baseName in ("StellarSouls-MiniBossNGPlus-Combat_P",
+                     "StellarSouls-MiniBossNGPlus-CombatNoOutfit_P"):
+        for ext in installer.PAK_SUFFIXES:
+            (mods / f"{baseName}{ext}").write_text("x", encoding="utf-8")
+
+    old_appdata = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = str(base / "appdata")
+    try:
+        installer._save_manifest({
+            "game": game,
+            "paks": ["StellarSouls-MiniBossNGPlus-Combat_P",
+                     "StellarSouls-MiniBossNGPlus-CombatNoOutfit_P"],
+            "helper": True,
+            "helpers": [installer.HELPER_NAME, "StellarSoulsVanillaRestore"]})
+
+        # Esta build solo produce el pak sin outfit y no necesita helper.
+        installer.prune_paks(game, ["StellarSouls-MiniBossNGPlus-CombatNoOutfit_P"],
+                             approved=True)
+        installer.prune_helpers(game, [], approved=True)
+
+        for ext in installer.PAK_SUFFIXES:
+            assert not (mods / f"StellarSouls-MiniBossNGPlus-Combat_P{ext}").exists()
+            assert (mods / f"StellarSouls-MiniBossNGPlus-CombatNoOutfit_P{ext}").is_file()
+
+        txt = (ue4ss / "mods.txt").read_text(encoding="utf-8")
+        assert "StellarSoulsOutfitRestore : 0" in txt
+        assert "StellarSoulsVanillaRestore : 0" in txt
+        assert "JiggleControl : 1" in txt          # los de terceros no se tocan
+        assert "Keybinds : 1" in txt
+        assert not (ue4ss / installer.HELPER_NAME).exists()
+        assert not (ue4ss / "StellarSoulsVanillaRestore").exists()
+
+        m = installer.load_manifest()
+        assert m["paks"] == ["StellarSouls-MiniBossNGPlus-CombatNoOutfit_P"]
+        assert m["helpers"] == [] and m["helper"] is False
+    finally:
+        if old_appdata is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = old_appdata
+
+
+def test_helpers_sync_from_the_staging_not_from_the_install_checkbox(tmp_path=None):
+    """Lo que se conserva sale de lo que la build compilo, no del check.
+
+    Instalando solo los paks, el helper que la build SI quiere tiene que
+    sobrevivir y el que sobra tiene que apagarse igual.
+    """
+    import os
+    import tempfile
+    import installer
+
+    base = Path(tmp_path or tempfile.mkdtemp())
+    game, _ = _fake_game(base / "game")
+    ue4ss = Path(game) / "SB" / "Binaries" / "Win64" / "ue4ss" / "Mods"
+    for name in (installer.HELPER_NAME, "StellarSoulsVanillaRestore"):
+        (ue4ss / name / "Scripts").mkdir(parents=True)
+    (ue4ss / "mods.txt").write_text(
+        "StellarSoulsOutfitRestore : 1\nStellarSoulsVanillaRestore : 1\n", encoding="utf-8")
+
+    # staging de una build que compila el helper CNS y nada mas
+    stage = base / "stage" / "ue4ss" / "Mods"
+    (stage / installer.HELPER_NAME / "Scripts").mkdir(parents=True)
+    (stage / installer.HELPER_NAME / "Scripts" / "main.lua").write_text("-- x", encoding="utf-8")
+
+    old_appdata = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = str(base / "appdata")
+    try:
+        installer._save_manifest({"game": game, "paks": [], "helper": True,
+                                  "helpers": [installer.HELPER_NAME,
+                                              "StellarSoulsVanillaRestore"]})
+        installer.prune_helpers(game, installer.helper_targets(stage), approved=True)
+        txt = (ue4ss / "mods.txt").read_text(encoding="utf-8")
+        assert "StellarSoulsOutfitRestore : 1" in txt      # lo pide la build
+        assert "StellarSoulsVanillaRestore : 0" in txt      # sobra
+        assert (ue4ss / installer.HELPER_NAME).is_dir()
+        assert not (ue4ss / "StellarSoulsVanillaRestore").exists()
+
+        # Build sin helper: staging vacio -> no queda ninguno prendido.
+        empty = base / "stage_none" / "ue4ss" / "Mods"
+        empty.mkdir(parents=True)
+        installer.prune_helpers(game, installer.helper_targets(empty), approved=True)
+        assert "StellarSoulsOutfitRestore : 0" in (ue4ss / "mods.txt").read_text(encoding="utf-8")
+        assert not (ue4ss / installer.HELPER_NAME).exists()
+        assert installer.load_manifest()["helpers"] == []
+    finally:
+        if old_appdata is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = old_appdata
+
+
+def test_prune_keeps_the_helper_this_build_installs(tmp_path=None):
+    """Una ALPHA a la vez: se conserva la instalada y se apaga la otra."""
+    import os
+    import tempfile
+    import installer
+
+    base = Path(tmp_path or tempfile.mkdtemp())
+    game, _ = _fake_game(base / "game")
+    ue4ss = Path(game) / "SB" / "Binaries" / "Win64" / "ue4ss" / "Mods"
+    (ue4ss / installer.HELPER_NAME / "Scripts").mkdir(parents=True)
+    (ue4ss / "StellarSoulsVanillaRestore" / "Scripts").mkdir(parents=True)
+    (ue4ss / "mods.txt").write_text(
+        "StellarSoulsOutfitRestore : 1\nStellarSoulsVanillaRestore : 1\n", encoding="utf-8")
+
+    old_appdata = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = str(base / "appdata")
+    try:
+        installer._save_manifest({"game": game, "paks": [], "helper": True,
+                                  "helpers": [installer.HELPER_NAME,
+                                              "StellarSoulsVanillaRestore"]})
+        installer.prune_helpers(game, ["StellarSoulsVanillaRestore"], approved=True)
+
+        txt = (ue4ss / "mods.txt").read_text(encoding="utf-8")
+        assert "StellarSoulsOutfitRestore : 0" in txt
+        assert "StellarSoulsVanillaRestore : 1" in txt
+        assert not (ue4ss / installer.HELPER_NAME).exists()
+        assert (ue4ss / "StellarSoulsVanillaRestore").is_dir()
+        assert installer.load_manifest()["helpers"] == ["StellarSoulsVanillaRestore"]
     finally:
         if old_appdata is None:
             os.environ.pop("LOCALAPPDATA", None)

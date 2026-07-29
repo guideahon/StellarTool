@@ -4,6 +4,9 @@ build_tests/
 test_diff.txt
 test_merge.txt
 test_update.txt
+test_builder_ui.txt
+test_cns_converter.txt
+test_cns_id_fixer.txt
 out.txt
 
 # Binarios externos: se bajan con setup.bat (ver tools/VERSIONS.md)

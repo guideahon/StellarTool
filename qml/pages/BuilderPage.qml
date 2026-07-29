@@ -108,11 +108,16 @@ Item {
         capacityFull.checked = !capacityFirst.checked
         cooldown2.checked = Number(economyLevels.cooldown || 3) === 2
         cooldown3.checked = !cooldown2.checked
-        outfit.checked = a.outfitSkinSuit !== false
+        // Proyectos viejos traen solo el bool: el check suelto de QTE convivia
+        // con el helper, asi que mapea a "helper" igual que en el builder.
+        var om = a.outfitMode
+        if (om !== "off" && om !== "helper" && om !== "noHelperAlpha")
+            om = a.outfitSkinSuit === false ? "off" : "helper"
+        outfitOff.checked = om === "off"
+        outfitNoHelper.checked = om === "noHelperAlpha"
+        outfitHelper.checked = om === "helper"
         // Proyectos previos a los arreglos: mismo default que el builder.
-        outfitRestFx.checked = a.outfitVanillaRestFX !== false
         outfitShieldRegen.checked = a.outfitVanillaShieldRegen !== false
-        outfitQteRestoreAlpha.checked = a.outfitQteRestoreAlpha === true
         var densities = a.miniBossRegionDensity || {}
         function loadRegionRow(row, code) {
             var value = Number(densities[code] || 0); row.selected = value > 0
@@ -233,7 +238,9 @@ Item {
         tomlField.text = a.customPatchesDir || ""
         helperRandom.checked = a.helperMode === "randomAny"
         helperPeriodic.checked = a.helperMode === "randomPeriodic"
+        helperLastNoCns.checked = a.helperMode === "lastNoCns"
         helperLast.checked = !helperRandom.checked && !helperPeriodic.checked
+                             && !helperLastNoCns.checked
         if (a.helperIntervalSeconds) interval.value = a.helperIntervalSeconds
         var vh = a.vanillaHelperBuild || "off"
         alpha1.checked = vh === "alpha1"; alpha2.checked = vh === "alpha2"
@@ -373,7 +380,13 @@ Item {
             capacityRow.selected = false
         }
     }
-    function helperValue() { return helperPeriodic.checked ? "randomPeriodic" : (helperRandom.checked ? "randomAny" : "last") }
+    function outfitModeValue() { return outfitOff.checked ? "off" : (outfitNoHelper.checked ? "noHelperAlpha" : "helper") }
+    function helperValue() {
+        if (helperPeriodic.checked) return "randomPeriodic"
+        if (helperRandom.checked) return "randomAny"
+        if (helperLastNoCns.checked) return "lastNoCns"
+        return "last"
+    }
     function vanillaHelperValue() {
         if (alpha1.checked) return "alpha1"
         if (alpha2.checked) return "alpha2"
@@ -761,53 +774,68 @@ Item {
                             ButtonGroup { id: cooldownGroup } RadioButton { id: cooldown2; text: "2 s"; ButtonGroup.group: cooldownGroup }
                             RadioButton { id: cooldown3; text: "3 s"; checked: true; ButtonGroup.group: cooldownGroup } }
 
-                        RowLayout {
-                            spacing: 10
-                            CheckBox { id: outfit; checked: true }
-                            Text { text: I18n.s.builder_q_outfit || "Skin Suit al romper escudo (necesita helper)"
-                                   color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true }
-                        }
-
-                        // El swap engancha dos filas vanilla de EffectTable y de
-                        // paso pisa lo que ya hacian. Cada arreglo las devuelve.
+                        // El swap tiene dos caminos y no se pueden pedir juntos:
+                        // con helper de UE4SS, o solo table-side (ALPHA).
                         ColumnLayout {
-                            Layout.fillWidth: true; Layout.leftMargin: 26; spacing: 2
-                            visible: outfit.checked
-                            CheckBox { id: outfitRestFx; checked: true
-                                text: I18n.s.builder_q_rest_fx || "Conservar el FX vanilla de descanso en campamento" }
-                            CheckBox { id: outfitShieldRegen; checked: true
-                                text: I18n.s.builder_q_shield_regen || "Conservar el bloqueo vanilla de regen de escudo (4 s)" }
-                            Text { text: I18n.s.builder_outfit_fix_hint
-                                         || "El swap de outfit engancha dos filas vanilla. Esto devuelve lo que pisa: el FX visual del campamento y los 4 s sin regen de escudo tras romperlo."
-                                   color: Theme.textDim; font.pixelSize: 11
-                                   wrapMode: Text.Wrap; Layout.fillWidth: true }
-                            CheckBox { id: outfitQteRestoreAlpha; checked: false
-                                text: I18n.s.builder_q_outfit_qte_alpha
-                                      || "ALPHA: restaurar outfit durante QTE/cinemáticas (sin helper)" }
+                            Layout.fillWidth: true; spacing: 2
+                            FieldLabel { text: I18n.s.builder_q_outfit_mode || "Skin Suit al romper escudo" }
+                            ButtonGroup { id: outfitGroup }
+                            RadioButton { id: outfitOff; ButtonGroup.group: outfitGroup
+                                text: I18n.s.builder_q_outfit_off || "No incluir" }
+                            RadioButton { id: outfitHelper; checked: true; ButtonGroup.group: outfitGroup
+                                text: I18n.s.builder_q_outfit || "Skin Suit al romper escudo (necesita helper)" }
+                            RadioButton { id: outfitNoHelper; ButtonGroup.group: outfitGroup
+                                text: I18n.s.builder_q_outfit_no_helper
+                                      || "Skin Suit al romper escudo (ALPHA sin helper)" }
                             Text {
-                                visible: outfitQteRestoreAlpha.checked
+                                visible: outfitNoHelper.checked
                                 text: I18n.s.builder_outfit_qte_alpha_hint
-                                      || "Experimental y sin confirmar in-game. Puede interferir con outfits especiales de historia."
-                                color: Theme.warning; font.pixelSize: 11
+                                      || "Confirmado in-game: restaura el outfit al romper el escudo sin ningún helper. Falta probarlo con outfits especiales de historia."
+                                color: Theme.textDim; font.pixelSize: 11
+                                Layout.leftMargin: 26
                                 wrapMode: Text.Wrap; Layout.fillWidth: true
                             }
                         }
 
-                        // El comportamiento del outfit CNS depende del check de
+                        // El swap engancha dos filas vanilla de EffectTable y de
+                        // paso pisa lo que ya hacian. El FX de campamento se
+                        // devuelve siempre; los 4 s sin regen son opcionales.
+                        ColumnLayout {
+                            Layout.fillWidth: true; Layout.leftMargin: 26; spacing: 2
+                            visible: !outfitOff.checked
+                            CheckBox { id: outfitShieldRegen; checked: true
+                                text: I18n.s.builder_q_shield_regen || "Conservar el bloqueo vanilla de regen de escudo (4 s)" }
+                            Text { text: I18n.s.builder_outfit_fix_hint
+                                         || "El swap de outfit engancha dos filas vanilla. El FX de descanso en campamento se devuelve siempre; esto devuelve además los 4 s sin regen de escudo tras romperlo."
+                                   color: Theme.textDim; font.pixelSize: 11
+                                   wrapMode: Text.Wrap; Layout.fillWidth: true }
+                        }
+
+                        // El comportamiento del outfit depende del modo de
                         // arriba: va pegado a el, no al final del formulario.
+                        // Sin helper no hay nada que configurar.
                         ColumnLayout {
                             Layout.fillWidth: true; Layout.leftMargin: 26; spacing: 6
-                            visible: outfit.checked
-                            FieldLabel { text: I18n.s.builder_q_helper || "Comportamiento del outfit CNS" }
+                            visible: outfitHelper.checked
+                            FieldLabel { text: I18n.s.builder_q_helper || "Comportamiento del outfit" }
                             ButtonGroup { id: helperGroup }
                             ColumnLayout {
                                 spacing: 2
                                 RadioButton { id: helperLast; checked: true; ButtonGroup.group: helperGroup
-                                    text: I18n.s.builder_helper_last || "Restaurar último outfit" }
+                                    text: I18n.s.builder_helper_last || "Restaurar último outfit (CNS)" }
                                 RadioButton { id: helperRandom; ButtonGroup.group: helperGroup
-                                    text: I18n.s.builder_helper_random || "Outfit aleatorio" }
+                                    text: I18n.s.builder_helper_random || "Outfit aleatorio (CNS)" }
                                 RadioButton { id: helperPeriodic; ButtonGroup.group: helperGroup
-                                    text: I18n.s.builder_helper_periodic || "Aleatorio + periódico" }
+                                    text: I18n.s.builder_helper_periodic || "Aleatorio + periódico (CNS)" }
+                                RadioButton { id: helperLastNoCns; ButtonGroup.group: helperGroup
+                                    text: I18n.s.builder_helper_last_nocns || "Restaurar último outfit (SIN CNS)" }
+                            }
+                            Text {
+                                visible: helperLastNoCns.checked
+                                text: I18n.s.builder_helper_nocns_hint
+                                      || "Usa el helper vanilla en vez del de CNS, con la ALPHA elegida más abajo (alpha6 si no elegís ninguna)."
+                                color: Theme.textDim; font.pixelSize: 11
+                                wrapMode: Text.Wrap; Layout.fillWidth: true
                             }
                             RowLayout {
                                 spacing: 10
@@ -1317,8 +1345,10 @@ Item {
                         }
                         RowLayout {
                             // Tambien vale para la ALPHA vanilla: es otro mod de UE4SS.
+                            // Siempre habilitado con el juego detectado: una build
+                            // sin helper igual tiene estado de helper que sincronizar.
                             spacing: 10
-                            enabled: root.gamePath.length > 0 && (outfit.checked || !alphaOff.checked)
+                            enabled: root.gamePath.length > 0
                             CheckBox { id: instHelper }
                             Text { text: I18n.s.builder_install_helper || "Instalar y activar el helper (edita mods.txt)"
                                    color: enabled ? Theme.text : Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true }
@@ -1427,10 +1457,8 @@ Item {
                             },
                             gaugeTweaks: blasterRow.selected ? ["blasterCellX2"] : [],
                             blasterMultiplier: blaster2.checked ? 2 : 3,
-                            outfitSkinSuit: outfit.checked,
-                            outfitVanillaRestFX: outfitRestFx.checked,
+                            outfitMode: outfitModeValue(),
                             outfitVanillaShieldRegen: outfitShieldRegen.checked,
-                            outfitQteRestoreAlpha: outfitQteRestoreAlpha.checked,
                             miniBoss: mb,
                             miniBossRegionDensity: miniBossDensities(),
                             miniBossConfig: {

@@ -40,14 +40,46 @@
       "i18nKey": "builder.combat.changes",
       "comment": "Cambios históricos independientes; el compilador parte de vanilla y aplica sólo los elegidos.",
       "options": [
-        { "value": "betaBurstDamage", "transform": "combat.betaBurstDamage", "default": true },
-        { "value": "droneDamage", "transform": "combat.droneDamage", "default": true },
-        { "value": "dashDamage", "transform": "combat.dashDamage", "default": true },
-        { "value": "eveDamage", "transform": "combat.eveDamage", "default": true },
-        { "value": "enemyDamage", "transform": "combat.enemyDamage", "default": true },
-        { "value": "perfectDodge", "transform": "combat.perfectDodge", "default": true },
-        { "value": "tachyDuration", "transform": "combat.tachyDuration", "default": true },
-        { "value": "enemyVulnerability", "transform": "combat.enemyVulnerability", "default": true }
+        {
+          "value": "betaBurstDamage",
+          "transform": "combat.betaBurstDamage",
+          "default": true
+        },
+        {
+          "value": "droneDamage",
+          "transform": "combat.droneDamage",
+          "default": true
+        },
+        {
+          "value": "dashDamage",
+          "transform": "combat.dashDamage",
+          "default": true
+        },
+        {
+          "value": "eveDamage",
+          "transform": "combat.eveDamage",
+          "default": true
+        },
+        {
+          "value": "enemyDamage",
+          "transform": "combat.enemyDamage",
+          "default": true
+        },
+        {
+          "value": "perfectDodge",
+          "transform": "combat.perfectDodge",
+          "default": true
+        },
+        {
+          "value": "tachyDuration",
+          "transform": "combat.tachyDuration",
+          "default": true
+        },
+        {
+          "value": "enemyVulnerability",
+          "transform": "combat.enemyVulnerability",
+          "default": true
+        }
       ]
     },
     {
@@ -56,50 +88,72 @@
       "i18nKey": "builder.combat.economy",
       "comment": "Cambios independientes de economía; se pueden combinar libremente.",
       "options": [
-        { "value": "slowerGain", "transform": "combat.slowerGain", "default": true },
-        { "value": "lowerCapacity", "transform": "combat.lowerCapacity", "default": true },
-        { "value": "cooldown", "transform": "combat.antiSpamSkill", "default": true }
+        {
+          "value": "slowerGain",
+          "transform": "combat.slowerGain",
+          "default": true
+        },
+        {
+          "value": "lowerCapacity",
+          "transform": "combat.lowerCapacity",
+          "default": true
+        },
+        {
+          "value": "cooldown",
+          "transform": "combat.antiSpamSkill",
+          "default": true
+        }
       ]
     },
     {
-      "id": "outfitSkinSuit",
-      "type": "bool",
-      "i18nKey": "builder.q.outfitSkinSuit",
-      "default": true,
-      "whenTrue": {
-        "transforms": [
-          "outfit.effectTable.skinSuitOnBreak",
-          "outfit.hudRemnantFix"
-        ],
-        "requiresHelper": true
-      }
-    },
-    {
-      "id": "outfitVanillaRestFX",
-      "type": "bool",
-      "i18nKey": "builder.q.outfitVanillaRestFX",
-      "default": true,
-      "showIf": { "outfitSkinSuit": [true] },
-      "comment": "El swap usa P_Eve_InteractCamp_RestFX como disparo y de paso borra ActiveShowPath (FX de descanso). Lo devuelve.",
-      "whenTrue": { "transforms": ["outfit.vanillaRestFX"] }
+      "id": "outfitMode",
+      "type": "single",
+      "i18nKey": "builder.q.outfitMode",
+      "default": "helper",
+      "comment": "El swap Skin-Suit-al-romper-escudo tiene dos caminos: con helper de UE4SS (CNS o el vanilla, segun helperMode) o solo table-side (ALPHA sin helper, mantiene vivo el loop de nanosuit_break durante LevelSequence/QTE). normalize deriva outfitSkinSuit/outfitHelperless de aca.",
+      "options": [
+        {
+          "value": "off",
+          "i18nKey": "builder.q.outfitMode.off"
+        },
+        {
+          "value": "helper",
+          "i18nKey": "builder.q.outfitMode.helper",
+          "transforms": [
+            "outfit.effectTable.skinSuitOnBreak",
+            "outfit.hudRemnantFix"
+          ],
+          "requiresHelper": true
+        },
+        {
+          "value": "noHelperAlpha",
+          "i18nKey": "builder.q.outfitMode.noHelperAlpha",
+          "transforms": [
+            "outfit.effectTable.skinSuitOnBreak",
+            "outfit.hudRemnantFix",
+            "outfit.qteRestoreAlpha"
+          ],
+          "requiresHelper": false
+        }
+      ]
     },
     {
       "id": "outfitVanillaShieldRegen",
       "type": "bool",
       "i18nKey": "builder.q.outfitVanillaShieldRegen",
       "default": true,
-      "showIf": { "outfitSkinSuit": [true] },
-      "comment": "BlockShieldRegenWhenShieldZero_PC es el trigger del break: el swap le saca los 4 s sin regen y ShieldRecover_PC. Restaurarlo no rompe el swap (verificado in-game).",
-      "whenTrue": { "transforms": ["outfit.vanillaShieldRegenBlock"] }
-    },
-    {
-      "id": "outfitQteRestoreAlpha",
-      "type": "bool",
-      "i18nKey": "builder.q.outfitQteRestoreAlpha",
-      "default": false,
-      "showIf": { "outfitSkinSuit": [true] },
-      "comment": "ALPHA sin helper: mantiene el loop de nanosuit_break durante LevelSequence/QTE.",
-      "whenTrue": { "transforms": ["outfit.qteRestoreAlpha"] }
+      "showIf": {
+        "outfitMode": [
+          "helper",
+          "noHelperAlpha"
+        ]
+      },
+      "comment": "BlockShieldRegenWhenShieldZero_PC es el trigger del break: el swap le saca los 4 s sin regen y ShieldRecover_PC. Al restaurarlos, el break pasa de ChainEffectAliasArray (dispara al terminar el efecto: con LifeTime 4 el skinsuit salia recien al arrancar la regen) a ActiveTargetEffectAliasArray (dispara al activarse), asi el swap sigue instantaneo.",
+      "whenTrue": {
+        "transforms": [
+          "outfit.vanillaShieldRegenBlock"
+        ]
+      }
     },
     {
       "id": "miniBoss",
@@ -306,11 +360,11 @@
       "i18nKey": "builder.q.helperMode",
       "default": "last",
       "showIf": {
-        "outfitSkinSuit": [
-          true
+        "outfitMode": [
+          "helper"
         ]
       },
-      "comment": "Genera config.lua. last=restoreMode 'last'; randomAny=restoreMode 'randomAny'; randomPeriodic=randomAny + enablePeriodicRandomCns.",
+      "comment": "Genera config.lua del helper CNS. last=restoreMode 'last'; randomAny=restoreMode 'randomAny'; randomPeriodic=randomAny + enablePeriodicRandomCns. lastNoCns no usa el helper CNS: instala el helper vanilla con la ALPHA elegida en vanillaHelperBuild (alpha6 si no hay ninguna).",
       "options": [
         {
           "value": "last",
@@ -335,6 +389,11 @@
             "restoreMode": "randomAny",
             "enablePeriodicRandomCns": true
           }
+        },
+        {
+          "value": "lastNoCns",
+          "i18nKey": "builder.q.helperMode.lastNoCns",
+          "usesVanillaHelper": true
         }
       ]
     },
@@ -360,7 +419,7 @@
       "comment": "Sin combate y sin outfit = nada que compilar.",
       "requireAtLeastOne": [
         "combatProfile!=none",
-        "outfitSkinSuit==true",
+        "outfitMode!=off",
         "miniBoss!=off"
       ]
     }

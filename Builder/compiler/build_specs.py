@@ -21,8 +21,9 @@ COMBAT_FULL = [
 OUTFIT = ["outfit.effectTable.skinSuitOnBreak", "outfit.tuning.public1219"]
 
 # Colaterales del pak de outfit sobre filas vanilla, restaurables por separado.
-# Ambos default ON: el builder promete vanilla salvo lo elegido, y los dos se
-# verificaron en juego (2026-07-28) sin perder el swap ni el restore del outfit.
+# `outfitVanillaRestFX` ya no es opcional (normalize lo fija en True) y
+# `outfitQteRestoreAlpha` lo deriva el modo sin helper; siguen aca porque el
+# pipeline se arma leyendo esta tabla.
 # Cada entrada: (clave de respuesta, default, transform id, extra id de staging).
 OUTFIT_FIXES = [
     ("outfitVanillaRestFX", True, "outfit.vanillaRestFX", "vanillaRestFX"),
