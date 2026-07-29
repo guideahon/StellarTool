@@ -91,8 +91,11 @@ CnsConverterService::CnsConverterService(PakService *pak, UAssetService *uasset,
 
 QString CnsConverterService::normalizeAssetPath(const QString &path) {
     QString p = QDir::fromNativeSeparators(path.trimmed());
-    if (p.startsWith(QLatin1String("SB/Content/"), Qt::CaseInsensitive))
-        p = QStringLiteral("/Game/") + p.mid(11);
+    const int content = p.indexOf(QLatin1String("/Content/"), 0, Qt::CaseInsensitive);
+    if (content >= 0)
+        p = QStringLiteral("/Game/") + p.mid(content + 9);
+    else if (p.startsWith(QLatin1String("Content/"), Qt::CaseInsensitive))
+        p = QStringLiteral("/Game/") + p.mid(8);
     if (!p.startsWith(QLatin1String("/Game/"), Qt::CaseInsensitive)) return {};
     p = withoutObject(p);
     return QStringLiteral("/Game/") + p.mid(6);
@@ -228,12 +231,8 @@ QString CnsConverterService::assetPathForFile(const QString &file,
                                               const QString &assetsDir) const {
     QString relative = QDir(assetsDir).relativeFilePath(file);
     relative = QDir::fromNativeSeparators(relative);
-    const int sb = relative.indexOf(QLatin1String("SB/Content/"), 0, Qt::CaseInsensitive);
-    if (sb >= 0) relative = relative.mid(sb + 11);
-    else if (relative.startsWith(QLatin1String("Content/"), Qt::CaseInsensitive))
-        relative = relative.mid(8);
     relative = relative.left(relative.lastIndexOf(QLatin1Char('.')));
-    return normalizeAssetPath(QStringLiteral("/Game/") + relative);
+    return normalizeAssetPath(relative);
 }
 
 QString CnsConverterService::fileForAsset(const QString &path, const QString &assetsDir,

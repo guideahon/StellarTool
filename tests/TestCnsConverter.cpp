@@ -18,6 +18,9 @@ void TestCnsConverter::normalizesPaths() {
                  QStringLiteral("SB\\Content\\Art\\Suit\\Mesh.uasset")),
              QStringLiteral("/Game/Art/Suit/Mesh"));
     QCOMPARE(CnsConverterService::normalizeAssetPath(
+                 QStringLiteral("Lemi21_Mods/Content/Art/Suit/Mesh.uasset")),
+             QStringLiteral("/Game/Art/Suit/Mesh"));
+    QCOMPARE(CnsConverterService::normalizeAssetPath(
                  QStringLiteral("/Game/Art/Suit/Mesh.Mesh")),
              QStringLiteral("/Game/Art/Suit/Mesh"));
     QVERIFY(CnsConverterService::normalizeAssetPath(QStringLiteral("not/an/asset")).isEmpty());
