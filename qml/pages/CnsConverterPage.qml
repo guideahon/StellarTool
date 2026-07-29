@@ -20,7 +20,7 @@ Item {
             anchors.margins: 18
 
             Label {
-                text: "Conversor CNS"
+                text: "CNS Converter"
                 color: Theme.text
                 font.pixelSize: 22
                 font.bold: true

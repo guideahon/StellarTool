@@ -159,7 +159,7 @@
   "merge_err": "Error: %1",
   "merge_skipped_note": "(%1 cambios de array/objeto de mods Zen se saltearon: esos aún no round-tripean confiable. Números, texto y enums se mergean.)",
   "nav_builder": "Build Stellar Souls",
-  "nav_cns": "Conversor CNS",
+  "nav_cns": "CNS Converter",
   "builder_title": "Crea tu mod",
   "builder_q_combat": "Perfil de combate",
   "builder_combat_full": "Completo",
