@@ -30,7 +30,8 @@ def tools_dir() -> Path:
     return _DEFAULT_TOOLS
 
 
-def _run(args: list[str], timeout: int = 900, extra_path: Path | None = None) -> subprocess.CompletedProcess:
+def _run(args: list[str], timeout: int = 900, extra_path: Path | None = None,
+         cwd: Path | None = None) -> subprocess.CompletedProcess:
     env = None
     if extra_path is not None:
         env = dict(os.environ)
@@ -39,7 +40,8 @@ def _run(args: list[str], timeout: int = 900, extra_path: Path | None = None) ->
     # Windows chino) y la salida UTF-8 de retoc/UAssetGUI revienta el hilo lector
     # dejando stdout=None -> el error real quedaba tapado por un TypeError.
     return subprocess.run(args, capture_output=True, text=True, encoding="utf-8",
-                          errors="replace", timeout=timeout, env=env)
+                          errors="replace", timeout=timeout, env=env,
+                          cwd=str(cwd) if cwd else None)
 
 
 def out_err(cp: subprocess.CompletedProcess, limit: int = 500) -> str:
@@ -91,9 +93,29 @@ def oodle_dir() -> Path | None:
     return None
 
 
+def ensure_oodle() -> Path | None:
+    """Garantiza que retoc encuentre oo2core. retoc busca la DLL JUNTO A SU
+    PROPIO EXE (no usa PATH) y si no está intenta DESCARGARLA de GitHub, lo que
+    cuelga o revienta sin red o con GitHub bloqueado (China). Se copia la DLL
+    del juego del usuario junto a retoc.exe en runtime; no se redistribuye
+    (package.bat la excluye del zip). Devuelve el dir con la DLL o None."""
+    d = oodle_dir()
+    if d is None:
+        return None
+    target = tools_dir() / _OODLE
+    if not target.exists() and Path(d) != tools_dir():
+        try:
+            shutil.copy2(Path(d) / _OODLE, target)
+        except OSError:
+            pass  # tools/ de solo lectura: PATH + cwd como mejor esfuerzo
+    return d
+
+
 def _retoc(args: list[str], timeout: int = 900) -> subprocess.CompletedProcess:
-    """Corre retoc con oo2core del juego en el PATH (sin copiarlo al tool)."""
-    return _run([str(tools_dir() / "retoc.exe"), *args], timeout, extra_path=oodle_dir())
+    """Corre retoc asegurando oo2core junto al exe (ver ensure_oodle)."""
+    oodle = ensure_oodle()
+    return _run([str(tools_dir() / "retoc.exe"), *args], timeout,
+                extra_path=oodle, cwd=oodle)
 
 
 def to_zen(package_dir: Path, out_utoc: Path, version: str = "UE4_26") -> Path:

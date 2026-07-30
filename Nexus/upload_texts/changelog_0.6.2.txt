@@ -1,0 +1,31 @@
+Version 0.6.2
+
+Fixed: the tool tried to download Oodle from GitHub (hang/error in China or offline)
+
+The bundled retoc and CUE4Parse helpers need oo2core_9_win64.dll (Oodle). When
+they could not find it, they silently tried to download it from GitHub at build
+or import time. On networks where GitHub is unreachable (China, offline
+machines, strict firewalls) that download hangs and then kills the operation
+with a connection error, for example:
+
+  RuntimeError: No se pudo extraer CharacterTable ... ureq error Transport
+  ... github.com ... oo2core_9_win64.dll ... TimedOut
+
+The DLL was never actually missing: your Stellar Blade install already ships it
+in SB\Binaries\Win64. The problem was that retoc only looks for the DLL right
+next to its own exe and ignores everything else, so even placing the DLL in the
+tool's folder by hand did not help.
+
+Stellar Tool now copies oo2core_9_win64.dll from your own game install to the
+right spot automatically, every time it runs retoc or CUE4Parse. Nothing is
+downloaded, no internet connection is needed, and this works regardless of
+where the game or the tool are installed.
+
+If the DLL cannot be found at all (no game folder selected), the tool now
+fails immediately with a clear message telling you what to do instead of
+hanging on a download: select your game folder in Settings, or copy the DLL
+into the tool's tools\ folder, or set the STELLAR_OODLE_DIR environment
+variable.
+
+Everything from 0.6.1 is included: UTF-8 handling for non-English Windows and
+clear errors when a baseline cannot be extracted.

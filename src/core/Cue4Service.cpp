@@ -1,8 +1,11 @@
 #include "Cue4Service.h"
 
+#include "core/PakService.h"
+
 #include <QCoreApplication>
 #include <QDir>
 #include <QDirIterator>
+#include <QFile>
 #include <QFileInfo>
 #include <QProcess>
 #include <QProcessEnvironment>
@@ -34,9 +37,33 @@ bool Cue4Service::run(const QStringList &args, QString *error, int timeoutMs, QS
         if (error) *error = QStringLiteral("cue4parse.exe no encontrado en tools/.");
         return false;
     }
+    // CUE4Parse busca oo2core_9_win64.dll (Oodle) en su directorio de trabajo;
+    // si no está, intenta DESCARGARLA de internet, lo que se cuelga sin red o
+    // con GitHub/CDN bloqueados (China). Nunca dejamos que descargue: se apunta
+    // CWD y PATH a la copia del juego, o se falla rápido con instrucciones.
+    const QString oodle = PakService::oodleDir();
+    if (oodle.isEmpty()) {
+        if (error)
+            *error = QStringLiteral(
+                "No se encontró oo2core_9_win64.dll (Oodle). CUE4Parse la necesita y "
+                "se toma de la instalación de Stellar Blade (SB/Binaries/Win64). "
+                "Elegí la carpeta del juego en Ajustes, o copiá la DLL a tools/ junto "
+                "al exe, o definí STELLAR_OODLE_DIR con la carpeta que la contiene.");
+        return false;
+    }
+    const QString dll = QStringLiteral("oo2core_9_win64.dll");
+    const QString beside = QFileInfo(exe).absolutePath() + QLatin1Char('/') + dll;
+    if (!QFileInfo::exists(beside))
+        QFile::copy(oodle + QLatin1Char('/') + dll, beside); // best effort
     QProcess p;
     p.setProcessChannelMode(QProcess::MergedChannels);
-    qCInfo(lcCue4) << "run:" << args;
+    QProcessEnvironment envp = QProcessEnvironment::systemEnvironment();
+    envp.insert(QStringLiteral("PATH"),
+                QDir::toNativeSeparators(oodle) + QLatin1Char(';')
+                    + envp.value(QStringLiteral("PATH")));
+    p.setProcessEnvironment(envp);
+    p.setWorkingDirectory(oodle);
+    qCInfo(lcCue4) << "run:" << args << "oodle:" << oodle;
     p.start(exe, args);
     if (!p.waitForStarted(10000)) {
         if (error) *error = QStringLiteral("No se pudo iniciar cue4parse.exe");

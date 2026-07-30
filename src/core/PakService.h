@@ -15,6 +15,13 @@ public:
     static QString repakPath();       // tools/repak.exe junto al exe (o override por env ST_REPAK)
     static QString retocPath();       // tools/retoc.exe (o env ST_RETOC); Zen/IoStore
     static QString cnsRetocPath();    // fork con --mount-folder usado por CNS
+    // Carpeta que contiene oo2core_9_win64.dll (Oodle). No se redistribuye
+    // (propietario): se usa directo de la instalación del juego, como hace
+    // Builder/compiler/toolchain.py. Sin ella, retoc/cue4parse intentan
+    // DESCARGARLA de GitHub en runtime, lo que cuelga sin red o con GitHub
+    // bloqueado (China). Orden: env STELLAR_OODLE_DIR, tools/ junto al exe,
+    // SB/Binaries/Win64 del juego, cualquier copia bajo el juego. "" si no hay.
+    static QString oodleDir();
     bool available() const;
     bool zenAvailable() const;
 

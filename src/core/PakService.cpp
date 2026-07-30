@@ -62,6 +62,32 @@ QString PakService::cnsRetocPath() {
 
 bool PakService::zenAvailable() const { return !retocPath().isEmpty(); }
 
+QString PakService::oodleDir() {
+    const QString dll = QStringLiteral("oo2core_9_win64.dll");
+    const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("STELLAR_OODLE_DIR"));
+    if (!env.isEmpty() && QFileInfo::exists(env + QLatin1Char('/') + dll))
+        return QFileInfo(env).absoluteFilePath();
+    const QStringList local{
+        QCoreApplication::applicationDirPath() + QStringLiteral("/tools"),
+        QCoreApplication::applicationDirPath(),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools")};
+    for (const QString &c : local)
+        if (QFileInfo::exists(c + QLatin1Char('/') + dll))
+            return QFileInfo(c).absoluteFilePath();
+    const QString game = GamePaths::gameRoot();
+    if (game.isEmpty()) return {};
+    const QStringList inGame{game + QStringLiteral("/SB/Binaries/Win64"),
+                             game + QStringLiteral("/CNSRepacker/tools/retoc")};
+    for (const QString &c : inGame)
+        if (QFileInfo::exists(c + QLatin1Char('/') + dll)) return c;
+    QDirIterator it(game, {dll}, QDir::Files, QDirIterator::Subdirectories);
+    if (it.hasNext()) {
+        it.next();
+        return it.fileInfo().absolutePath();
+    }
+    return {};
+}
+
 bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QString *error) {
     const QString retoc = retocPath();
     if (retoc.isEmpty()) {
@@ -78,6 +104,27 @@ bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QStr
 bool PakService::runProcess(const QString &exe, const QStringList &args, QString *error, int timeoutMs) {
     QProcess p;
     p.setProcessChannelMode(QProcess::MergedChannels);
+    // retoc/cue4parse necesitan oo2core (Oodle). retoc la busca JUNTO A SU
+    // PROPIO EXE (no usa PATH) y si no está intenta DESCARGARLA de GitHub,
+    // lo que se cuelga sin red o con GitHub bloqueado (China). Se copia la DLL
+    // del juego junto al exe en runtime (no se redistribuye: package.bat la
+    // excluye del zip) y además se inyecta PATH + CWD como respaldo.
+    const QString baseName = QFileInfo(exe).completeBaseName().toLower();
+    if (baseName == QLatin1String("retoc") || baseName == QLatin1String("cue4parse")) {
+        const QString oodle = oodleDir();
+        if (!oodle.isEmpty()) {
+            const QString dll = QStringLiteral("oo2core_9_win64.dll");
+            const QString beside = QFileInfo(exe).absolutePath() + QLatin1Char('/') + dll;
+            if (!QFileInfo::exists(beside))
+                QFile::copy(oodle + QLatin1Char('/') + dll, beside); // best effort
+            QProcessEnvironment envp = QProcessEnvironment::systemEnvironment();
+            envp.insert(QStringLiteral("PATH"),
+                        QDir::toNativeSeparators(oodle) + QLatin1Char(';')
+                            + envp.value(QStringLiteral("PATH")));
+            p.setProcessEnvironment(envp);
+            p.setWorkingDirectory(oodle);
+        }
+    }
     qCInfo(lcPak) << "run:" << exe << args;
     p.start(exe, args);
     if (!p.waitForStarted(10000)) {
