@@ -48,7 +48,7 @@ if exist "%STAGE%" rmdir /s /q "%STAGE%"
 mkdir "%STAGE%"
 echo [INFO] Copiando build\Release...
 robocopy "%SRC%" "%STAGE%" /E /NFL /NDL /NJH /NJS /NP ^
-   /XF qmlout.txt qmlerr.txt >nul
+   /XF qmlout.txt qmlerr.txt oo2core_9_win64.dll >nul
 if exist "%~dp0Builder" (
   echo [INFO] Copiando Builder...
   robocopy "%~dp0Builder" "%STAGE%\Builder" /E /NFL /NDL /NJH /NJS /NP ^
