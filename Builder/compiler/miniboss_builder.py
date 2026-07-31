@@ -428,6 +428,63 @@ def _script_path(name):
     return _BUILDER_ROOT.parent / "Development" / name
 
 
+def _load_script_module(name):
+    """Importa un script de Builder/scripts como modulo (sin lanzar un python)."""
+    import importlib.util
+    path = _script_path(name)
+    spec = importlib.util.spec_from_file_location(Path(name).stem, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _edit_uasset(data_dir, table, mutators):
+    """Aplica varias ediciones a una tabla en UN solo tojson/fromjson.
+
+    Cada roundtrip de una tabla grande (EffectTable) cuesta ~15s, y antes cada
+    pase hacia el suyo sobre el mismo archivo. `mutators` es una lista de
+    callables doc -> reporte, aplicados en orden.
+    """
+    import json
+    import subprocess
+    import toolchain
+    data_dir = Path(data_dir)
+    target = data_dir / f"{table}.uasset"
+    if not target.exists() or not mutators:
+        return {}
+    tools = toolchain.tools_dir()
+    uag = tools / "UAssetGUI.exe"
+    tj = data_dir / f"_{table}_edit.json"
+    cp = subprocess.run(
+        [str(uag), "tojson", str(target), str(tj), "VER_UE4_26",
+         str(tools / "StellarBlade.usmap")],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+    if not tj.exists():
+        raise RuntimeError(
+            f"tojson no genero el JSON de {table}. salida={toolchain.out_err(cp, 800)}")
+    doc = json.loads(tj.read_text(encoding="utf-8"))
+    report = {}
+    for mutate in mutators:
+        report.update(mutate(doc) or {})
+    # Las ediciones pueden introducir FNames nuevos (ver toolchain: sin esto
+    # fromjson termina sin escribir y el pak sale con la tabla sin tocar).
+    import table_compiler
+    table_compiler.repair_namemap(doc)
+    tj.write_text(json.dumps(doc), encoding="utf-8")
+    # fromjson pisa un .uasset que ya existe: chequear existencia no alcanza para
+    # detectar el fallo silencioso, hay que ver que efectivamente se reescribio.
+    before = target.stat().st_mtime_ns
+    cp = subprocess.run(
+        [str(uag), "fromjson", str(tj), str(target), "StellarBlade"],
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+    if target.stat().st_mtime_ns == before:
+        raise RuntimeError(
+            f"fromjson no reescribio {table}.uasset (probable FName faltante en "
+            f"NameMap). salida={toolchain.out_err(cp, 800)}")
+    tj.unlink(missing_ok=True)
+    return report
+
+
 def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0,
                               tumbler_value=60.0):
     """tojson EffectTable.uasset -> effect_extras -> fromjson. Solo si hay extras
@@ -609,36 +666,13 @@ def compile_from_staging(variant, work_dir, verify_result=True, beta_revert=True
 
 
 def _repair_namemap(doc):
-    """Agrega a NameMap todo FName referenciado (row Name + NameProperty values)
-    que falte. Evita el gotcha 'fromjson escribe nada' por FName no registrado.
+    """Registra en NameMap todo FName referenciado que falte, antes de fromjson.
+
+    Implementacion unica en table_compiler: tener dos copias fue justo lo que
+    dejo el path de mini-boss sin la reparacion.
     """
-    nm = doc.get("NameMap")
-    if nm is None:
-        return
-    have = set(nm)
-    NAME_TYPE = "NamePropertyData"
-
-    def walk(v):
-        if isinstance(v, dict):
-            t = v.get("$type", "")
-            if NAME_TYPE in t and isinstance(v.get("Value"), str):
-                yield v["Value"]
-            for x in v.values():
-                yield from walk(x)
-        elif isinstance(v, list):
-            for x in v:
-                yield from walk(x)
-
-    add = []
-    for row in R(doc):
-        n = row.get("Name")
-        if isinstance(n, str) and n not in have:
-            have.add(n); add.append(n)
-        for nm_val in walk(row):
-            if nm_val and nm_val not in have:
-                have.add(nm_val); add.append(nm_val)
-    nm.extend(add)
-    return len(add)
+    import table_compiler
+    return table_compiler.repair_namemap(doc)
 
 
 def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result=True,
@@ -695,6 +729,9 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     uassets = []
     # Core tables: fromjson desde build_core.
     for name, doc in (("CharacterTable", ctd), ("EventSpawnTable", esd)):
+        # Los transforms de combate pueden introducir FNames nuevos: sin esta
+        # reparacion fromjson no escribe nada (gotcha NameMap, ver toolchain).
+        report.setdefault("nameMapAdded", {})[name] = _repair_namemap(doc)
         oj = work_dir / f"{name}.json"
         oj.write_text(json.dumps(doc), encoding="utf-8")
         uassets.append(toolchain.fromjson(oj, work_dir / f"{name}.uasset"))
@@ -709,18 +746,33 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     # exactamente los transforms elegidos, incluyendo cooldown y Blaster.
     skill_doc, skill_combat_report = table_compiler.apply_transforms(
         "SkillTable", combat_transform_ids, base="vanilla")
+    # Los extras de SkillTable se aplican al doc en memoria: escribir el uasset
+    # para volver a leerlo con tojson costaba un roundtrip entero de balde.
+    import skill_extras
+    sk_sel = [e for e in (extras or []) if e in skill_extras.SKILL_EXTRAS]
+    skx = skill_extras.apply_skill_extras(skill_doc, sk_sel, just_mult, air_count) if sk_sel else {}
+    report.setdefault("nameMapAdded", {})["SkillTable"] = _repair_namemap(skill_doc)
     skill_json = work_dir / "SkillTable.json"
     skill_json.write_text(json.dumps(skill_doc), encoding="utf-8")
     toolchain.fromjson(skill_json, work_dir / "SkillTable.uasset")
     report["combatTransforms"]["SkillTable"] = skill_combat_report
+    # EffectTable: desactivar el swap de outfit y los extras son ediciones del
+    # mismo archivo. En un solo roundtrip: cada tojson/fromjson de esa tabla
+    # cuesta ~15s, y hacer uno por pase era la mitad del tiempo de compilacion.
+    import effect_extras
+    et_mutators = []
     if not outfit:
-        _apply_disable_skinsuit(work_dir)
-    # Extras de EffectTable (no fall damage / env death / tachy / gear).
-    eff = _apply_effect_extras_pass(
-        work_dir, extras, gear_mult, tumbler_value)
+        et_mutators.append(
+            lambda doc: {"disableSkinSuit":
+                         _load_script_module("disable_skinsuit_on_break.py").apply_to_doc(doc)})
+    et_sel = [e for e in (extras or []) if e in effect_extras.EFFECT_EXTRAS]
+    if et_sel:
+        et_mutators.append(lambda doc: effect_extras.apply_effect_extras(
+            doc, et_sel, gear_mult, tumbler_value))
+    et_report = _edit_uasset(work_dir, "EffectTable", et_mutators)
+    eff = {k: v for k, v in et_report.items() if k != "disableSkinSuit"}
     if eff:
         report["effectExtras"] = eff
-    skx = _apply_skill_extras_pass(work_dir, extras, just_mult, air_count)
     if skx:
         report["skillExtras"] = skx
     # Mundo: solo las tablas que este pak ya trae (RewardGroupTable); el resto va

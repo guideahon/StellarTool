@@ -14,8 +14,12 @@ import json
 import sys
 
 
-def main(inp, outp):
-    doc = json.load(open(inp, encoding="utf-8"))
+def apply_to_doc(doc):
+    """Edita el doc en memoria y devuelve el reporte del cambio.
+
+    El compilador lo llama directo: cada tojson/fromjson de la EffectTable
+    cuesta ~15s, asi que los pases se agrupan en un solo roundtrip.
+    """
     rows = doc["Exports"][0]["Table"]["Data"]
     r = next((x for x in rows if x["Name"] == "nanosuit_break"), None)
     if r is None:
@@ -32,12 +36,18 @@ def main(inp, outp):
 
     before_action = setp("Action1", "EffectAction_None")
     before_value = setp("ActionValue1", None)
-    json.dump(doc, open(outp, "w", encoding="utf-8"), indent=2)
-    print(json.dumps({
+    return {
         "row": "nanosuit_break",
         "Action1": {"before": before_action, "after": "EffectAction_None"},
         "ActionValue1": {"before": before_value, "after": None},
-    }))
+    }
+
+
+def main(inp, outp):
+    doc = json.load(open(inp, encoding="utf-8"))
+    report = apply_to_doc(doc)
+    json.dump(doc, open(outp, "w", encoding="utf-8"), indent=2)
+    print(json.dumps(report))
 
 
 if __name__ == "__main__":

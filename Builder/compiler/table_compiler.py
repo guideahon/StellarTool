@@ -434,6 +434,20 @@ _VENDOR_SSMOD = BUILDER_DIR / "vendor" / "ssmod"
 _VENDOR_RENAME = {"SkillTable.json": "SkillTable_full.json"}
 
 
+_progress_seq = 0
+
+
+def _emit_progress(kind, detail):
+    """Linea de progreso legible por la app (no localizada: la UI traduce).
+
+    Formato: ``PROGRESS <kind> <n> <detail>``. Se va por stdout con flush para
+    que Qt la reciba mientras el paso largo corre, no al final del proceso.
+    """
+    global _progress_seq
+    _progress_seq += 1
+    print(f"PROGRESS {kind} {_progress_seq} {detail}", flush=True)
+
+
 def _generate_writable_vanilla(table, output):
     """Extrae una tabla vanilla y conserva el JSON UAssetAPI escribible.
 
@@ -456,6 +470,9 @@ def _generate_writable_vanilla(table, output):
             "oo2core_9_win64.dll (Oodle) de la instalación de Stellar Blade y no "
             f"se encontró bajo {game}. Verificá la instalación o definí "
             "STELLAR_OODLE_DIR con la carpeta que contiene el DLL.")
+    # Cada extraccion escanea TODOS los contenedores del juego: son minutos por
+    # tabla. Sin esta linea la UI muestra "Compilando..." fijo y parece colgada.
+    _emit_progress("baseline", table)
     stage = Path(tempfile.mkdtemp(prefix="~st_builder_vanilla_", dir=paks))
     extracted = Path(tempfile.mkdtemp(prefix="st_builder_legacy_"))
     try:
@@ -532,6 +549,9 @@ def apply_transforms(table, transform_ids, base="vanilla"):
     return doc, {"transforms": applied, **doc.pop("_report", {})}
 
 
+_FNAME_KEYS = ("Name", "EnumType", "InnerType", "ArrayType", "StructType", "ObjectName")
+
+
 def repair_namemap(doc):
     """Registra los FName usados por una tabla antes de enviarla a UAssetGUI.
 
@@ -549,14 +569,26 @@ def repair_namemap(doc):
     added = []
 
     def add(value):
-        if isinstance(value, str) and value and value not in known:
-            known.add(value)
-            added.append(value)
+        if not isinstance(value, str) or not value or value in known:
+            return
+        # Los elementos de un ArrayProperty llevan el indice como ``Name`` ("0",
+        # "1", ...): no son FNames y meterlos infla el NameMap y aleja el uasset
+        # del vanilla byte a byte.
+        if value.isdigit():
+            return
+        known.add(value)
+        added.append(value)
 
     def walk(value):
         if isinstance(value, dict):
-            if "NamePropertyData" in value.get("$type", ""):
+            t = value.get("$type", "")
+            if "NamePropertyData" in t or "EnumPropertyData" in t:
                 add(value.get("Value"))
+            # Todo FName del serializado: nombre de la propiedad y los nombres de
+            # tipo (enum/inner/array/struct/objeto). Cualquiera de estos ausente
+            # hace que fromjson termine sin escribir el uasset.
+            for key in _FNAME_KEYS:
+                add(value.get(key))
             for child in value.values():
                 walk(child)
         elif isinstance(value, list):

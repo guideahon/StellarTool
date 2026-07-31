@@ -454,6 +454,40 @@ def test_miniboss_build_keeps_granular_economy_transforms():
     assert skill_report["transforms"] == ["combat.antiSpamSkill"]
 
 
+def test_repair_namemap_ignores_array_indices():
+    """Los elementos de un ArrayProperty llevan el indice como Name ("0", "1"):
+    registrarlos infla el NameMap y aleja el uasset del vanilla byte a byte."""
+    import table_compiler
+    doc = {
+        "NameMap": [],
+        "Exports": [{"Table": {"Data": [{
+            "Name": "Row",
+            "Value": [{
+                "$type": "UAssetAPI.PropertyTypes.Objects.ArrayPropertyData, UAssetAPI",
+                "Name": "Entries", "ArrayType": "StructProperty",
+                "Value": [{"Name": "0", "Value": []}, {"Name": "1", "Value": []}],
+            }],
+        }]}}],
+    }
+    table_compiler.repair_namemap(doc)
+    assert doc["NameMap"] == ["Row", "Entries", "StructProperty"]
+
+
+def test_baseline_progress_line_format(capsys):
+    """La app parsea estas lineas para mostrar que tabla se esta extrayendo:
+    cambiar el formato deja la UI en 'Compilando...' sin avisar."""
+    import table_compiler
+    table_compiler._progress_seq = 0
+    table_compiler._emit_progress("baseline", "ShopItemTable")
+    table_compiler._emit_progress("baseline", "RewardGroupTable")
+    lines = capsys.readouterr().out.splitlines()
+    assert lines == ["PROGRESS baseline 1 ShopItemTable",
+                     "PROGRESS baseline 2 RewardGroupTable"]
+    # AppController divide por espacios y usa campos 1..3.
+    fields = lines[0].split(" ")
+    assert len(fields) == 4 and fields[0] == "PROGRESS"
+
+
 def test_table_compiler_repairs_missing_fnames_before_fromjson():
     import table_compiler
     doc = {
@@ -463,11 +497,17 @@ def test_table_compiler_repairs_missing_fnames_before_fromjson():
             "Value": [{
                 "$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
                 "Name": "Alias", "Value": "ImportedAlias",
+            }, {
+                "$type": "UAssetAPI.PropertyTypes.Objects.EnumPropertyData, UAssetAPI",
+                "Name": "Kind", "EnumType": "EImportedEnum", "Value": "EImportedEnum::Boss",
             }],
         }]}}],
     }
-    assert table_compiler.repair_namemap(doc) == 2
-    assert doc["NameMap"] == ["ExistingRow", "ImportedRow", "ImportedAlias"]
+    # Todo FName del serializado: fila, nombre de propiedad, valor Name/Enum y
+    # nombre de tipo. Cualquiera ausente hace que fromjson no escriba nada.
+    assert table_compiler.repair_namemap(doc) == 6
+    assert doc["NameMap"] == ["ExistingRow", "ImportedRow", "ImportedAlias", "Alias",
+                              "EImportedEnum::Boss", "Kind", "EImportedEnum"]
     # Idempotente: compilar una segunda vez no infla el NameMap.
     assert table_compiler.repair_namemap(doc) == 0
 
