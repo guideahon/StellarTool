@@ -187,6 +187,7 @@
   "builder_out": "Output folder for the ZIP",
   "builder_build": "Build my mod",
   "builder_compiling": "Compiling...",
+  "builder_baseline_progress": "Extracting vanilla table: %1 (%2)",
   "builder_cancelling": "Cancelling...",
   "builder_cancelled": "Build cancelled. Previous install restored and partial output cleaned.",
   "builder_done": "Done. Your mod:",

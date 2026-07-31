@@ -187,6 +187,7 @@
   "builder_out": "Carpeta de salida del ZIP",
   "builder_build": "Compilar mi mod",
   "builder_compiling": "Compilando...",
+  "builder_baseline_progress": "Extrayendo tabla vanilla: %1 (%2)",
   "builder_cancelling": "Cancelando...",
   "builder_cancelled": "Compilacion cancelada. Se restauro la instalacion anterior y se limpio la salida incompleta.",
   "builder_done": "Listo. Tu mod:",

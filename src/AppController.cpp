@@ -1252,6 +1252,28 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
         proc.setProgram(pythonExe());
         proc.setArguments(args);
         applyBuilderEnv(proc, game);
+        // Extraer una baseline vanilla escanea todos los contenedores del juego:
+        // son minutos por tabla. El builder emite "PROGRESS <kind> <n> <detalle>"
+        // y se lee en caliente para que el paso largo se vea en la UI.
+        QString pending;
+        QString collected;
+        QObject::connect(&proc, &QProcess::readyReadStandardOutput,
+                         &proc, [this, &proc, &pending, &collected] {
+            pending += QString::fromUtf8(proc.readAllStandardOutput());
+            int nl;
+            while ((nl = pending.indexOf(QLatin1Char('\n'))) >= 0) {
+                const QString line = pending.left(nl).trimmed();
+                pending.remove(0, nl + 1);
+                collected += line + QLatin1Char('\n');
+                if (!line.startsWith(QStringLiteral("PROGRESS "))) continue;
+                const QStringList f = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+                if (f.size() < 4 || f.at(1) != QStringLiteral("baseline")) continue;
+                const QString msg = t(QStringLiteral("builder_baseline_progress"))
+                                        .arg(f.at(3)).arg(f.at(2));
+                QMetaObject::invokeMethod(this, [this, msg] { setBusy(true, msg); },
+                                          Qt::QueuedConnection);
+            }
+        });
         proc.start();
         // El pid habilita Cancelar en la UI; cancelBuild() mata ese arbol.
         if (proc.waitForStarted(30000)) {
@@ -1264,7 +1286,10 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
         // El build murio de golpe: no pudo limpiar nada. El diario que dejo
         // permite reponer la instalacion previa y borrar la salida a medias.
         if (cancelled) runBuilderSync({QStringLiteral("--rollback")});
-        const QString out = QString::fromUtf8(proc.readAllStandardOutput());
+        // El lector en caliente ya consumio el stdout: la cola es lo que quedo
+        // sin newline final mas lo que llego despues del ultimo readyRead.
+        const QString out = collected + pending
+                            + QString::fromUtf8(proc.readAllStandardOutput());
         const QString err = QString::fromUtf8(proc.readAllStandardError());
         QString zip;
         for (const QString &line : out.split(QLatin1Char('\n')))

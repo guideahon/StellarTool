@@ -79,6 +79,7 @@
   "builder_out": "Ausgabeordner fur ZIP",
   "builder_build": "Meinen Mod bauen",
   "builder_compiling": "Kompiliere...",
+  "builder_baseline_progress": "Extrahiere Vanilla-Tabelle: %1 (%2)",
   "builder_done": "Fertig. Dein Mod:",
   "builder_game_found": "Spiel erkannt",
   "builder_game_missing": "Spiel nicht erkannt — ZIP wird erstellt",

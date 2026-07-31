@@ -79,6 +79,7 @@
   "builder_out": "Dossier de sortie du ZIP",
   "builder_build": "Compiler mon mod",
   "builder_compiling": "Compilation...",
+  "builder_baseline_progress": "Extraction de la table vanilla : %1 (%2)",
   "builder_done": "Termine. Ton mod:",
   "builder_game_found": "Jeu detecte",
   "builder_game_missing": "Jeu non detecte — un ZIP sera genere",

@@ -79,6 +79,7 @@
   "builder_out": "ZIP输出文件夹",
   "builder_build": "编译我的MOD",
   "builder_compiling": "编译中...",
+  "builder_baseline_progress": "正在提取原版数据表：%1 (%2)",
   "builder_done": "完成。你的MOD:",
   "builder_game_found": "已检测到游戏",
   "builder_game_missing": "未检测到游戏 — 将生成ZIP手动安装",

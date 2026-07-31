@@ -79,6 +79,7 @@
   "builder_out": "Папка вывода ZIP",
   "builder_build": "Собрать мод",
   "builder_compiling": "Компиляция...",
+  "builder_baseline_progress": "Извлечение ванильной таблицы: %1 (%2)",
   "builder_done": "Готово. Ваш мод:",
   "builder_game_found": "Игра найдена",
   "builder_game_missing": "Игра не найдена — будет создан ZIP",

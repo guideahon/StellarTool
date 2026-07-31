@@ -79,6 +79,7 @@
   "builder_out": "ZIP 출력 폴더",
   "builder_build": "모드 빌드",
   "builder_compiling": "컴파일 중...",
+  "builder_baseline_progress": "바닐라 테이블 추출 중: %1 (%2)",
   "builder_done": "완료. 당신의 모드:",
   "builder_game_found": "게임 감지됨",
   "builder_game_missing": "게임 미감지 — 수동 설치용 ZIP 생성",

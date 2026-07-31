@@ -79,6 +79,7 @@
   "builder_out": "Cartella di output ZIP",
   "builder_build": "Compila il mio mod",
   "builder_compiling": "Compilazione...",
+  "builder_baseline_progress": "Estrazione tabella vanilla: %1 (%2)",
   "builder_done": "Fatto. Il tuo mod:",
   "builder_game_found": "Gioco rilevato",
   "builder_game_missing": "Gioco non rilevato — verra generato uno ZIP",

@@ -79,6 +79,7 @@
   "builder_out": "ZIPの出力フォルダ",
   "builder_build": "MODをビルド",
   "builder_compiling": "コンパイル中...",
+  "builder_baseline_progress": "バニラテーブルを抽出中: %1 (%2)",
   "builder_done": "完了。あなたのMOD:",
   "builder_game_found": "ゲーム検出",
   "builder_game_missing": "ゲーム未検出 — 手動インストール用ZIPを生成",

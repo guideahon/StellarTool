@@ -79,6 +79,7 @@
   "builder_out": "Pasta de saida do ZIP",
   "builder_build": "Compilar meu mod",
   "builder_compiling": "Compilando...",
+  "builder_baseline_progress": "Extraindo tabela vanilla: %1 (%2)",
   "builder_done": "Pronto. Seu mod:",
   "builder_game_found": "Jogo detectado",
   "builder_game_missing": "Jogo nao detectado — sera gerado um ZIP",
