@@ -31,9 +31,12 @@ def get(row, name):
     return p.get("Value") if p else None
 
 
-def main(inp, outp, vanilla):
-    doc = json.load(open(inp, encoding="utf-8"))
-    van = json.load(open(vanilla, encoding="utf-8"))
+def apply_to_doc(doc, van):
+    """Edita el doc en memoria contra la SkillTable vanilla ya parseada.
+
+    El compilador lo llama directo: lanzar un python aparte obligaba a escribir
+    y releer el JSON de la tabla entera.
+    """
     van_amount = {}
     for r in rows(van):
         p = prop(r, "UseEnergyAmount")
@@ -63,9 +66,15 @@ def main(inp, outp, vanilla):
         p["IsZero"] = float(target) == 0.0 if isinstance(target, (int, float, str)) and str(target) not in ("+0",) else False
         changes.append({"row": r["Name"], "before": cur, "after": target})
 
+    return {"reverted": len(changes), "changes": changes}
+
+
+def main(inp, outp, vanilla):
+    doc = json.load(open(inp, encoding="utf-8"))
+    van = json.load(open(vanilla, encoding="utf-8"))
+    report = apply_to_doc(doc, van)
     json.dump(doc, open(outp, "w", encoding="utf-8"), indent=2)
-    print(json.dumps({"input": inp, "output": outp, "reverted": len(changes),
-                      "changes": changes}, indent=2, default=str))
+    print(json.dumps({"input": inp, "output": outp, **report}, indent=2, default=str))
 
 
 if __name__ == "__main__":
