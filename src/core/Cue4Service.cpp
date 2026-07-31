@@ -140,10 +140,16 @@ bool Cue4Service::run(const QStringList &args, QString *error, int idleTimeoutMs
 
 QStringList Cue4Service::listPackages(const QString &inputDir, const QString &mappings,
                                       const QString &pattern, QString *error) {
+    return listPackages(inputDir, mappings, QStringList{pattern}, error);
+}
+
+QStringList Cue4Service::listPackages(const QString &inputDir, const QString &mappings,
+                                      const QStringList &patterns, QString *error) {
     QStringList args{QStringLiteral("-i"), QDir::toNativeSeparators(inputDir),
                      QStringLiteral("-g"), gameVersion(),
-                     QStringLiteral("-p"), pattern,
                      QStringLiteral("-l")};
+    for (const QString &pat : patterns)
+        args << QStringLiteral("-p") << pat;
     if (!mappings.isEmpty())
         args << QStringLiteral("-m") << QDir::toNativeSeparators(mappings);
     QString out;

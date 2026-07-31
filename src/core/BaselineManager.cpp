@@ -56,6 +56,7 @@ bool BaselineManager::buildFromGame(const QString &gamePaksDir, const QString &m
     for (const QString &f : bdir.entryList({QStringLiteral("*.json")}, QDir::Files))
         QFile::remove(bdir.filePath(f));
     QFile::remove(bdir.filePath(QStringLiteral("stamp.txt")));
+    QFile::remove(bdir.filePath(QStringLiteral("absent.txt")));
     // Listar primero (barato: monta y no escribe) y delegar en ensureTables,
     // que reintenta lo que quede afuera cuando cue4parse aborta por colisión
     // de escritura. Una sola pasada dejaba la baseline a medias sin avisar.
@@ -93,6 +94,26 @@ int BaselineManager::ingestExported(const QMap<QString, QString> &tables) const 
     return count;
 }
 
+QSet<QString> BaselineManager::readAbsent() const {
+    QSet<QString> out;
+    QFile f(baselineDir() + QStringLiteral("/absent.txt"));
+    if (!f.open(QIODevice::ReadOnly)) return out;
+    const auto lines = QString::fromUtf8(f.readAll()).split(QLatin1Char('\n'));
+    for (const QString &l : lines) {
+        const QString s = l.trimmed().toLower();
+        if (!s.isEmpty()) out.insert(s);
+    }
+    return out;
+}
+
+void BaselineManager::writeAbsent(const QSet<QString> &absent) const {
+    QFile f(baselineDir() + QStringLiteral("/absent.txt"));
+    if (!f.open(QIODevice::WriteOnly)) return;
+    QStringList names(absent.begin(), absent.end());
+    names.sort();
+    f.write(names.join(QLatin1Char('\n')).toUtf8());
+}
+
 void BaselineManager::writeStamp(const QString &gamePaksDir) const {
     QFile sf(baselineDir() + QStringLiteral("/stamp.txt"));
     if (sf.open(QIODevice::WriteOnly))
@@ -121,6 +142,8 @@ bool BaselineManager::ensureTables(const QString &gamePaksDir, const QString &ma
         // Sin borrar el stamp viejo la baseline quedaría "stale" para siempre
         // y se limpiaría en cada análisis.
         QFile::remove(d.filePath(QStringLiteral("stamp.txt")));
+        // Un parche puede agregar tablas: lo "inexistente" caduca con el juego.
+        QFile::remove(d.filePath(QStringLiteral("absent.txt")));
         QDir(baselineDir() + QStringLiteral("/uasset_json")).removeRecursively();
     }
     QDir().mkpath(baselineDir());
@@ -136,9 +159,41 @@ bool BaselineManager::ensureTables(const QString &gamePaksDir, const QString &ma
         return out;
     };
     QStringList missing = stillMissing(tableNames);
+    // Tablas que ya se comprobó que NO existen en vanilla (tablas nuevas del
+    // mod). Sin este registro cada análisis volvía a barrer el juego buscando
+    // algo que nunca va a aparecer.
+    QSet<QString> absent = readAbsent();
+    for (int i = missing.size() - 1; i >= 0; --i)
+        if (absent.contains(missing.at(i).toLower())) missing.removeAt(i);
     if (missing.isEmpty()) return true;
 
     GamePaths::cleanCue4Stages();
+
+    // Un listado (-l) monta el juego una vez y no escribe: descartar acá lo que
+    // no existe evita que el bucle de reintento gaste pasadas completas de
+    // exportación persiguiendo tablas inexistentes (eran ~30 min de espera).
+    {
+        emit progress(tr("Buscando %1 tabla(s) vanilla en el juego (CUE4Parse)...").arg(missing.size()));
+        QStringList patterns;
+        for (const QString &name : missing) patterns << Cue4Service::patternForTable(name);
+        QString listErr;
+        const QStringList found = m_cue4->listPackages(gamePaksDir, mappings, patterns, &listErr);
+        if (!found.isEmpty()) {
+            QSet<QString> present;
+            for (const QString &p : found) present.insert(QFileInfo(p).completeBaseName().toLower());
+            QStringList existing;
+            for (const QString &name : missing) {
+                if (present.contains(name.toLower())) existing << name;
+                else absent.insert(name.toLower());
+            }
+            writeAbsent(absent);
+            missing = existing;
+            if (missing.isEmpty()) return true;
+        }
+        // Si el listado falló (found vacío) se sigue con el camino viejo: mejor
+        // exportar de más que no exportar nada por un -l roto.
+    }
+
     const QString tmp = baselineDir() + QStringLiteral("/_cue4_raw");
     int count = 0;
     // cue4parse exporta en paralelo y aborta el proceso entero si dos hilos

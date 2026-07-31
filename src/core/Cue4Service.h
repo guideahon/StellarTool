@@ -41,6 +41,11 @@ public:
     QStringList listPackages(const QString &inputDir, const QString &mappings,
                              const QString &pattern, QString *error = nullptr);
 
+    // Igual, con varios patrones en una sola corrida (-p es repetible): saber
+    // qué tablas existen en vanilla cuesta un montaje, no una exportación.
+    QStringList listPackages(const QString &inputDir, const QString &mappings,
+                             const QStringList &patterns, QString *error = nullptr);
+
     // Patrón -p que matchea una tabla por nombre en cualquier carpeta.
     static QString patternForTable(const QString &tableName);
 

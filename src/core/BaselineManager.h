@@ -2,6 +2,7 @@
 
 #include "ModTypes.h"
 #include <QObject>
+#include <QSet>
 
 namespace st {
 
@@ -49,6 +50,9 @@ private:
     // Convierte los JSON crudos de CUE4Parse y los deja en la cache.
     int ingestExported(const QMap<QString, QString> &tables) const;
     void writeStamp(const QString &gamePaksDir) const;
+    // Nombres (minúscula) confirmados como inexistentes en vanilla.
+    QSet<QString> readAbsent() const;
+    void writeAbsent(const QSet<QString> &absent) const;
     UAssetService *m_uasset;
     Cue4Service *m_cue4;
 };
