@@ -517,6 +517,44 @@ def apply_transforms(table, transform_ids, base="vanilla"):
     return doc, {"transforms": applied, **doc.pop("_report", {})}
 
 
+def repair_namemap(doc):
+    """Registra los FName usados por una tabla antes de enviarla a UAssetGUI.
+
+    UAssetGUI no crea entradas de ``NameMap`` al serializar: ante un FName
+    ausente termina sin producir el uasset. Las transformaciones pueden copiar
+    aliases desde otra tabla/base (por ejemplo Perfect Dodge sin lock-on), por
+    lo que la reparación debe correr para *toda* tabla compilada, no sólo para
+    los pipelines de mini-boss.
+    """
+    name_map = doc.get("NameMap")
+    if not isinstance(name_map, list):
+        return 0
+
+    known = set(name_map)
+    added = []
+
+    def add(value):
+        if isinstance(value, str) and value and value not in known:
+            known.add(value)
+            added.append(value)
+
+    def walk(value):
+        if isinstance(value, dict):
+            if "NamePropertyData" in value.get("$type", ""):
+                add(value.get("Value"))
+            for child in value.values():
+                walk(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk(child)
+
+    for row in rows(doc):
+        add(row.get("Name"))
+        walk(row)
+    name_map.extend(added)
+    return len(added)
+
+
 def compile_pak(transform_ids, pak_name, work_dir, verify_result=True, toml_dir=None):
     """Aplica transforms, escribe JSON por tabla tocada, y packea a un pak Zen.
 
@@ -556,6 +594,7 @@ def compile_pak(transform_ids, pak_name, work_dir, verify_result=True, toml_dir=
         if table in toml_by_table:
             import toml_patch
             reports[table]["tomlPatched"] = toml_patch.apply_toml_to_doc(doc, toml_by_table[table])
+        reports[table]["nameMapAdded"] = repair_namemap(doc)
         out_json = work_dir / f"{table}.json"
         out_json.write_text(json.dumps(doc), encoding="utf-8")
         uassets.append(toolchain.fromjson(out_json, work_dir / f"{table}.uasset"))

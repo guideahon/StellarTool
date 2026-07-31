@@ -193,8 +193,9 @@ Corolario para depurar a mano: si `fromjson` falla, **leé el portapapeles**.
 
 UAssetAPI trata cualquier FName ausente del `NameMap` del asset como "dummy" y
 al escribir tira `DummyFNameSerializationException`. Cualquier valor de texto o
-enum nuevo lo dispara. `MergeEngine::registerFNames` agrega los que falten de
-las filas tocadas. Agregar nombres de más es inocuo: UAssetGUI recalcula
+enum nuevo lo dispara. `MergeEngine::registerFNames` y el `TableCompiler` del
+Builder agregan los que falten de las filas tocadas antes de serializar.
+Agregar nombres de más es inocuo: UAssetGUI recalcula
 `NamesReferencedFromExportDataCount` al escribir (verificado).
 
 ### El float cero se serializa como el STRING `"+0"`

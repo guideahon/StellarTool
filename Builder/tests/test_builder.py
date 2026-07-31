@@ -454,6 +454,24 @@ def test_miniboss_build_keeps_granular_economy_transforms():
     assert skill_report["transforms"] == ["combat.antiSpamSkill"]
 
 
+def test_table_compiler_repairs_missing_fnames_before_fromjson():
+    import table_compiler
+    doc = {
+        "NameMap": ["ExistingRow"],
+        "Exports": [{"Table": {"Data": [{
+            "Name": "ImportedRow",
+            "Value": [{
+                "$type": "UAssetAPI.PropertyTypes.Objects.NamePropertyData, UAssetAPI",
+                "Name": "Alias", "Value": "ImportedAlias",
+            }],
+        }]}}],
+    }
+    assert table_compiler.repair_namemap(doc) == 2
+    assert doc["NameMap"] == ["ExistingRow", "ImportedRow", "ImportedAlias"]
+    # Idempotente: compilar una segunda vez no infla el NameMap.
+    assert table_compiler.repair_namemap(doc) == 0
+
+
 def test_split_gauge_recovery_extras_are_applied():
     import effect_extras
     names = (
