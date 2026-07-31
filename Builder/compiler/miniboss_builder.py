@@ -439,53 +439,9 @@ def _load_script_module(name):
 
 
 def _edit_uasset(data_dir, table, mutators, repair=True):
-    """Aplica varias ediciones a una tabla en UN solo tojson/fromjson.
-
-    Cada roundtrip de una tabla grande (EffectTable) cuesta ~15s, y antes cada
-    pase hacia el suyo sobre el mismo archivo. `mutators` es una lista de
-    callables doc -> reporte, aplicados en orden.
-    """
-    import json
-    import subprocess
+    """Ediciones de una tabla staged en un solo roundtrip (ver toolchain)."""
     import toolchain
-    data_dir = Path(data_dir)
-    target = data_dir / f"{table}.uasset"
-    if not target.exists() or not mutators:
-        return {}
-    tools = toolchain.tools_dir()
-    uag = tools / "UAssetGUI.exe"
-    tj = data_dir / f"_{table}_edit.json"
-    cp = subprocess.run(
-        [str(uag), "tojson", str(target), str(tj), "VER_UE4_26",
-         str(tools / "StellarBlade.usmap")],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
-    if not tj.exists():
-        raise RuntimeError(
-            f"tojson no genero el JSON de {table}. salida={toolchain.out_err(cp, 800)}")
-    doc = json.loads(tj.read_text(encoding="utf-8"))
-    report = {}
-    for mutate in mutators:
-        report.update(mutate(doc) or {})
-    # Las ediciones pueden introducir FNames nuevos (ver toolchain: sin esto
-    # fromjson termina sin escribir y el pak sale con la tabla sin tocar).
-    # repair=False en el camino fiel: ahi la salida se compara byte a byte
-    # contra el pak publico y agregar entradas al NameMap la correria.
-    if repair:
-        import table_compiler
-        table_compiler.repair_namemap(doc)
-    tj.write_text(json.dumps(doc), encoding="utf-8")
-    # fromjson pisa un .uasset que ya existe: chequear existencia no alcanza para
-    # detectar el fallo silencioso, hay que ver que efectivamente se reescribio.
-    before = target.stat().st_mtime_ns
-    cp = subprocess.run(
-        [str(uag), "fromjson", str(tj), str(target), "StellarBlade"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
-    if target.stat().st_mtime_ns == before:
-        raise RuntimeError(
-            f"fromjson no reescribio {table}.uasset (probable FName faltante en "
-            f"NameMap). salida={toolchain.out_err(cp, 800)}")
-    tj.unlink(missing_ok=True)
-    return report
+    return toolchain.edit_uasset(Path(data_dir) / f"{table}.uasset", mutators, repair)
 
 
 def _apply_effect_extras_pass(data_dir, extras, gear_mult=2.0,
@@ -672,24 +628,21 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     skx = skill_extras.apply_skill_extras(skill_doc, sk_sel, just_mult, air_count) if sk_sel else {}
     report["combatTransforms"]["SkillTable"] = skill_combat_report
 
-    # Las tres tablas se serializan a uasset independientes: en paralelo, que
-    # cada fromjson es un proceso que se pasa el rato esperando a UAssetGUI.
+    # Una tabla por vez: UAssetGUI no tolera instancias concurrentes (ver el
+    # lock en toolchain), asi que paralelizar esto no acelera nada.
     # Los transforms pueden introducir FNames nuevos: sin reparar el NameMap
     # fromjson no escribe nada (gotcha, ver toolchain).
-    jobs = [("CharacterTable", ctd), ("EventSpawnTable", esd), ("SkillTable", skill_doc)]
-    for name, doc in jobs:
+    written = []
+    for name, doc in (("CharacterTable", ctd), ("EventSpawnTable", esd),
+                      ("SkillTable", skill_doc)):
         report.setdefault("nameMapAdded", {})[name] = _repair_namemap(doc)
-
-    def _serialize(job):
-        name, doc = job
         oj = work_dir / f"{name}.json"
         oj.write_text(json.dumps(doc), encoding="utf-8")
-        return toolchain.fromjson(oj, work_dir / f"{name}.uasset")
+        written.append(toolchain.fromjson(oj, work_dir / f"{name}.uasset"))
 
     # EffectTable: desactivar el swap de outfit y los extras son ediciones del
     # mismo archivo. En un solo roundtrip: cada tojson/fromjson de esa tabla
-    # cuesta ~15s, y hacer uno por pase era la mitad del tiempo de compilacion.
-    # Toca otro archivo que las tres de arriba, asi que va en la misma tanda.
+    # cuesta ~25s, y hacer uno por pase era la mitad del tiempo de compilacion.
     import effect_extras
     et_mutators = []
     if not outfit:
@@ -701,14 +654,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
         et_mutators.append(lambda doc: effect_extras.apply_effect_extras(
             doc, et_sel, gear_mult, tumbler_value))
 
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=len(jobs) + 1) as pool:
-        et_future = pool.submit(_edit_uasset, work_dir, "EffectTable", et_mutators)
-        # list() propaga la excepcion del primer fromjson que falle.
-        written = list(pool.map(_serialize, jobs))
-        et_report = et_future.result()
-    # Orden fijo (CharacterTable, EventSpawnTable, luego las fijas): el pak se
-    # arma con esta lista y no tiene por que depender de quien termino antes.
+    et_report = _edit_uasset(work_dir, "EffectTable", et_mutators)
+    # Orden fijo: CharacterTable, EventSpawnTable y despues las fijas.
     uassets.extend(written[:2])
     uassets.extend(work_dir / f"{name}.uasset" for name in _STATIC_TABLES)
     eff = {k: v for k, v in et_report.items() if k != "disableSkinSuit"}

@@ -83,16 +83,9 @@ def table_of(toml_path: Path) -> str:
 def apply_toml_dir(patch_dir, staged_data_dir, tools_dir=None) -> dict:
     """Aplica cada <Tabla>.toml a staged_data_dir/<Tabla>.uasset via
     tojson->apply->fromjson. Devuelve {tabla: propsAplicadas}."""
-    import json
-    import subprocess
+    import toolchain
     patch_dir = Path(patch_dir)
     data = Path(staged_data_dir)
-    if tools_dir is None:
-        import toolchain
-        tools_dir = toolchain.tools_dir()
-    tools_dir = Path(tools_dir)
-    usmap = tools_dir / "StellarBlade.usmap"
-    uag = tools_dir / "UAssetGUI.exe"
     report = {}
     for toml_file in sorted(patch_dir.glob("*.toml")):
         table = table_of(toml_file)
@@ -101,16 +94,13 @@ def apply_toml_dir(patch_dir, staged_data_dir, tools_dir=None) -> dict:
             report[table] = "skip (no en el pak)"
             continue
         patch = load_toml(toml_file)
-        tmp = data / f"_{table}.json"
-        subprocess.run([str(uag), "tojson", str(uasset), str(tmp), "VER_UE4_26", str(usmap)],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
-        doc = json.loads(tmp.read_text(encoding="utf-8"))
-        n = apply_toml_to_doc(doc, patch)
-        tmp.write_text(json.dumps(doc), encoding="utf-8")
-        subprocess.run([str(uag), "fromjson", str(tmp), str(uasset), "StellarBlade"],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
-        tmp.unlink(missing_ok=True)
-        report[table] = n
+        counted = {}
+        # edit_uasset verifica que fromjson haya reescrito el uasset: antes un
+        # patch podia perderse en silencio y el pak salia con la tabla sin tocar.
+        toolchain.edit_uasset(uasset, [
+            lambda doc: counted.update(applied=apply_toml_to_doc(doc, patch))
+        ])
+        report[table] = counted.get("applied", 0)
     return report
 
 

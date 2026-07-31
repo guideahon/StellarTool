@@ -15,7 +15,16 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import threading
 from pathlib import Path
+
+# UAssetGUI NO tolera instancias concurrentes: dos procesos a la vez terminan
+# con exit 0 sin escribir nada (usa recursos globales, entre ellos el
+# portapapeles para reportar errores). Correr las tablas en paralelo parecia
+# ahorrar ~15s y fallaba de forma intermitente con el mismo mensaje que ve el
+# usuario cuando falta un FName. El lock deja los procesos en fila aunque el
+# llamador use threads.
+_UAG_LOCK = threading.Lock()
 
 _DEFAULT_TOOLS = Path(r"C:\Users\cristian\Documents\Stellar Tool\tools")
 _VENDOR_TOOLS = Path(__file__).resolve().parent.parent / "vendor" / "tools"
@@ -54,13 +63,66 @@ def fromjson(json_path: Path, out_uasset: Path) -> Path:
     exe = tools_dir() / "UAssetGUI.exe"
     out_uasset = Path(out_uasset)
     out_uasset.parent.mkdir(parents=True, exist_ok=True)
-    cp = _run([str(exe), "fromjson", str(json_path), str(out_uasset), "StellarBlade"])
+    with _UAG_LOCK:
+        cp = _run([str(exe), "fromjson", str(json_path), str(out_uasset), "StellarBlade"])
     if not out_uasset.exists() or out_uasset.stat().st_size == 0:
         raise RuntimeError(
             f"fromjson no escribio {out_uasset.name} (probable FName faltante en NameMap). "
             f"salida={out_err(cp, 800)}"
         )
     return out_uasset
+
+
+def tojson(uasset: Path, out_json: Path, timeout: int = 900) -> Path:
+    """.uasset -> JSON UAssetAPI. Falla si no se escribe el archivo."""
+    exe = tools_dir() / "UAssetGUI.exe"
+    out_json = Path(out_json)
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    with _UAG_LOCK:
+        cp = _run([str(exe), "tojson", str(uasset), str(out_json), "VER_UE4_26",
+                   str(tools_dir() / "StellarBlade.usmap")], timeout)
+    if not out_json.exists():
+        raise RuntimeError(
+            f"tojson no genero el JSON de {Path(uasset).name}. salida={out_err(cp, 800)}")
+    return out_json
+
+
+def edit_uasset(uasset: Path, mutators, repair: bool = True) -> dict:
+    """Aplica varias ediciones a un .uasset en UN solo tojson/fromjson.
+
+    Cada roundtrip de una tabla grande (EffectTable) cuesta ~25s, asi que los
+    pases que tocan la misma tabla se agrupan aca. ``mutators`` es una lista de
+    callables doc -> reporte, aplicados en orden.
+
+    repair=False para el camino fiel, donde la salida se compara byte a byte
+    contra el pak publico y agregar entradas al NameMap la correria.
+    """
+    import json
+    uasset = Path(uasset)
+    if not uasset.exists() or not mutators:
+        return {}
+    tmp = uasset.with_name(f"_{uasset.stem}_edit.json")
+    tojson(uasset, tmp)
+    doc = json.loads(tmp.read_text(encoding="utf-8"))
+    report = {}
+    for mutate in mutators:
+        report.update(mutate(doc) or {})
+    if repair:
+        import table_compiler   # local: table_compiler importa este modulo
+        table_compiler.repair_namemap(doc)
+    tmp.write_text(json.dumps(doc), encoding="utf-8")
+    # fromjson pisa un .uasset que ya existe: chequear existencia no alcanza
+    # para detectar el fallo silencioso, hay que ver que se reescribio.
+    before = uasset.stat().st_mtime_ns
+    with _UAG_LOCK:
+        cp = _run([str(tools_dir() / "UAssetGUI.exe"), "fromjson", str(tmp),
+                   str(uasset), "StellarBlade"])
+    if uasset.stat().st_mtime_ns == before:
+        raise RuntimeError(
+            f"fromjson no reescribio {uasset.name} (probable FName faltante en "
+            f"NameMap). salida={out_err(cp, 800)}")
+    tmp.unlink(missing_ok=True)
+    return report
 
 
 _OODLE = "oo2core_9_win64.dll"

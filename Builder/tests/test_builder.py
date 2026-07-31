@@ -1,6 +1,7 @@
 """Tests F1 del Stellar Souls Builder. Corre: python -m pytest Builder/tests -q
 (o directo: python Builder/tests/test_builder.py)."""
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -452,6 +453,42 @@ def test_miniboss_build_keeps_granular_economy_transforms():
 
     _skill, skill_report = table_compiler.apply_transforms("SkillTable", ids)
     assert skill_report["transforms"] == ["combat.antiSpamSkill"]
+
+
+def test_uassetgui_calls_are_serialized(tmp_path, monkeypatch):
+    """UAssetGUI no tolera instancias concurrentes: dos a la vez terminan con
+    exit 0 sin escribir nada (mismo sintoma que un FName faltante). Si alguien
+    vuelve a paralelizar las tablas, el lock lo tiene que seguir cubriendo."""
+    import threading
+    import time
+    import toolchain
+    from concurrent.futures import ThreadPoolExecutor
+
+    running = 0
+    overlapped = False
+    guard = threading.Lock()
+
+    def fake_run(args, *a, **kw):
+        nonlocal running, overlapped
+        with guard:
+            running += 1
+            if running > 1:
+                overlapped = True
+        time.sleep(0.05)
+        Path(args[3]).write_text("x", encoding="utf-8")   # el uasset de salida
+        with guard:
+            running -= 1
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(toolchain, "_run", fake_run)
+    jobs = []
+    for i in range(4):
+        src = tmp_path / f"t{i}.json"
+        src.write_text("{}", encoding="utf-8")
+        jobs.append((src, tmp_path / f"t{i}.uasset"))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(lambda j: toolchain.fromjson(*j), jobs))
+    assert not overlapped, "dos UAssetGUI a la vez: el lock de toolchain no cubre esta ruta"
 
 
 def test_repair_namemap_ignores_array_indices():
