@@ -20,6 +20,26 @@
     "DifficultyStatGroupTable": {
       "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\difficultystatgrouptable.json",
       "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\difficultystatgrouptable.json"
+    },
+    "ShopItemTable": {
+      "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\shopitemtable.json",
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\shopitemtable.json"
+    },
+    "RewardGroupTable": {
+      "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\rewardgrouptable.json",
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\rewardgrouptable.json"
+    },
+    "SPLevelTable": {
+      "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\spleveltable.json",
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\spleveltable.json"
+    },
+    "CharacterLevelTable": {
+      "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\characterleveltable.json",
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\characterleveltable.json"
+    },
+    "ItemFishTable": {
+      "full": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\itemfishtable.json",
+      "vanilla": "%LOCALAPPDATA%\\StellarTool\\StellarTool\\baseline\\uasset_json\\itemfishtable.json"
     }
   }
 }

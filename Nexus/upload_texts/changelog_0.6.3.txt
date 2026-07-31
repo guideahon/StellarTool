@@ -1,0 +1,19 @@
+Version 0.6.3
+
+Fixed: Stellar Souls Builder could fail when building Perfect Dodge without
+lock-on, with an error saying that SkillTable.uasset could not be written.
+
+The affected build copied a UE FName alias into SkillTable but did not always
+register it in the table's NameMap first. UAssetGUI then stopped without
+creating the uasset, which made the build fail.
+
+The Builder now repairs the NameMap of every table immediately before it is
+serialized. This covers Perfect Dodge without lock-on and prevents the same
+class of failure for other Builder options that copy FName aliases.
+
+Baseline: Pending is not required for this fix or for the standard Builder
+options. If a selected option needs a vanilla table that is not cached yet, the
+tool stops and asks you to select the Stellar Blade game folder; it never makes
+an incomplete mod silently.
+
+Everything from 0.6.2 is included.

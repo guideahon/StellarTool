@@ -1477,6 +1477,161 @@ def test_out_err_survives_processes_without_captured_output():
     assert toolchain.out_err(cp, 2) == "bc"
 
 
+# ---- mundo / progresion (world_extras) ----
+
+def _world_doc(rows):
+    return {"Exports": [{"Table": {"Data": rows}}]}
+
+
+def _row(name, props):
+    return {"Name": name, "Value": [{"Name": k, "Value": v, "IsZero": v == 0}
+                                    for k, v in props.items()]}
+
+
+def _value(doc, row_name, prop_name):
+    row = next(r for r in doc["Exports"][0]["Table"]["Data"] if r["Name"] == row_name)
+    return next(p for p in row["Value"] if p["Name"] == prop_name)["Value"]
+
+
+def test_world_percentages_are_relative_to_vanilla():
+    import world_extras
+    shop = _world_doc([_row("item", {"MoneyItemCount1": 100, "Discount_MoneyItemCount1": 80,
+                                     "MoneyItemCount2": 0})])
+    assert world_extras.shop_prices(shop, price_percent=25) == 2
+    assert _value(shop, "item", "MoneyItemCount1") == 25
+    assert _value(shop, "item", "Discount_MoneyItemCount1") == 20
+    assert _value(shop, "item", "MoneyItemCount2") == 0     # gratis sigue gratis
+
+    sp = _world_doc([_row("SPLevel_1", {"RequiredSPExp": 400})])
+    assert world_extras.sp_exp(sp, exp_percent=50) == 1
+    assert _value(sp, "SPLevel_1", "RequiredSPExp") == 200
+
+    upgrades = _world_doc([_row("BaseGrowth_Body_1", {"RequiredItemAmount1": 3,
+                                                      "RequiredItemAmount2": 0})])
+    assert world_extras.upgrade_costs(upgrades, cost_percent=10) == 1
+    # 3 * 10% redondea a 0: un requisito que existia no puede desaparecer.
+    assert _value(upgrades, "BaseGrowth_Body_1", "RequiredItemAmount1") == 1
+
+    fish = _world_doc([_row("Fish_GoldFish", {"Stamina": 800, "FightingTime": 45})])
+    assert world_extras.fishing(fish, stamina_percent=50, fighting_time_percent=200) == 2
+    assert _value(fish, "Fish_GoldFish", "Stamina") == 400
+    assert _value(fish, "Fish_GoldFish", "FightingTime") == 90
+
+
+def test_world_drop_rates_only_touch_random_each_and_clamp():
+    import world_extras
+    doc = _world_doc([
+        _row("each", {"DropType": "ESBRewardGroupDrop_RandomEach", "DropRate": 2500,
+                      "ItemMinCount": 1, "ItemMaxCount": 2}),
+        _row("cap", {"DropType": "ESBRewardGroupDrop_RandomEach", "DropRate": 7500,
+                     "ItemMinCount": 1, "ItemMaxCount": 1}),
+        # Peso relativo dentro del grupo: escalarlo no cambiaria nada in-game.
+        _row("weight", {"DropType": "ESBRewardGroupDrop_RandomWeight", "DropRate": 2,
+                        "ItemMinCount": 1, "ItemMaxCount": 1}),
+    ])
+    world_extras.drop_rates(doc, chance_percent=200, count_percent=100)
+    assert _value(doc, "each", "DropRate") == 5000
+    assert _value(doc, "cap", "DropRate") == world_extras.DROP_RATE_MAX
+    assert _value(doc, "weight", "DropRate") == 2
+    assert _value(doc, "each", "ItemMaxCount") == 2          # cantidades sin cambio
+
+    world_extras.drop_rates(doc, chance_percent=100, count_percent=300)
+    assert _value(doc, "each", "ItemMaxCount") == 6
+    assert _value(doc, "weight", "ItemMaxCount") == 3        # la cantidad si aplica a todas
+
+
+def test_world_tweaks_compile_into_their_own_pak():
+    import build_specs
+    import table_compiler
+    answers = {
+        "combatProfile": "full", "outfitSkinSuit": False, "miniBoss": "off",
+        "combatFeatures": [], "combatEconomyFeatures": [], "gameplayExtras": [],
+        "worldTweaks": ["fishing", "shopPrices"],
+    }
+    targets = {t["name"]: t["transforms"] for t in build_specs.combo_to_targets(answers)}
+    assert targets[build_specs.WORLD_PAK] == ["world.shopPrices", "world.fishing"]
+    for tid, table in (("world.shopPrices", "ShopItemTable"),
+                       ("world.dropRates", "RewardGroupTable"),
+                       ("world.spExp", "SPLevelTable"),
+                       ("world.upgradeCosts", "CharacterLevelTable"),
+                       ("world.fishing", "ItemFishTable")):
+        assert table_compiler.REGISTRY[tid]["table"] == table
+        assert table_compiler.REGISTRY[tid]["base"] == "vanilla"
+
+
+def test_world_drop_rates_skip_the_world_pak_when_another_pak_owns_the_table():
+    """Mini-boss y First Run empaquetan su propia RewardGroupTable: si el pak de
+    mundo la repitiera, uno de los dos ganaria en silencio."""
+    import build_specs
+    answers = {"worldTweaks": ["dropRates", "spExp"]}
+    assert build_specs.world_transforms(answers) == ["world.dropRates", "world.spExp"]
+    assert build_specs.world_transforms(
+        answers, exclude_tables={"RewardGroupTable"}) == ["world.spExp"]
+    assert build_specs.world_target(
+        {"worldTweaks": ["dropRates"]}, exclude_tables={"RewardGroupTable"}) is None
+    source = (BUILDER / "compiler" / "build_custom.py").read_text(encoding="utf-8")
+    assert "world_extra_ids=world_ids" in source
+    assert "worldExtras" in source
+
+
+def test_world_only_build_needs_no_prebuilt_preset():
+    answers = bc.normalize({"combatProfile": "none", "outfitMode": "off",
+                            "worldTweaks": ["shopPrices"]})
+    bc.validate(answers)                      # no explota: hay algo que compilar
+    plan = bc.resolve(answers)
+    assert plan["paks"] == []
+    assert plan["needsHelper"] is False
+    nothing = bc.normalize({"combatProfile": "none", "outfitMode": "off"})
+    try:
+        bc.validate(nothing)
+        assert False, "sin nada seleccionado tiene que fallar"
+    except SystemExit:
+        pass
+
+
+def test_world_controls_are_wired_end_to_end_in_the_ui():
+    root = Path(__file__).resolve().parents[2]
+    qml = (root / "qml" / "pages" / "BuilderPage.qml").read_text(encoding="utf-8")
+    assert "worldTweaks:" in qml and "worldTweakValues:" in qml
+    for control in ("wShop", "wDrops", "wSp", "wUpgrades", "wFishing"):
+        assert f"id: {control}" in qml
+    restore = qml.split("function applyTemplate(a)", 1)[1].split("function toFolderUrl", 1)[0]
+    assert "a.worldTweaks" in restore and "a.worldTweakValues" in restore
+    for language in ("es", "en"):
+        strings = json.loads((root / "i18n" / f"{language}.json").read_text(encoding="utf-8"))
+        for key in ("builder_world_title", "builder_world_shop", "builder_world_drops",
+                    "builder_world_sp", "builder_world_upgrades", "builder_world_fishing"):
+            assert strings[key]
+
+
+def test_builder_presets_can_be_shared_as_files():
+    root = Path(__file__).resolve().parents[2]
+    qml = (root / "qml" / "pages" / "BuilderPage.qml").read_text(encoding="utf-8")
+    cpp = (root / "src" / "AppController.cpp").read_text(encoding="utf-8")
+    header = (root / "src" / "AppController.h").read_text(encoding="utf-8")
+    for method in ("exportBuilderPreset", "importBuilderPreset"):
+        assert method in header
+        assert f"AppController::{method}" in cpp
+        assert f"App.{method}(" in qml
+    # El formato se declara adentro del archivo y se versiona: un JSON ajeno o de
+    # una version mas nueva se rechaza con un mensaje claro en vez de importarse.
+    assert "stellartool.builder-preset" in cpp
+    assert "kPresetSchemaVersion" in cpp
+    assert "err_preset_newer" in cpp
+    assert "id: presetExportDialog" in qml and "id: presetImportDialog" in qml
+
+
+def test_questionnaire_offers_world_tweaks_in_every_language():
+    manifest = json.loads((BUILDER / "features" / "manifest.json").read_text(encoding="utf-8"))
+    question = next(q for q in manifest["questions"] if q["id"] == "worldTweaks")
+    assert [o["value"] for o in question["options"]] == [
+        "shopPrices", "dropRates", "spExp", "upgradeCosts", "fishing"]
+    strings = json.loads((BUILDER / "i18n" / "questionnaire.json").read_text(
+        encoding="utf-8"))["strings"]
+    for key in [question["i18nKey"]] + [o["i18nKey"] for o in question["options"]]:
+        assert set(bc.SUPPORTED_LANGS) <= strings[key].keys()
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

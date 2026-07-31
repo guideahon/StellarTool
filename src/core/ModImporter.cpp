@@ -56,16 +56,18 @@ static QStringList findPaks(const QString &dir) {
 // (limitación conocida en mods ya empaquetados), da un error accionable.
 // Reúne los contenedores global del juego + el mod en un stage temporal para
 // que CUE4Parse resuelva los tipos. Devuelve el dir de stage, o vacío.
-// El stage se ubica en el volumen del juego (junto a los Paks) para poder
-// hardlinkear el global (varios GB): no ocupa disco extra. Si esa carpeta no
-// es escribible, cae al workDir del mod (con hardlink si es el mismo volumen,
-// o copia si no). Los contenedores del mod son chicos: se copian siempre.
-static QString stageForCue4(const QString &modUtoc, const QString &modWorkDir) {
+// El stage se ubica en el volumen del juego (en la raíz, NO dentro de Paks)
+// para poder hardlinkear el global (varios GB): no ocupa disco extra. Dentro
+// de Paks hacía que la exportación de la baseline (-i <Paks>, recursivo)
+// releyera el juego entero una segunda vez. Si esa carpeta no es escribible,
+// cae al workDir del mod (con hardlink si es el mismo volumen, o copia si no).
+// Los contenedores del mod son chicos: se copian siempre.
+static QString stageForCue4(const QStringList &modUtocs, const QString &modWorkDir) {
     const QStringList globals = GamePaths::globalContainerFiles();
     if (globals.isEmpty()) return {};
 
     // Preferir un stage en la unidad del juego para que el global se hardlinkee.
-    QString stage = GamePaths::paksDir() + QStringLiteral("/~st_cue4stage");
+    QString stage = GamePaths::cue4StageDir();
     QDir(stage).removeRecursively();
     if (!QDir().mkpath(stage)) {
         stage = modWorkDir + QStringLiteral("/cue4stage");
@@ -75,17 +77,20 @@ static QString stageForCue4(const QString &modUtoc, const QString &modWorkDir) {
 
     for (const QString &g : globals)
         linkOrCopy(g, stage + QLatin1Char('/') + QFileInfo(g).fileName());
-    const QFileInfo mi(modUtoc);
-    for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"), QStringLiteral("pak")}) {
-        const QString f = mi.absolutePath() + QLatin1Char('/') + mi.completeBaseName() + QLatin1Char('.') + ext;
-        if (QFileInfo::exists(f))
-            QFile::copy(f, stage + QLatin1Char('/') + QFileInfo(f).fileName());
+    for (const QString &modUtoc : modUtocs) {
+        const QFileInfo mi(modUtoc);
+        for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"), QStringLiteral("pak")}) {
+            const QString f = mi.absolutePath() + QLatin1Char('/') + mi.completeBaseName() + QLatin1Char('.') + ext;
+            if (QFileInfo::exists(f))
+                QFile::copy(f, stage + QLatin1Char('/') + QFileInfo(f).fileName());
+        }
     }
     return stage;
 }
 
-int ModImporter::importZenTables(const QString &utoc, const QString &modWorkDir,
+int ModImporter::importZenTables(const QStringList &utocs, const QString &modWorkDir,
                                  ModPackage &pkg, QString *error) {
+    if (utocs.isEmpty()) return 0;
     if (!m_cue4 || !m_cue4->available()) {
         if (error) *error = t(QStringLiteral("err_cue4_missing"));
         return 0;
@@ -94,12 +99,20 @@ int ModImporter::importZenTables(const QString &utoc, const QString &modWorkDir,
         if (error) *error = t(QStringLiteral("err_need_game_path"));
         return 0;
     }
-    const QString stage = stageForCue4(utoc, modWorkDir);
+    // Sin mappings CUE4Parse no resuelve tipos y tarda un orden de magnitud más
+    // (minutos por contenedor). Mejor fallar con instrucciones que colgarse.
+    if (m_uasset->usmapPath().isEmpty()) {
+        if (error) *error = t(QStringLiteral("err_need_usmap"));
+        return 0;
+    }
+    const QString stage = stageForCue4(utocs, modWorkDir);
     if (stage.isEmpty()) {
         if (error) *error = t(QStringLiteral("err_need_game_path"));
         return 0;
     }
-    emit progress(t(QStringLiteral("core_reading_zen")).arg(QFileInfo(utoc).completeBaseName()));
+    QStringList names;
+    for (const QString &u : utocs) names << QFileInfo(u).completeBaseName();
+    emit progress(t(QStringLiteral("core_reading_zen")).arg(names.join(QStringLiteral(", "))));
     const QString jsonDir = modWorkDir + QStringLiteral("/cue4json");
     // Exporta todos los assets del mod (suelen ser pocos) y filtra por
     // isDataTableJson abajo. No limitamos a "*Table*": muchas DataTables de SB
@@ -144,8 +157,27 @@ int ModImporter::importZenTables(const QString &utoc, const QString &modWorkDir,
     return n;
 }
 
+bool ModImporter::flushDeferredZen(const QStringList &utocs, const QString &modWorkDir,
+                                   ModPackage &pkg, QString *error) {
+    if (utocs.isEmpty()) return true;
+    QString zenErr;
+    if (importZenTables(utocs, modWorkDir, pkg, &zenErr) > 0)
+        return true;
+    if (error) {
+        if (!zenErr.isEmpty()) { *error = zenErr; return false; }
+        const QString first = utocs.first();
+        const QStringList tables = m_pak->zenAvailable() ? m_pak->listZenAssets(first) : QStringList();
+        *error = tables.isEmpty()
+            ? t(QStringLiteral("err_zen_mod")).arg(QFileInfo(first).fileName())
+            : t(QStringLiteral("err_zen_mod_tables"))
+                  .arg(QFileInfo(first).fileName(), tables.join(QStringLiteral(", ")));
+    }
+    return false;
+}
+
 bool ModImporter::unpackPakInto(const QString &pak, const QString &extractDir,
-                                const QString &modWorkDir, ModPackage &pkg, QString *error) {
+                                const QString &modWorkDir, ModPackage &pkg,
+                                QStringList *deferredZen, QString *error) {
     const QFileInfo fi(pak);
     const QString utoc = fi.absolutePath() + QLatin1Char('/') + fi.completeBaseName() + QStringLiteral(".utoc");
     if (QFileInfo::exists(utoc)) {
@@ -163,18 +195,13 @@ bool ModImporter::unpackPakInto(const QString &pak, const QString &extractDir,
             if (m_pak->toLegacyWithGlobal(utoc, extractDir, &convErr) > 0)
                 return true;
         }
-        // 2) CUE4Parse (lee Zen que retoc no puede revertir).
-        QString zenErr;
-        if (importZenTables(utoc, modWorkDir, pkg, &zenErr) > 0)
+        // 2) CUE4Parse (lee Zen que retoc no puede revertir). Se difiere para
+        // que todos los contenedores del mod entren en una sola corrida.
+        if (deferredZen) {
+            *deferredZen << utoc;
             return true;
-        if (error) {
-            if (!zenErr.isEmpty()) { *error = zenErr; return false; }
-            const QStringList tables = m_pak->zenAvailable() ? m_pak->listZenAssets(utoc) : QStringList();
-            *error = tables.isEmpty()
-                ? t(QStringLiteral("err_zen_mod")).arg(fi.fileName())
-                : t(QStringLiteral("err_zen_mod_tables")).arg(fi.fileName(), tables.join(QStringLiteral(", ")));
         }
-        return false;
+        return flushDeferredZen({utoc}, modWorkDir, pkg, error);
     }
     emit progress(t(QStringLiteral("core_unpacking")).arg(fi.fileName()));
     return m_pak->unpack(pak, extractDir, error);
@@ -190,8 +217,10 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
         // Carpeta: puede contener paks o assets sueltos.
         const QStringList paks = findPaks(sourcePath);
         if (!paks.isEmpty()) {
+            QStringList deferredZen;
             for (const QString &pak : paks)
-                if (!unpackPakInto(pak, extractDir, modWorkDir, pkg, error)) return false;
+                if (!unpackPakInto(pak, extractDir, modWorkDir, pkg, &deferredZen, error)) return false;
+            if (!flushDeferredZen(deferredZen, modWorkDir, pkg, error)) return false;
         } else {
             emit progress(t(QStringLiteral("core_copying_folder")));
             QDirIterator it(sourcePath, QDir::Files, QDirIterator::Subdirectories);
@@ -207,12 +236,12 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
             }
         }
     } else if (fi.suffix().compare(QLatin1String("pak"), Qt::CaseInsensitive) == 0) {
-        if (!unpackPakInto(sourcePath, extractDir, modWorkDir, pkg, error)) return false;
+        if (!unpackPakInto(sourcePath, extractDir, modWorkDir, pkg, nullptr, error)) return false;
     } else if (fi.suffix().compare(QLatin1String("utoc"), Qt::CaseInsensitive) == 0) {
         // Contenedor Zen directo: retoc, luego CUE4Parse.
         if (m_pak->zenAvailable() && m_pak->toLegacy(sourcePath, extractDir, nullptr) > 0) {
             // ok
-        } else if (importZenTables(sourcePath, modWorkDir, pkg, error) > 0) {
+        } else if (importZenTables({sourcePath}, modWorkDir, pkg, error) > 0) {
             // ok
         } else {
             if (error && error->isEmpty()) *error = t(QStringLiteral("err_zen_container")).arg(fi.fileName());
@@ -224,8 +253,10 @@ bool ModImporter::stageSource(const QString &sourcePath, const QString &modWorkD
         if (!m_pak->extractZip(sourcePath, zipDir, error)) return false;
         const QStringList paks = findPaks(zipDir);
         if (!paks.isEmpty()) {
+            QStringList deferredZen;
             for (const QString &pak : paks)
-                if (!unpackPakInto(pak, extractDir, modWorkDir, pkg, error)) return false;
+                if (!unpackPakInto(pak, extractDir, modWorkDir, pkg, &deferredZen, error)) return false;
+            if (!flushDeferredZen(deferredZen, modWorkDir, pkg, error)) return false;
         } else {
             // Zip sin paks: puede traer .uasset sueltos (ej. layout package/SB/...).
             emit progress(t(QStringLiteral("core_copying_zip")));

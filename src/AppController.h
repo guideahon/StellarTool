@@ -107,6 +107,10 @@ public:
     Q_INVOKABLE QString builderPresets() const;
     Q_INVOKABLE bool saveBuilderPreset(const QString &name, const QString &answersJson);
     Q_INVOKABLE void deleteBuilderPreset(const QString &name);
+    // Presets como archivo (.stpreset): lo que hace compartible una config del
+    // Builder sin publicar un pak. Ambas devuelven JSON {ok, name|path, error}.
+    Q_INVOKABLE QString exportBuilderPreset(const QString &name, const QUrl &fileUrl);
+    Q_INVOKABLE QString importBuilderPreset(const QUrl &fileUrl);
     // Re-exporta el zip de una config previa a outDir (copia o recompila).
     Q_INVOKABLE void reexportBuild(const QString &id, const QUrl &outDirUrl);
     // Estado de lo instalado por la tool: JSON {game, paks:[...], helper:bool}.

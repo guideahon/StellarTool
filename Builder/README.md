@@ -20,6 +20,11 @@ Ver [ARCHITECTURE.md](ARCHITECTURE.md). Manifest de features: [features/manifest
   enemigos normales y los mini-bosses siguen siendo otra opción independiente.
   Perfil/economía/mini-boss se mantienen como grupos exclusivos cuando sus
   valores se superponen.
+- **Mundo y progresión** (`worldTweaks` / `worldTweakValues`, `world_extras.py`):
+  precios de tienda, drops, EXP de SP, materiales de mejora y pesca. Todos los
+  valores son % sobre vanilla (100 = vanilla) y salen en el pak
+  `StellarSouls-World`. Con mini-boss/First Run el ajuste de drops se aplica
+  dentro del pak combinado, que ya trae `RewardGroupTable`.
 
 ## Uso (CLI, F1)
 
@@ -36,6 +41,10 @@ python compiler\build_custom.py --out <carpeta> --answers @answers.json
   "helperMode": "randomPeriodic", // last | randomAny | randomPeriodic (CNS) | lastNoCns
   "helperIntervalSeconds": 30,
   "vanillaHelperBuild": "off",    // off | alpha1..alpha6 (helper sin CNS, ALPHA)
+  "worldTweaks": ["shopPrices"],  // shopPrices dropRates spExp upgradeCosts fishing
+  "worldTweakValues": {           // % sobre vanilla (100 = vanilla); opcional
+    "shop_prices": {"price_percent": 50}
+  },
   "lang": "es"                    // es en fr it de ja ko pt_BR ru zh_Hans
 }
 ```

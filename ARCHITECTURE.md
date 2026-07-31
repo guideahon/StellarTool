@@ -118,7 +118,23 @@ propiedad (`StackBullet1..6` / `StackConsumable1..7`); sin ese mapa se mantiene
 el valor agregado compatible con configuraciones anteriores.
 Los presets nombrados guardan el mismo objeto de respuestas completo en
 `QSettings` (`builder/presets`), mientras el historial de builds sigue viviendo
-en `%LOCALAPPDATA%\StellarSoulsBuilder\history`.
+en `%LOCALAPPDATA%\StellarSoulsBuilder\history`. Además se exportan e importan
+como archivo `.stpreset` (`AppController::exportBuilderPreset` /
+`importBuilderPreset`): JSON con `format` (`stellartool.builder-preset`),
+`schemaVersion`, `appVersion` y `answers`. La importación rechaza un archivo sin
+ese `format` o con un `schemaVersion` mayor al soportado, y nunca pisa un preset
+existente: si el nombre está tomado entra como `Nombre (2)`.
+Los ajustes de mundo (`worldTweaks` + `worldTweakValues`, en `world_extras.py`)
+cubren tablas que ni el pak de combate ni el de outfit tocan: `ShopItemTable`,
+`RewardGroupTable`, `SPLevelTable`, `CharacterLevelTable` e `ItemFishTable`.
+Todos los valores son porcentajes sobre vanilla (100 = vanilla). Salen en el pak
+`StellarSouls-World`, compilado desde la baseline vanilla local; `load_table`
+genera esa baseline bajo demanda para cualquier tabla configurada dentro del
+cache `baseline/uasset_json`. Excepción: con mini-boss o First Run el pak
+combinado ya trae su propia `RewardGroupTable`, así que `dropRates` se aplica
+adentro de ese pak (`miniboss_builder._apply_world_extras_pass`) y el pak de
+mundo compila sólo el resto — empaquetar la misma tabla en dos paks dejaría que
+uno de los dos ganara en silencio.
 `hardcoreEnemyBoost` compila un pak independiente desde la baseline local de
 `DifficultyStatGroupTable`. Sólo recorre filas `HardMode`, clasifica los grupos
 específicos de boss por ID (301+) y excluye aliases Maelstrom. Los presets Main

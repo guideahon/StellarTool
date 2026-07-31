@@ -87,6 +87,9 @@ def normalize(answers: dict) -> dict:
     # Valor graduable visible en pasos de 10%. Proyectos viejos conservan 60%.
     tumbler = int(round(float(a.get("tumblerHealPercent", 60)) / 10.0) * 10)
     a["tumblerHealPercent"] = max(10, min(100, tumbler))
+    # Mundo/economia: tablas fuera del combate (tienda, drops, progresion, pesca).
+    a.setdefault("worldTweaks", [])
+    a.setdefault("worldTweakValues", {})
     a.setdefault("lang", "es")
     if a["lang"] not in SUPPORTED_LANGS:
         a["lang"] = "es"
@@ -113,6 +116,7 @@ def only_vanilla_helper(a: dict) -> bool:
     """True si lo unico pedido es una ALPHA del helper vanilla (sin paks)."""
     mb_on = a.get("miniBoss", "off") not in ("off", False, None)
     return (a.get("combatProfile") == "none" and not a.get("outfitSkinSuit") and not mb_on
+            and not build_specs.world_selection(a)
             and vanilla_helper.is_enabled(a.get("vanillaHelperBuild")))
 
 
@@ -121,8 +125,11 @@ def validate(a: dict) -> None:
     combat, outfit, mb = a["combatProfile"], a["outfitSkinSuit"], a["miniBoss"]
     mb_on = mb not in ("off", False, None)
     hardcore_on = a.get("hardcoreEnemyBoost", "off") in ("main", "insane")
-    if combat == "none" and not outfit and not mb_on and not hardcore_on:
-        raise SystemExit("[builder] Nada seleccionado: activa combate, outfit o mini-boss.")
+    world_on = bool(build_specs.world_selection(a))
+    if combat == "none" and not outfit and not mb_on and not hardcore_on and not world_on:
+        raise SystemExit(
+            "[builder] Nada seleccionado: activa combate, outfit, mini-boss o "
+            "algun ajuste de mundo (tienda, drops, progresion, pesca).")
     if combat == "firstRun" and not mb_on:
         raise SystemExit("[builder] First Run solo existe con mini-boss activado (miniBoss=on).")
     if combat == "none" and mb_on:
@@ -137,16 +144,23 @@ def resolve(a: dict) -> dict:
     preset = preset_map["presets"].get(key)
     warnings = []
     if preset is None:
-        raise SystemExit(
-            f"[builder] Combo sin preset F1: {key}. "
-            f"Requiere TableCompiler (F2+) o ajustar respuestas. "
-            f"Presets: {sorted(preset_map['presets'])}"
-        )
+        # Un build que solo pide ajustes de mundo no tiene (ni necesita) preset
+        # precompilado: se compila entero desde las tablas vanilla.
+        if not a.get("forcePreset") and build_specs.combo_to_targets(a):
+            preset = {"folder": "(compilado)", "paks": []}
+        else:
+            raise SystemExit(
+                f"[builder] Combo sin preset F1: {key}. "
+                f"Requiere TableCompiler (F2+) o ajustar respuestas. "
+                f"Presets: {sorted(preset_map['presets'])}"
+            )
     # Solo el fallback precompilado ignora sub-features granulares.
     if a.get("forcePreset") and a.get("miniBossDensity") and a["miniBoss"] != "off":
         warnings.append("densityIgnored")
     if a.get("forcePreset") and a.get("gaugeTweaks"):
         warnings.append("gaugeTweaksIgnored")
+    if a.get("forcePreset") and build_specs.world_selection(a):
+        warnings.append("worldTweaksIgnored")
     # Los paks precompilados traen los colaterales del swap de outfit tal cual.
     if a.get("forcePreset") and a["outfitSkinSuit"] and build_specs.outfit_fix_extras(a):
         warnings.append("outfitFixesIgnored")
@@ -302,6 +316,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     # Gameplay: compilar por feature si el combo esta cubierto, si no, preset.
     mode = "preset"
     compilation_report = {}
+    world_applied = set()   # extras de mundo que ya aplico el pak combinado
     paks_out = list(plan["paks"])
     mb_on = a.get("miniBoss", "off") not in ("off", False, None)
     targets = build_specs.combo_to_targets(a) if not a.get("forcePreset") else None
@@ -315,6 +330,8 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
     table_compiler.PARAMS["tumbler_value"] = float(a.get("tumblerHealPercent", 60))
     table_compiler.PARAMS["extra_values"] = a.get("gameplayExtraValues") or {}
+    table_compiler.PARAMS["world_values"] = a.get("worldTweakValues") or {}
+    world_ids = build_specs.world_selection(a)
     if a.get("combatProfile") == "firstRun" and not a.get("forcePreset"):
         # First Run = variante fija (repack del staging legacy).
         import miniboss_builder
@@ -322,10 +339,14 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
         # sobre filas vanilla se restauran con el mismo pase de effect_extras.
         res = miniboss_builder.compile_from_staging(
             "firstRun", out_dir / "compile_fr",
-            extras=build_specs.outfit_fix_extras(a))
+            extras=build_specs.outfit_fix_extras(a),
+            world_extra_ids=world_ids,
+            world_values=a.get("worldTweakValues"))
         for key in ("pak", "ucas", "utoc"):
             shutil.copy2(res[key], paks_dir / Path(res[key]).name)
         paks_out = [res["pakName"]]
+        compilation_report = res.get("report", {})
+        world_applied = set(compilation_report.get("worldExtras", {}))
         mode = "compiled-firstrun"
     elif mb_on and not a.get("forcePreset"):
         # Mini-boss = pak unico combinado (combat+outfit+miniboss) via compile_miniboss.
@@ -346,11 +367,14 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             miniboss_config=a.get("miniBossConfig"),
             just_mult=float(a.get("forgivingJustMult", 1.5)),
             air_count=int(a.get("airDodgeCount", 2)),
-            combat_transform_ids=build_specs.combat_transforms(a))
+            combat_transform_ids=build_specs.combat_transforms(a),
+            world_extra_ids=world_ids,
+            world_values=a.get("worldTweakValues"))
         for key in ("pak", "ucas", "utoc"):
             shutil.copy2(res[key], paks_dir / Path(res[key]).name)
         paks_out = [res["pakName"]]
         compilation_report = res.get("report", {})
+        world_applied = set(compilation_report.get("worldExtras", {}))
         mode = "compiled-miniboss"
     elif targets:
         mode = "compiled"
@@ -373,8 +397,23 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
                 if src.exists():
                     shutil.copy2(src, paks_dir / src.name)
 
-    # Mini-boss y First Run usan un pipeline propio; el ajuste Hardcore vive en
-    # una tabla independiente y se compila como segundo pak componible.
+    # Mini-boss y First Run compilan su propio pak combinado: los ajustes de
+    # mundo que ya aplicaron adentro (RewardGroupTable) no se repiten, y el resto
+    # sale como pak aparte para no volver a empaquetar las mismas tablas.
+    if mode in ("compiled-miniboss", "compiled-firstrun"):
+        pending = [e for e in world_ids if e not in world_applied]
+        world = build_specs.world_target(dict(a, worldTweaks=pending))
+        if world:
+            res = table_compiler.compile_pak(
+                world["transforms"], world["name"], out_dir / "compile_world",
+                toml_dir=a.get("customPatchesDir") or None)
+            compilation_report[world["name"]] = res.get("reports", {})
+            for key in ("pak", "ucas", "utoc"):
+                shutil.copy2(res[key], paks_dir / Path(res[key]).name)
+            paks_out.append(world["name"])
+
+    # El ajuste Hardcore vive en una tabla independiente y se compila como pak
+    # componible aparte.
     hardcore = a.get("hardcoreEnemyBoost", "off")
     if hardcore in ("main", "insane") and (mb_on or a.get("combatProfile") == "firstRun"):
         hc_name = "StellarSouls-HarderBosses"

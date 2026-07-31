@@ -1,6 +1,7 @@
 #include "BaselineManager.h"
 #include "UAssetService.h"
 #include "Cue4Service.h"
+#include "GamePaths.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -37,13 +38,44 @@ bool BaselineManager::buildFromGame(const QString &gamePaksDir, const QString &m
         if (error) *error = tr("cue4parse.exe no disponible");
         return false;
     }
+    if (mappings.isEmpty()) {
+        if (error) *error = tr("Faltan los mappings (.usmap): sin ellos CUE4Parse no resuelve "
+                               "tipos y leer las tablas vanilla tarda decenas de minutos. "
+                               "Conseguilos en Ajustes → Mappings.");
+        return false;
+    }
+    // Un stage de un import anterior dentro de Paks haría que CUE4Parse relea
+    // el juego entero una segunda vez (el stage tiene el global hardlinkeado).
+    GamePaths::cleanCue4Stages();
     QDir().mkpath(baselineDir());
     // Invalida el cache de tablas UAssetGUI (rep. legacy) al reconstruir.
     QDir(baselineDir() + QStringLiteral("/uasset_json")).removeRecursively();
-    const QString tmp = baselineDir() + QStringLiteral("/_cue4_raw");
-    emit progress(tr("Leyendo tablas vanilla del juego (CUE4Parse)..."));
-    const auto tables = m_cue4->exportTables(gamePaksDir, tmp, mappings,
-                                             QStringLiteral("*Table*"), error);
+    // Reconstruir = desde cero: si no, ensureTables saltearía todo lo cacheado
+    // y una baseline vieja/parcial nunca se corregiría.
+    const QDir bdir(baselineDir());
+    for (const QString &f : bdir.entryList({QStringLiteral("*.json")}, QDir::Files))
+        QFile::remove(bdir.filePath(f));
+    QFile::remove(bdir.filePath(QStringLiteral("stamp.txt")));
+    // Listar primero (barato: monta y no escribe) y delegar en ensureTables,
+    // que reintenta lo que quede afuera cuando cue4parse aborta por colisión
+    // de escritura. Una sola pasada dejaba la baseline a medias sin avisar.
+    emit progress(tr("Listando tablas vanilla del juego (CUE4Parse)..."));
+    const QStringList packages = m_cue4->listPackages(gamePaksDir, mappings,
+                                                      QStringLiteral("*Table*"), error);
+    QStringList names;
+    for (const QString &p : packages) names << QFileInfo(p).completeBaseName();
+    names.removeDuplicates();
+    int count = 0;
+    if (!names.isEmpty())
+        ensureTables(gamePaksDir, mappings, names, error, &count);
+    if (count > 0) writeStamp(gamePaksDir);
+    if (imported) *imported = count;
+    if (count == 0 && error && error->isEmpty())
+        *error = tr("CUE4Parse no exportó tablas del juego");
+    return count > 0;
+}
+
+int BaselineManager::ingestExported(const QMap<QString, QString> &tables) const {
     int count = 0;
     for (auto it = tables.begin(); it != tables.end(); ++it) {
         QFile f(it.value());
@@ -58,16 +90,82 @@ bool BaselineManager::buildFromGame(const QString &gamePaksDir, const QString &m
         o.close();
         ++count;
     }
-    QDir(tmp).removeRecursively();
-    if (count > 0) {
-        QFile sf(baselineDir() + QStringLiteral("/stamp.txt"));
-        if (sf.open(QIODevice::WriteOnly))
-            sf.write(gameStamp(gamePaksDir).toUtf8());
+    return count;
+}
+
+void BaselineManager::writeStamp(const QString &gamePaksDir) const {
+    QFile sf(baselineDir() + QStringLiteral("/stamp.txt"));
+    if (sf.open(QIODevice::WriteOnly))
+        sf.write(gameStamp(gamePaksDir).toUtf8());
+}
+
+bool BaselineManager::ensureTables(const QString &gamePaksDir, const QString &mappings,
+                                   const QStringList &tableNames, QString *error, int *imported) {
+    if (imported) *imported = 0;
+    if (tableNames.isEmpty()) return true;
+    if (!m_cue4 || !m_cue4->available()) {
+        if (error) *error = tr("cue4parse.exe no disponible");
+        return false;
     }
+    if (mappings.isEmpty()) {
+        if (error) *error = tr("Faltan los mappings (.usmap): sin ellos CUE4Parse no resuelve "
+                               "tipos y leer las tablas vanilla tarda decenas de minutos. "
+                               "Conseguilos en Ajustes → Mappings.");
+        return false;
+    }
+    // Juego actualizado: lo cacheado ya no es vanilla de ESTA versión.
+    if (isStale(gamePaksDir)) {
+        const QDir d(baselineDir());
+        for (const QString &f : d.entryList({QStringLiteral("*.json")}, QDir::Files))
+            QFile::remove(d.filePath(f));
+        // Sin borrar el stamp viejo la baseline quedaría "stale" para siempre
+        // y se limpiaría en cada análisis.
+        QFile::remove(d.filePath(QStringLiteral("stamp.txt")));
+        QDir(baselineDir() + QStringLiteral("/uasset_json")).removeRecursively();
+    }
+    QDir().mkpath(baselineDir());
+
+    const auto stillMissing = [this](const QStringList &names) {
+        QStringList out;
+        for (const QString &name : names) {
+            if (name.isEmpty() || out.contains(name)) continue;
+            const QString cached = baselineDir() + QLatin1Char('/') + name.toLower()
+                                   + QStringLiteral(".json");
+            if (!QFileInfo::exists(cached)) out << name;
+        }
+        return out;
+    };
+    QStringList missing = stillMissing(tableNames);
+    if (missing.isEmpty()) return true;
+
+    GamePaths::cleanCue4Stages();
+    const QString tmp = baselineDir() + QStringLiteral("/_cue4_raw");
+    int count = 0;
+    // cue4parse exporta en paralelo y aborta el proceso entero si dos hilos
+    // escriben el mismo JSON (un paquete que existe en dos contenedores, p. ej.
+    // CharacterTable). Lo ya exportado queda en disco, así que se reintenta con
+    // lo que falte: cada pasada avanza hasta que no gana nada nuevo.
+    for (int pass = 0; pass < 5 && !missing.isEmpty(); ++pass) {
+        emit progress(tr("Leyendo %1 tabla(s) vanilla del juego (CUE4Parse)...").arg(missing.size()));
+        QStringList patterns;
+        for (const QString &name : missing) patterns << Cue4Service::patternForTable(name);
+        QString passErr;
+        const auto tables = m_cue4->exportPackages(gamePaksDir, tmp, mappings, patterns, &passErr);
+        const int got = ingestExported(tables);
+        count += got;
+        QDir(tmp).removeRecursively();
+        if (got == 0) {                      // ninguna pasada más va a avanzar
+            if (error && count == 0) *error = passErr;
+            break;
+        }
+        missing = stillMissing(missing);
+    }
+    if (count > 0 && !QFileInfo::exists(baselineDir() + QStringLiteral("/stamp.txt")))
+        writeStamp(gamePaksDir);
     if (imported) *imported = count;
-    if (count == 0 && error && error->isEmpty())
-        *error = tr("CUE4Parse no exportó tablas del juego");
-    return count > 0;
+    // Que una tabla del mod no exista en vanilla (tabla nueva) es normal: no
+    // es error mientras CUE4Parse haya corrido bien.
+    return true;
 }
 
 QString BaselineManager::baselineDir() const {

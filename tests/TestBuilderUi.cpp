@@ -1,12 +1,17 @@
 #include <QtTest>
 
 #include "core/GamePaths.h"
+#include "AppController.h"
+#include "Translator.h"
 
 #include <QDir>
 #include <QFile>
+#include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSettings>
 #include <QTemporaryDir>
+#include <QUrl>
 
 class TestBuilderUi : public QObject {
     Q_OBJECT
@@ -15,7 +20,97 @@ private slots:
     void itemLabelsAreLocalized();
     void gameRootAcceptsSubfoldersAndParent();
     void cnsConverterUsesThemedCombos();
+    void presetFilesRoundTrip();
+    void presetImportRejectsForeignFiles();
 };
+
+namespace {
+// QSettings del proceso de test a un INI temporal: los presets del usuario
+// (HKCU\StellarTool) no se tocan.
+QString redirectSettings(QTemporaryDir &dir) {
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, dir.path());
+    return dir.path();
+}
+
+QJsonObject presetIoResult(const QString &json) {
+    return QJsonDocument::fromJson(json.toUtf8()).object();
+}
+}   // namespace
+
+// Un preset se exporta a archivo y vuelve a entrar con las mismas respuestas:
+// es lo que hace compartible una config del Builder sin publicar un pak.
+void TestBuilderUi::presetFilesRoundTrip() {
+    QTemporaryDir tmp;
+    QVERIFY(tmp.isValid());
+    redirectSettings(tmp);
+
+    st::Translator i18n;
+    st::AppController app(&i18n);
+    const QString answers = QStringLiteral(
+        "{\"combatProfile\":\"full\",\"worldTweaks\":[\"shopPrices\"],"
+        "\"worldTweakValues\":{\"shop_prices\":{\"price_percent\":25}}}");
+    QVERIFY(app.saveBuilderPreset(QStringLiteral("Mi build"), answers));
+
+    const QString file = tmp.path() + QStringLiteral("/mi-build.stpreset");
+    const QJsonObject exported = presetIoResult(
+        app.exportBuilderPreset(QStringLiteral("Mi build"), QUrl::fromLocalFile(file)));
+    QVERIFY2(exported.value(QStringLiteral("ok")).toBool(),
+             qPrintable(exported.value(QStringLiteral("error")).toString()));
+    QVERIFY(QFile::exists(file));
+
+    // Importar con el mismo nombre no pisa el preset que ya estaba guardado.
+    const QJsonObject imported = presetIoResult(
+        app.importBuilderPreset(QUrl::fromLocalFile(file)));
+    QVERIFY2(imported.value(QStringLiteral("ok")).toBool(),
+             qPrintable(imported.value(QStringLiteral("error")).toString()));
+    QCOMPARE(imported.value(QStringLiteral("name")).toString(),
+             QStringLiteral("Mi build (2)"));
+
+    const QJsonArray presets = QJsonDocument::fromJson(app.builderPresets().toUtf8()).array();
+    QCOMPARE(presets.size(), 2);
+    const QJsonObject copy = presets.at(0).toObject();
+    QCOMPARE(copy.value(QStringLiteral("name")).toString(), QStringLiteral("Mi build (2)"));
+    QCOMPARE(copy.value(QStringLiteral("answers")).toObject(),
+             QJsonDocument::fromJson(answers.toUtf8()).object());
+}
+
+// Un JSON cualquiera (o de una version futura) no entra como preset: importar a
+// ciegas dejaria respuestas sin sentido en el cuestionario.
+void TestBuilderUi::presetImportRejectsForeignFiles() {
+    QTemporaryDir tmp;
+    QVERIFY(tmp.isValid());
+    redirectSettings(tmp);
+
+    st::Translator i18n;
+    st::AppController app(&i18n);
+
+    const auto write = [&tmp](const QString &name, const QString &body) {
+        const QString path = tmp.path() + QLatin1Char('/') + name;
+        QFile f(path);
+        f.open(QIODevice::WriteOnly);
+        f.write(body.toUtf8());
+        f.close();
+        return QUrl::fromLocalFile(path);
+    };
+
+    const QUrl foreign = write(QStringLiteral("otro.stpreset"),
+                               QStringLiteral("{\"answers\":{\"combatProfile\":\"full\"}}"));
+    QVERIFY(!presetIoResult(app.importBuilderPreset(foreign))
+                 .value(QStringLiteral("ok")).toBool());
+
+    const QUrl newer = write(QStringLiteral("futuro.stpreset"), QStringLiteral(
+        "{\"format\":\"stellartool.builder-preset\",\"schemaVersion\":99,"
+        "\"answers\":{\"combatProfile\":\"full\"}}"));
+    QVERIFY(!presetIoResult(app.importBuilderPreset(newer))
+                 .value(QStringLiteral("ok")).toBool());
+
+    const QUrl missing = QUrl::fromLocalFile(tmp.path() + QStringLiteral("/no-existe.stpreset"));
+    QVERIFY(!presetIoResult(app.importBuilderPreset(missing))
+                 .value(QStringLiteral("ok")).toBool());
+
+    QCOMPARE(QJsonDocument::fromJson(app.builderPresets().toUtf8()).array().size(), 0);
+}
 
 void TestBuilderUi::itemLabelsAreLocalized() {
     const QString sourceDir = QString::fromUtf8(ST_SOURCE_DIR);
@@ -48,6 +143,18 @@ void TestBuilderUi::itemLabelsAreLocalized() {
         QStringLiteral("builder_game_prompt_title"),
         QStringLiteral("builder_game_prompt_body"),
         QStringLiteral("builder_game_later"),
+        QStringLiteral("builder_world_title"),
+        QStringLiteral("builder_world_shop"),
+        QStringLiteral("builder_world_drops"),
+        QStringLiteral("builder_world_sp"),
+        QStringLiteral("builder_world_upgrades"),
+        QStringLiteral("builder_world_fishing"),
+        QStringLiteral("builder_value_percent"),
+        QStringLiteral("builder_value_chance"),
+        QStringLiteral("builder_preset_export"),
+        QStringLiteral("builder_preset_import"),
+        QStringLiteral("err_preset_format"),
+        QStringLiteral("err_preset_newer"),
     };
 
     QDir translations(sourceDir + QStringLiteral("/i18n"));

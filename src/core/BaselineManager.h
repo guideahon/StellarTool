@@ -34,11 +34,21 @@ public:
     bool buildFromGame(const QString &gamePaksDir, const QString &mappings,
                        QString *error, int *imported);
 
+    // Asegura en la cache solo las tablas pedidas (nombre sin extensión,
+    // p. ej. "CharacterTable"). Exporta con -p exacto las que faltan, en vez
+    // de barrer el juego entero: importar un mod que toca 3 tablas no tiene
+    // por qué leer las ~300 del juego. No-op si ya están todas.
+    bool ensureTables(const QString &gamePaksDir, const QString &mappings,
+                      const QStringList &tableNames, QString *error, int *imported);
+
 signals:
     void progress(const QString &message);
 
 private:
     QString keyFor(const QString &gamePath) const;
+    // Convierte los JSON crudos de CUE4Parse y los deja en la cache.
+    int ingestExported(const QMap<QString, QString> &tables) const;
+    void writeStamp(const QString &gamePaksDir) const;
     UAssetService *m_uasset;
     Cue4Service *m_cue4;
 };

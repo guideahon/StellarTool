@@ -10,6 +10,8 @@ Pendiente (cae a preset): mini-boss, first run.
 """
 from __future__ import annotations
 
+import world_extras
+
 # Transforms que reproducen el combate publico 1.2.19 (paridad byte-identica).
 COMBAT_FULL = [
     "combat.skill.full", "combat.tuning.public1219.skill",
@@ -110,6 +112,33 @@ def combat_transforms(a: dict) -> list[str]:
     return []
 
 
+# Mundo/economia (tienda, drops, progresion, pesca). Van en su propio pak: son
+# tablas que ni el combate ni el outfit tocan.
+WORLD_PAK = "StellarSouls-World"
+
+
+def world_selection(a: dict) -> list[str]:
+    """Extras de mundo elegidos, en el orden declarado por world_extras."""
+    chosen = set(a.get("worldTweaks") or [])
+    return [e for e in world_extras.WORLD_EXTRAS if e in chosen]
+
+
+def world_transforms(a: dict, exclude_tables=()) -> list[str]:
+    """Transforms de mundo, salteando las tablas que ya trae otro pak del build.
+
+    El pak de mini-boss / First Run incluye su propia RewardGroupTable: si el pak
+    de mundo la volviera a empaquetar, uno de los dos ganaria en silencio. Esos
+    caminos aplican el extra adentro de su propio pak (miniboss_builder).
+    """
+    return [f"world.{e}" for e in world_selection(a)
+            if world_extras.WORLD_EXTRAS[e][0] not in exclude_tables]
+
+
+def world_target(a: dict, exclude_tables=()):
+    transforms = world_transforms(a, exclude_tables)
+    return {"name": WORLD_PAK, "transforms": transforms} if transforms else None
+
+
 def combo_to_targets(a: dict):
     """a = respuestas normalizadas. Devuelve [ {name, transforms} ] o None."""
     combat = a.get("combatProfile", "full")
@@ -156,6 +185,9 @@ def combo_to_targets(a: dict):
         targets.append({"name": "StellarSouls-Extras",
                         "transforms": [f"extrasVanilla.{e}" for e in et_extras]
                                       + (["extrasVanilla.droneScanDuration"] if drone_scan else [])})
+    world = world_target(a)
+    if world:
+        targets.append(world)
     if ct_extras and combat != "full":
         # Extras de CharacterTable necesitan el pak de combate (base editable).
         pass  # se reportan como no aplicados por build_custom (warning)

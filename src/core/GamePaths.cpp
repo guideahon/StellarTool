@@ -49,6 +49,20 @@ QStringList GamePaths::globalContainerFiles() {
     return out;
 }
 
+QString GamePaths::cue4StageDir() {
+    const QString root = gameRoot();
+    if (root.isEmpty()) return {};
+    return root + QStringLiteral("/st_cue4stage");
+}
+
+void GamePaths::cleanCue4Stages() {
+    const QString paks = paksDir();
+    if (!paks.isEmpty())
+        QDir(paks + QStringLiteral("/~st_cue4stage")).removeRecursively(); // legacy
+    const QString stage = cue4StageDir();
+    if (!stage.isEmpty()) QDir(stage).removeRecursively();
+}
+
 static bool isGameRoot(const QString &dir) {
     return !dir.isEmpty()
         && QFileInfo::exists(dir + QStringLiteral("/SB/Content/Paks/global.utoc"));

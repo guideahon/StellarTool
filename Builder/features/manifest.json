@@ -355,6 +355,39 @@
       ]
     },
     {
+      "id": "worldTweaks",
+      "type": "multi",
+      "i18nKey": "builder.q.world",
+      "comment": "Mundo/economia (world_extras.py): tablas que ni combate ni outfit tocan. Todos los valores son % sobre vanilla (100 = vanilla) y viven en worldTweakValues. Salen en el pak StellarSouls-World, salvo dropRates cuando hay mini-boss/First Run: esos paks ya traen RewardGroupTable y el extra se aplica adentro.",
+      "options": [
+        {
+          "value": "shopPrices",
+          "i18nKey": "builder.world.shopPrices",
+          "transform": "world.shopPrices"
+        },
+        {
+          "value": "dropRates",
+          "i18nKey": "builder.world.dropRates",
+          "transform": "world.dropRates"
+        },
+        {
+          "value": "spExp",
+          "i18nKey": "builder.world.spExp",
+          "transform": "world.spExp"
+        },
+        {
+          "value": "upgradeCosts",
+          "i18nKey": "builder.world.upgradeCosts",
+          "transform": "world.upgradeCosts"
+        },
+        {
+          "value": "fishing",
+          "i18nKey": "builder.world.fishing",
+          "transform": "world.fishing"
+        }
+      ]
+    },
+    {
       "id": "helperMode",
       "type": "single",
       "i18nKey": "builder.q.helperMode",
@@ -416,11 +449,12 @@
   ],
   "conflicts": [
     {
-      "comment": "Sin combate y sin outfit = nada que compilar.",
+      "comment": "Sin combate, sin outfit, sin mini-boss y sin ajustes de mundo = nada que compilar.",
       "requireAtLeastOne": [
         "combatProfile!=none",
         "outfitMode!=off",
-        "miniBoss!=off"
+        "miniBoss!=off",
+        "worldTweaks!=[]"
       ]
     }
   ],

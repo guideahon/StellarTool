@@ -576,6 +576,78 @@
       "pt_BR": "Restaurar ultima roupa (SEM CNS)",
       "ru": "Вернуть последний наряд (БЕЗ CNS)",
       "zh_Hans": "恢复上次服装（无 CNS）"
+    },
+    "builder.q.world": {
+      "es": "Ajustes de mundo (tienda, drops, progresion, pesca)",
+      "en": "World tweaks (shop, drops, progression, fishing)",
+      "fr": "Reglages du monde (boutique, butin, progression, peche)",
+      "it": "Regolazioni del mondo (negozio, drop, progressione, pesca)",
+      "de": "Welt-Anpassungen (Shop, Drops, Fortschritt, Angeln)",
+      "ja": "ワールド調整（ショップ、ドロップ、進行、釣り）",
+      "ko": "월드 조정 (상점, 드롭, 진행, 낚시)",
+      "pt_BR": "Ajustes de mundo (loja, drops, progressao, pesca)",
+      "ru": "Настройки мира (магазин, дроп, прогрессия, рыбалка)",
+      "zh_Hans": "世界调整（商店、掉落、进度、钓鱼）"
+    },
+    "builder.world.shopPrices": {
+      "es": "Precios de tienda al 50%",
+      "en": "Shop prices at 50%",
+      "fr": "Prix de la boutique a 50%",
+      "it": "Prezzi del negozio al 50%",
+      "de": "Shop-Preise auf 50%",
+      "ja": "ショップ価格 50%",
+      "ko": "상점 가격 50%",
+      "pt_BR": "Precos da loja em 50%",
+      "ru": "Цены в магазине 50%",
+      "zh_Hans": "商店价格 50%"
+    },
+    "builder.world.dropRates": {
+      "es": "Probabilidad de drop x2",
+      "en": "Drop chance x2",
+      "fr": "Probabilite de butin x2",
+      "it": "Probabilita di drop x2",
+      "de": "Drop-Chance x2",
+      "ja": "ドロップ率 x2",
+      "ko": "드롭 확률 x2",
+      "pt_BR": "Chance de drop x2",
+      "ru": "Шанс дропа x2",
+      "zh_Hans": "掉落概率 x2"
+    },
+    "builder.world.spExp": {
+      "es": "EXP de SP requerida al 50%",
+      "en": "Required SP EXP at 50%",
+      "fr": "EXP de SP requise a 50%",
+      "it": "EXP SP richiesta al 50%",
+      "de": "Benoetigte SP-EXP auf 50%",
+      "ja": "必要SP EXP 50%",
+      "ko": "필요 SP EXP 50%",
+      "pt_BR": "EXP de SP exigida em 50%",
+      "ru": "Требуемый SP-опыт 50%",
+      "zh_Hans": "所需 SP 经验 50%"
+    },
+    "builder.world.upgradeCosts": {
+      "es": "Costo de mejoras al 50%",
+      "en": "Upgrade materials at 50%",
+      "fr": "Cout des ameliorations a 50%",
+      "it": "Costo dei potenziamenti al 50%",
+      "de": "Verbesserungskosten auf 50%",
+      "ja": "強化素材 50%",
+      "ko": "강화 재료 50%",
+      "pt_BR": "Custo das melhorias em 50%",
+      "ru": "Стоимость улучшений 50%",
+      "zh_Hans": "强化材料 50%"
+    },
+    "builder.world.fishing": {
+      "es": "Pesca mas facil (stamina 50%, tiempo x2)",
+      "en": "Easier fishing (stamina 50%, time x2)",
+      "fr": "Peche plus facile (endurance 50%, temps x2)",
+      "it": "Pesca piu facile (stamina 50%, tempo x2)",
+      "de": "Leichteres Angeln (Ausdauer 50%, Zeit x2)",
+      "ja": "釣りを簡単に（スタミナ50%、時間x2）",
+      "ko": "더 쉬운 낚시 (스태미나 50%, 시간 x2)",
+      "pt_BR": "Pesca mais facil (stamina 50%, tempo x2)",
+      "ru": "Рыбалка проще (выносливость 50%, время x2)",
+      "zh_Hans": "更简单的钓鱼（耐力 50%，时间 x2）"
     }
   }
 }

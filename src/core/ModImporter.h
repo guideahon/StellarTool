@@ -27,12 +27,19 @@ signals:
 private:
     bool stageSource(const QString &sourcePath, const QString &modWorkDir,
                      ModPackage &pkg, QString *contentDir, QString *error);
+    // deferredZen != null: los contenedores que retoc no pudo revertir se
+    // acumulan ahí en vez de lanzar un CUE4Parse por pak (montar el global del
+    // juego cuesta lo mismo para 1 que para N).
     bool unpackPakInto(const QString &pak, const QString &extractDir,
-                       const QString &modWorkDir, ModPackage &pkg, QString *error);
-    // Lee las DataTables de un contenedor Zen con CUE4Parse (requiere ruta del
-    // juego). Agrega ModAsset DataTable a pkg. Devuelve cantidad de tablas.
-    int importZenTables(const QString &utoc, const QString &modWorkDir,
+                       const QString &modWorkDir, ModPackage &pkg,
+                       QStringList *deferredZen, QString *error);
+    // Lee las DataTables de uno o más contenedores Zen con CUE4Parse (requiere
+    // ruta del juego). Agrega ModAsset DataTable a pkg. Devuelve cantidad.
+    int importZenTables(const QStringList &utocs, const QString &modWorkDir,
                         ModPackage &pkg, QString *error);
+    // Corre los diferidos en una sola pasada y arma el error si no salió nada.
+    bool flushDeferredZen(const QStringList &utocs, const QString &modWorkDir,
+                          ModPackage &pkg, QString *error);
     void scanAssets(ModPackage &pkg);
 
     QString t(const QString &key) const;

@@ -102,7 +102,19 @@ nivel de 10% a 100% en pasos de 10%; los proyectos anteriores conservan 60%.
 Los grupos largos se distribuyen en varias filas para mantenerse dentro de la
 tarjeta también en ventanas angostas.
 Las configuraciones completas también se pueden guardar como presets con nombre,
-cargar y eliminar independientemente del historial de compilaciones.
+cargar y eliminar independientemente del historial de compilaciones. Cada preset
+se **exporta como archivo `.stpreset`** y se puede **importar**: así se comparte
+una configuración entera sin publicar un pak (quien la recibe la carga, la
+retoca y compila la suya). Un archivo que no sea un preset del Builder, o que
+venga de una versión más nueva de la app, se rechaza con un mensaje claro en vez
+de cargarse a medias.
+La sección **Mundo y progresión** cubre las tablas que el pak de combate y el de
+outfit no tocan: precios de tienda (`ShopItemTable`), drops de enemigos y cofres
+(`RewardGroupTable`), EXP de SP por nivel (`SPLevelTable`), materiales de mejora
+de EVE (`CharacterLevelTable`) y pesca (`ItemFishTable`). Cada valor es un
+porcentaje sobre el valor vanilla (100 = vanilla) y sale en el pak
+`StellarSouls-World`, aparte del de combate. Con mini-boss o First Run el ajuste
+de drops se aplica dentro de ese pak combinado, que ya trae `RewardGroupTable`.
 El perfil nativo de Stellar Souls modifica sólo enemigos normales. Los
 mini-bosses se agregan de forma independiente y el extra **Bosses más duros**
 ofrece presets Main e Insane limitados a Hardcore desde

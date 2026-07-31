@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QMutex>
 #include <QProcess>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -63,29 +64,47 @@ QString PakService::cnsRetocPath() {
 bool PakService::zenAvailable() const { return !retocPath().isEmpty(); }
 
 QString PakService::oodleDir() {
-    const QString dll = QStringLiteral("oo2core_9_win64.dll");
-    const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("STELLAR_OODLE_DIR"));
-    if (!env.isEmpty() && QFileInfo::exists(env + QLatin1Char('/') + dll))
-        return QFileInfo(env).absoluteFilePath();
-    const QStringList local{
-        QCoreApplication::applicationDirPath() + QStringLiteral("/tools"),
-        QCoreApplication::applicationDirPath(),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools")};
-    for (const QString &c : local)
-        if (QFileInfo::exists(c + QLatin1Char('/') + dll))
-            return QFileInfo(c).absoluteFilePath();
-    const QString game = GamePaths::gameRoot();
-    if (game.isEmpty()) return {};
-    const QStringList inGame{game + QStringLiteral("/SB/Binaries/Win64"),
-                             game + QStringLiteral("/CNSRepacker/tools/retoc")};
-    for (const QString &c : inGame)
-        if (QFileInfo::exists(c + QLatin1Char('/') + dll)) return c;
-    QDirIterator it(game, {dll}, QDir::Files, QDirIterator::Subdirectories);
-    if (it.hasNext()) {
-        it.next();
-        return it.fileInfo().absolutePath();
-    }
-    return {};
+    // Se llama en CADA corrida de retoc/cue4parse y el último recurso es un
+    // barrido recursivo de la carpeta del juego (decenas de GB): sin cache eso
+    // se pagaba una vez por pak. Cacheado por gameRoot (cambia si el usuario
+    // reconfigura la ruta).
+    static QMutex mutex;              // se llama desde worker threads
+    static QString cachedRoot;
+    static QString cachedDir;
+    static bool cached = false;
+    QMutexLocker lock(&mutex);
+    const QString root = GamePaths::gameRoot();
+    if (cached && cachedRoot == root) return cachedDir;
+
+    const auto locate = [&root]() -> QString {
+        const QString dll = QStringLiteral("oo2core_9_win64.dll");
+        const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("STELLAR_OODLE_DIR"));
+        if (!env.isEmpty() && QFileInfo::exists(env + QLatin1Char('/') + dll))
+            return QFileInfo(env).absoluteFilePath();
+        const QStringList local{
+            QCoreApplication::applicationDirPath() + QStringLiteral("/tools"),
+            QCoreApplication::applicationDirPath(),
+            QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools")};
+        for (const QString &c : local)
+            if (QFileInfo::exists(c + QLatin1Char('/') + dll))
+                return QFileInfo(c).absoluteFilePath();
+        if (root.isEmpty()) return {};
+        const QStringList inGame{root + QStringLiteral("/SB/Binaries/Win64"),
+                                 root + QStringLiteral("/CNSRepacker/tools/retoc")};
+        for (const QString &c : inGame)
+            if (QFileInfo::exists(c + QLatin1Char('/') + dll)) return c;
+        QDirIterator it(root, {dll}, QDir::Files, QDirIterator::Subdirectories);
+        if (it.hasNext()) {
+            it.next();
+            return it.fileInfo().absolutePath();
+        }
+        return {};
+    };
+
+    cachedDir = locate();
+    cachedRoot = root;
+    cached = true;
+    return cachedDir;
 }
 
 bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QString *error) {

@@ -28,11 +28,29 @@ public:
                                         const QString &packageWildcard,
                                         QString *error = nullptr);
 
+    // Igual, pero con varios patrones (-p es repetible). Permite exportar
+    // exactamente las tablas que hacen falta en vez de barrer el juego entero.
+    QMap<QString, QString> exportPackages(const QString &inputDir,
+                                          const QString &outDir,
+                                          const QString &mappings,
+                                          const QStringList &patterns,
+                                          QString *error = nullptr);
+
+    // Lista (sin exportar) las rutas de paquete que matchean el patrón. Barato:
+    // monta los contenedores y no escribe nada.
+    QStringList listPackages(const QString &inputDir, const QString &mappings,
+                             const QString &pattern, QString *error = nullptr);
+
+    // Patrón -p que matchea una tabla por nombre en cualquier carpeta.
+    static QString patternForTable(const QString &tableName);
+
 signals:
     void progress(const QString &message);
 
 private:
-    bool run(const QStringList &args, QString *error, int timeoutMs, QString *output = nullptr);
+    // idleTimeoutMs: se mata el proceso solo si deja de emitir salida ese
+    // tiempo. Un tope de reloj mataba corridas lentas pero sanas.
+    bool run(const QStringList &args, QString *error, int idleTimeoutMs, QString *output = nullptr);
 };
 
 } // namespace st

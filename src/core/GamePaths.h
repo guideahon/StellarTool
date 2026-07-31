@@ -17,6 +17,15 @@ public:
     static bool hasGame();                   // paksDir existe con global.utoc
     static QStringList globalContainerFiles(); // global.utoc/.ucas/.upak del juego
 
+    // Stage temporal para CUE4Parse: mismo volumen que el juego (para
+    // hardlinkear el global de varios GB) pero FUERA de Paks, porque la
+    // baseline exporta con -i <Paks> recursivo y un stage ahí dentro hace
+    // releer el juego entero por segunda vez.
+    static QString cue4StageDir();
+    // Borra stages de corridas anteriores (incluido el legacy dentro de Paks,
+    // que quedaba si la app se cerró/crasheó a mitad de un import).
+    static void cleanCue4Stages();
+
     static QString detectSteam();            // intenta ubicar StellarBlade en Steam
     // Acomoda lo que eligio el usuario: acepta la raiz, una subcarpeta (SB,
     // Content, Paks, ~mods) o la carpeta que la contiene. "" si no es el juego.

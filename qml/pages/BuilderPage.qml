@@ -39,6 +39,21 @@ Item {
         try { presetModel = JSON.parse(App.builderPresets() || "[]") }
         catch (e) { presetModel = [] }
     }
+    // Resultado de exportar/importar un preset: {ok, name|path, error}.
+    function reportPresetIo(resultJson, isImport) {
+        var res = {}
+        try { res = JSON.parse(resultJson || "{}") } catch (e) { res = {} }
+        presetIoDialog.failed = !res.ok
+        if (res.ok) {
+            presetIoDialog.message = isImport
+                ? (I18n.s.builder_preset_imported || "Preset importado: %1").arg(res.name)
+                : (I18n.s.builder_preset_exported || "Preset exportado a %1").arg(res.path)
+            refreshPresets()
+        } else {
+            presetIoDialog.message = res.error || (I18n.s.error || "Error")
+        }
+        presetIoDialog.open()
+    }
     function refreshInstalled() {
         try { installed = JSON.parse(App.installedStatus() || "{}") }
         catch (e) { installed = { paks: [], helper: false, helpers: [] } }
@@ -183,6 +198,24 @@ Item {
         exGunRotation.checked = ex.indexOf("gunGorgonRotation") >= 0
         exJust.checked = ex.indexOf("forgivingJust") >= 0
         exAirDodge.checked = ex.indexOf("extraAirDodge") >= 0
+        var wt = a.worldTweaks || []
+        var wv = a.worldTweakValues || {}
+        function worldValue(group, key, fallback) {
+            return wv[group] && wv[group][key] !== undefined
+                    ? Number(wv[group][key]) : fallback
+        }
+        wShop.checked = wt.indexOf("shopPrices") >= 0
+        wDrops.checked = wt.indexOf("dropRates") >= 0
+        wSp.checked = wt.indexOf("spExp") >= 0
+        wUpgrades.checked = wt.indexOf("upgradeCosts") >= 0
+        wFishing.checked = wt.indexOf("fishing") >= 0
+        shopPrice.scaledValue = worldValue("shop_prices", "price_percent", 50)
+        dropChance.scaledValue = worldValue("drop_rates", "chance_percent", 200)
+        dropCount.scaledValue = worldValue("drop_rates", "count_percent", 100)
+        spExpPercent.scaledValue = worldValue("sp_exp", "exp_percent", 50)
+        upgradeCost.scaledValue = worldValue("upgrade_costs", "cost_percent", 50)
+        fishStamina.scaledValue = worldValue("fishing", "stamina_percent", 50)
+        fishTime.scaledValue = worldValue("fishing", "fighting_time_percent", 200)
         var hardcore = a.hardcoreEnemyBoost || "off"
         exHarder.checked = hardcore !== "off"
         harderMain.checked = hardcore === "main"
@@ -518,6 +551,39 @@ Item {
             if (App.saveBuilderPreset(presetNameField.text,
                                       JSON.stringify(buildButton.currentAnswers())))
                 root.refreshPresets()
+        }
+    }
+
+    // Presets como archivo: exportar el elegido / importar uno que te pasaron.
+    FileDialog {
+        id: presetExportDialog
+        property string presetName: ""
+        title: I18n.s.builder_preset_export_title || "Exportar preset a archivo"
+        fileMode: FileDialog.SaveFile
+        defaultSuffix: "stpreset"
+        nameFilters: [I18n.s.builder_preset_filter || "Presets de Stellar Tool (*.stpreset)"]
+        onAccepted: root.reportPresetIo(App.exportBuilderPreset(presetName, selectedFile), false)
+    }
+    FileDialog {
+        id: presetImportDialog
+        title: I18n.s.builder_preset_import_title || "Importar preset desde archivo"
+        fileMode: FileDialog.OpenFile
+        nameFilters: [I18n.s.builder_preset_filter || "Presets de Stellar Tool (*.stpreset)"]
+        onAccepted: root.reportPresetIo(App.importBuilderPreset(selectedFile), true)
+    }
+
+    Dialog {
+        id: presetIoDialog
+        property string message: ""
+        property bool failed: false
+        anchors.centerIn: Overlay.overlay
+        modal: true
+        title: I18n.s.builder_presets || "Presets"
+        standardButtons: Dialog.Ok
+        contentItem: Text {
+            text: presetIoDialog.message
+            color: presetIoDialog.failed ? Theme.warn : Theme.text
+            wrapMode: Text.Wrap; width: 380
         }
     }
 
@@ -1227,6 +1293,68 @@ Item {
                                 color: Theme.textDim; wrapMode: Text.Wrap; Layout.fillWidth: true
                             }
 
+                            // ---- Mundo y progresion: tablas que el pak de
+                            // combate/outfit no toca (tienda, drops, SP, mejoras, pesca).
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.topMargin: 8
+                                height: 1
+                                color: Theme.border
+                            }
+                            RowLayout {
+                                spacing: 6
+                                FieldLabel {
+                                    text: I18n.s.builder_world_title || "Mundo y progresión"
+                                    font.bold: true
+                                }
+                                Rectangle { radius: 4; color: Theme.warn; implicitWidth: worldBeta.width+12; implicitHeight: 18
+                                    Text { id: worldBeta; anchors.centerIn: parent; text: "BETA"; color: Theme.warnText; font.pixelSize: 10; font.bold: true } }
+                            }
+                            Text {
+                                Layout.fillWidth: true
+                                text: I18n.s.builder_world_hint
+                                      || "Cada valor es un % del valor vanilla (100 = vanilla). Salen en un pak aparte, así que se pueden combinar con cualquier mod de combate."
+                                color: Theme.textDim; font.pixelSize: 11; wrapMode: Text.Wrap
+                            }
+                            QuantifiedExtra {
+                                id: wShop
+                                text: I18n.s.builder_world_shop || "Precios de tienda"
+                                onVanillaRequested: { checked = false; shopPrice.scaledValue = 100 }
+                                NumericEditor { id: shopPrice; label: I18n.s.builder_value_percent || "% de vanilla"; technicalName: "MoneyItemCount1-4"; minimum: 0; maximum: 400; step: 5; scaledValue: 50 }
+                            }
+                            QuantifiedExtra {
+                                id: wDrops
+                                text: I18n.s.builder_world_drops || "Drops de enemigos y cofres"
+                                onVanillaRequested: {
+                                    checked = false; dropChance.scaledValue = 100
+                                    dropCount.scaledValue = 100
+                                }
+                                NumericEditor { id: dropChance; label: I18n.s.builder_value_chance || "Probabilidad %"; technicalName: "DropRate"; minimum: 0; maximum: 1000; step: 10; scaledValue: 200 }
+                                NumericEditor { id: dropCount; label: I18n.s.builder_value_amount || "Cantidad %"; technicalName: "ItemMinCount / ItemMaxCount"; minimum: 100; maximum: 1000; step: 10; scaledValue: 100 }
+                            }
+                            QuantifiedExtra {
+                                id: wSp
+                                text: I18n.s.builder_world_sp || "EXP de SP requerida por nivel"
+                                onVanillaRequested: { checked = false; spExpPercent.scaledValue = 100 }
+                                NumericEditor { id: spExpPercent; label: I18n.s.builder_value_percent || "% de vanilla"; technicalName: "RequiredSPExp"; minimum: 5; maximum: 200; step: 5; scaledValue: 50 }
+                            }
+                            QuantifiedExtra {
+                                id: wUpgrades
+                                text: I18n.s.builder_world_upgrades || "Materiales para mejorar a EVE"
+                                onVanillaRequested: { checked = false; upgradeCost.scaledValue = 100 }
+                                NumericEditor { id: upgradeCost; label: I18n.s.builder_value_percent || "% de vanilla"; technicalName: "RequiredItemAmount1 / 2"; minimum: 0; maximum: 200; step: 5; scaledValue: 50 }
+                            }
+                            QuantifiedExtra {
+                                id: wFishing
+                                text: I18n.s.builder_world_fishing || "Pesca más fácil"
+                                onVanillaRequested: {
+                                    checked = false; fishStamina.scaledValue = 100
+                                    fishTime.scaledValue = 100
+                                }
+                                NumericEditor { id: fishStamina; label: I18n.s.builder_value_stamina || "Stamina del pez %"; technicalName: "Stamina"; minimum: 5; maximum: 200; step: 5; scaledValue: 50 }
+                                NumericEditor { id: fishTime; label: I18n.s.builder_value_fight_time || "Tiempo de pelea %"; technicalName: "FightingTime"; minimum: 50; maximum: 500; step: 10; scaledValue: 200 }
+                            }
+
                             // Patches TOML propios (opcional, avanzado)
                             RowLayout {
                                 spacing: 6; Layout.topMargin: 8
@@ -1379,9 +1507,19 @@ Item {
                                 font.pixelSize: 16
                             }
                             Button {
+                                text: I18n.s.builder_preset_import || "Importar preset"
+                                onClicked: presetImportDialog.open()
+                            }
+                            Button {
                                 text: I18n.s.builder_preset_save || "Guardar preset"
                                 onClicked: savePresetDialog.open()
                             }
+                        }
+                        Text {
+                            Layout.fillWidth: true
+                            text: I18n.s.builder_preset_share_hint
+                                  || "Los presets se exportan como archivo .stpreset: podés pasarle tu configuración a otra persona y que la compile con sus propios valores."
+                            color: Theme.textDim; font.pixelSize: 11; wrapMode: Text.Wrap
                         }
                         Text {
                             visible: root.presetModel.length === 0
@@ -1402,6 +1540,13 @@ Item {
                                 Button {
                                     text: I18n.s.builder_preset_load || "Cargar"
                                     onClicked: root.applyTemplate(modelData.answers)
+                                }
+                                Button {
+                                    text: I18n.s.builder_preset_export || "Exportar"
+                                    onClicked: {
+                                        presetExportDialog.presetName = modelData.name
+                                        presetExportDialog.open()
+                                    }
                                 }
                                 Button {
                                     text: I18n.s.builder_preset_delete || "Eliminar"
@@ -1557,6 +1702,26 @@ Item {
                                 passive_hp_regen: {per_second: passiveHpValue.realValue},
                                 fishing_power: {power: fishingValue.realValue},
                                 attack_speed: {multiplier: attackSpeedValue.realValue}
+                            },
+                            worldTweaks: [
+                                wShop.checked ? "shopPrices" : "",
+                                wDrops.checked ? "dropRates" : "",
+                                wSp.checked ? "spExp" : "",
+                                wUpgrades.checked ? "upgradeCosts" : "",
+                                wFishing.checked ? "fishing" : ""
+                            ].filter(function(x){ return x.length > 0 }),
+                            worldTweakValues: {
+                                shop_prices: {price_percent: shopPrice.realValue},
+                                drop_rates: {
+                                    chance_percent: dropChance.realValue,
+                                    count_percent: dropCount.realValue
+                                },
+                                sp_exp: {exp_percent: spExpPercent.realValue},
+                                upgrade_costs: {cost_percent: upgradeCost.realValue},
+                                fishing: {
+                                    stamina_percent: fishStamina.realValue,
+                                    fighting_time_percent: fishTime.realValue
+                                }
                             },
                             hardcoreEnemyBoost: hardcoreValue(),
                             forgivingJustMult: just15.checked ? 1.5 : (just2.checked ? 2 : 3),

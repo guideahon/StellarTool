@@ -40,6 +40,8 @@ def _auto_label(a: dict) -> str:
         parts.append("outfit")
     if a.get("miniBoss", "off") not in ("off", False, None):
         parts.append("miniboss")
+    if a.get("worldTweaks"):
+        parts.append("world")
     return "+".join(parts)
 
 

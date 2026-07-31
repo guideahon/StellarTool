@@ -64,9 +64,17 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
       m_store(new ProjectStore(this)) {
+    // Un stage de CUE4Parse de una corrida anterior (app cerrada a mitad de un
+    // import) deja el global del juego duplicado dentro de Paks y hace que cada
+    // export posterior relea el juego entero de más.
+    GamePaths::cleanCue4Stages();
     connect(m_importer, &ModImporter::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     connect(m_baseline, &BaselineManager::progress, this,
+            [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
+    // Estaba desconectada: el avance real de cue4parse (N de M paquetes) no
+    // llegaba a la UI y una corrida larga parecía un cuelgue.
+    connect(m_cue4, &Cue4Service::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
     connect(m_usmap, &UsmapService::progress, this,
             [this](const QString &m) { setStatus(m); }, Qt::QueuedConnection);
@@ -474,20 +482,31 @@ void AppController::runAnalysis(const AnalysisChoices &choices) {
 void AppController::analyze() {
     if (m_busy || m_mods.isEmpty()) return;
     setBusy(true, t(QStringLiteral("core_analyzing")));
-    // Si hay juego configurado pero la baseline falta o quedó vieja (update del
-    // juego), (re)construirla primero para que los diffs sean vanilla->mod reales.
-    const bool needBaseline = GamePaths::hasGame()
-        && (!m_baseline->hasBaseline() || m_baseline->isStale(GamePaths::paksDir()));
+    // Baseline bajo demanda: solo las tablas que tocan los mods cargados. Antes
+    // se barría el juego entero (~300 paquetes) en el primer import, que es de
+    // donde salían los reportes de "tarda media hora".
+    QStringList needed;
+    for (const ModPackage &mod : m_mods)
+        for (const ModAsset &asset : mod.assets)
+            if (asset.kind == ModAsset::DataTable && asset.cleanJson)
+                needed << QFileInfo(asset.gamePath).completeBaseName();
+    needed.removeDuplicates();
+    const bool needBaseline = GamePaths::hasGame() && !needed.isEmpty();
     const QString paks = GamePaths::paksDir();
     const QString usmap = m_uasset->usmapPath();
     // Agregar o quitar un mod obliga a re-analizar; sin esto el usuario perdía
     // cada casilla destildada, cada valor editado y cada conflicto resuelto.
     const AnalysisChoices choices = captureChoices();
-    std::ignore = QtConcurrent::run([this, needBaseline, paks, usmap, choices] {
+    std::ignore = QtConcurrent::run([this, needBaseline, paks, usmap, choices, needed] {
         if (needBaseline) {
             QString e; int n = 0;
-            m_baseline->buildFromGame(paks, usmap, &e, &n);
-            QMetaObject::invokeMethod(this, [this] { emit baselineChanged(); }, Qt::QueuedConnection);
+            const bool ok = m_baseline->ensureTables(paks, usmap, needed, &e, &n);
+            QMetaObject::invokeMethod(this, [this, ok, e] {
+                emit baselineChanged();
+                // Sin esto un fallo (p. ej. mappings faltantes) quedaba mudo y
+                // el análisis seguía contra una baseline vacía.
+                if (!ok && !e.isEmpty()) emit errorOccurred(e);
+            }, Qt::QueuedConnection);
         }
         runAnalysis(choices);
     });
@@ -1355,6 +1374,87 @@ bool AppController::saveBuilderPreset(const QString &name, const QString &answer
     QSettings().setValue(QStringLiteral("builder/presets"),
                          QJsonDocument(presets).toJson(QJsonDocument::Compact));
     return true;
+}
+
+namespace {
+// Archivo de preset del Builder. El formato se declara adentro para que un JSON
+// cualquiera no entre por tener extensión .stpreset, y la versión de esquema
+// permite rechazar con un mensaje claro un archivo de una versión más nueva.
+constexpr int kPresetSchemaVersion = 1;
+const QLatin1String kPresetFormat("stellartool.builder-preset");
+
+QString presetResult(bool ok, const QString &key, const QString &value) {
+    QJsonObject out{{QStringLiteral("ok"), ok}};
+    out.insert(key, value);
+    return QString::fromUtf8(QJsonDocument(out).toJson(QJsonDocument::Compact));
+}
+}   // namespace
+
+QString AppController::exportBuilderPreset(const QString &name, const QUrl &fileUrl) {
+    const QJsonArray presets = QJsonDocument::fromJson(builderPresets().toUtf8()).array();
+    QJsonObject preset;
+    for (const QJsonValue &v : presets) {
+        if (v.toObject().value(QStringLiteral("name")).toString() == name) {
+            preset = v.toObject();
+            break;
+        }
+    }
+    if (preset.isEmpty())
+        return presetResult(false, QStringLiteral("error"), t(QStringLiteral("err_preset_missing")));
+
+    QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    if (QFileInfo(path).suffix().isEmpty())
+        path += QStringLiteral(".stpreset");
+    const QJsonObject doc{
+        {QStringLiteral("format"), QString(kPresetFormat)},
+        {QStringLiteral("schemaVersion"), kPresetSchemaVersion},
+        {QStringLiteral("appVersion"), QCoreApplication::applicationVersion()},
+        {QStringLiteral("exported"), QDateTime::currentDateTimeUtc().toString(Qt::ISODate)},
+        {QStringLiteral("name"), name},
+        {QStringLiteral("answers"), preset.value(QStringLiteral("answers")).toObject()},
+    };
+    QFile f(path);
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Truncate))
+        return presetResult(false, QStringLiteral("error"),
+                            t(QStringLiteral("err_preset_write")).arg(path));
+    f.write(QJsonDocument(doc).toJson(QJsonDocument::Indented));
+    f.close();
+    return presetResult(true, QStringLiteral("path"), path);
+}
+
+QString AppController::importBuilderPreset(const QUrl &fileUrl) {
+    const QString path = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    QFile f(path);
+    if (!f.open(QIODevice::ReadOnly))
+        return presetResult(false, QStringLiteral("error"),
+                            t(QStringLiteral("err_preset_read")).arg(path));
+    const QJsonObject doc = QJsonDocument::fromJson(f.readAll()).object();
+    f.close();
+    if (doc.value(QStringLiteral("format")).toString() != kPresetFormat
+            || !doc.value(QStringLiteral("answers")).isObject())
+        return presetResult(false, QStringLiteral("error"), t(QStringLiteral("err_preset_format")));
+    const int schema = doc.value(QStringLiteral("schemaVersion")).toInt();
+    if (schema > kPresetSchemaVersion)
+        return presetResult(false, QStringLiteral("error"), t(QStringLiteral("err_preset_newer")));
+
+    // El nombre del archivo es una sugerencia: si ya existe un preset así, se
+    // importa al lado en vez de pisar el que el usuario ya tenía guardado.
+    QString name = doc.value(QStringLiteral("name")).toString().trimmed();
+    if (name.isEmpty()) name = QFileInfo(path).completeBaseName();
+    QStringList taken;
+    const QJsonArray presets = QJsonDocument::fromJson(builderPresets().toUtf8()).array();
+    for (const QJsonValue &v : presets)
+        taken << v.toObject().value(QStringLiteral("name")).toString().toLower();
+    QString unique = name;
+    for (int i = 2; taken.contains(unique.toLower()); ++i)
+        unique = QStringLiteral("%1 (%2)").arg(name).arg(i);
+
+    const QString answers = QString::fromUtf8(
+        QJsonDocument(doc.value(QStringLiteral("answers")).toObject())
+            .toJson(QJsonDocument::Compact));
+    if (!saveBuilderPreset(unique, answers))
+        return presetResult(false, QStringLiteral("error"), t(QStringLiteral("err_preset_format")));
+    return presetResult(true, QStringLiteral("name"), unique);
 }
 
 void AppController::deleteBuilderPreset(const QString &name) {

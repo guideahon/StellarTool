@@ -82,6 +82,20 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 - Compatible con `DirectoryIndex` de UE4.26; formatos perfect-hash se reportan
   y quedan intactos por seguridad.
 
+## Extensión — Presets compartibles y ajustes de mundo (Builder)
+
+- Presets del Builder exportables/importables como archivo `.stpreset` (JSON con
+  `format`, `schemaVersion`, `appVersion` y `answers`). Importar valida el
+  formato y la versión de esquema, y nunca pisa un preset existente.
+- Sección **Mundo y progresión**: tienda (`ShopItemTable`), drops
+  (`RewardGroupTable`), EXP de SP (`SPLevelTable`), mejoras de EVE
+  (`CharacterLevelTable`) y pesca (`ItemFishTable`), todo como % sobre vanilla.
+- Sale en el pak `StellarSouls-World`; con mini-boss/First Run el ajuste de
+  drops se aplica dentro del pak combinado para no duplicar `RewardGroupTable`.
+- Las baselines vanilla de esas tablas se extraen del juego bajo demanda (mismo
+  cache `baseline/uasset_json` que ya usaban `CharacterTable` y
+  `DifficultyStatGroupTable`).
+
 ## Riesgos y mitigaciones
 | Riesgo | Mitigación |
 |---|---|

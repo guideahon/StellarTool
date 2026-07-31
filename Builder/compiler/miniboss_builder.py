@@ -487,6 +487,42 @@ def _apply_skill_extras_pass(data_dir, extras, just_mult=1.5, air_count=2):
     return rep
 
 
+def _apply_world_extras_pass(data_dir, extras, world_values=None):
+    """tojson -> world_extras -> fromjson sobre las tablas de mundo que este pak
+    ya incluye (hoy RewardGroupTable).
+
+    El pak de mini-boss / First Run trae su propia copia de esas tablas, asi que
+    el extra tiene que aplicarse adentro: empaquetar la misma tabla en dos paks
+    dejaria que una de las dos gane en silencio.
+    """
+    import json
+    import subprocess
+    import world_extras
+    sel = [e for e in (extras or []) if e in world_extras.WORLD_EXTRAS]
+    if not sel:
+        return {}
+    data_dir = Path(data_dir)
+    import toolchain
+    tools = toolchain.tools_dir()
+    usmap = tools / "StellarBlade.usmap"
+    uag = tools / "UAssetGUI.exe"
+    report = {}
+    for table in sorted(world_extras.tables_for(sel)):
+        target = data_dir / f"{table}.uasset"
+        if not target.exists():
+            continue
+        tj = data_dir / f"_{table}_x.json"
+        subprocess.run([str(uag), "tojson", str(target), str(tj), "VER_UE4_26", str(usmap)],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+        doc = json.loads(tj.read_text(encoding="utf-8"))
+        report.update(world_extras.apply_world_extras(doc, table, sel, world_values))
+        tj.write_text(json.dumps(doc), encoding="utf-8")
+        subprocess.run([str(uag), "fromjson", str(tj), str(target), "StellarBlade"],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+        tj.unlink(missing_ok=True)
+    return report
+
+
 def _apply_beta_revert(data_dir):
     """Aplica el revert de costo Beta/Burst a SkillTable.uasset de un staging.
 
@@ -538,7 +574,8 @@ def _apply_disable_skinsuit(data_dir):
 
 
 def compile_from_staging(variant, work_dir, verify_result=True, beta_revert=True,
-                         outfit=True, extras=None, gear_mult=2.0):
+                         outfit=True, extras=None, gear_mult=2.0,
+                         world_extra_ids=None, world_values=None):
     """Repackea un staging legacy fijo (ej First Run) a su pak Zen.
 
     outfit=False -> desactiva Skin-Suit-on-break en la EffectTable y usa el nombre
@@ -560,13 +597,15 @@ def compile_from_staging(variant, work_dir, verify_result=True, beta_revert=True
     if extras:
         _apply_effect_extras_pass(data, extras, gear_mult)
         _apply_skill_extras_pass(data, extras)
+    world_report = _apply_world_extras_pass(data, world_extra_ids, world_values)
     pak = spec["pak"] if outfit else spec.get("pakNoOutfit", spec["pak"] + "NoOutfit")
     spec = dict(spec, pak=pak)
     utoc = work_dir / f'{spec["pak"]}_P.utoc'
     toolchain.to_zen(pkg, utoc)
     ok = toolchain.verify(utoc) if verify_result else None
     return {"pak": utoc.with_suffix(".pak"), "ucas": utoc.with_suffix(".ucas"),
-            "utoc": utoc, "verified": ok, "pakName": spec["pak"]}
+            "utoc": utoc, "verified": ok, "pakName": spec["pak"],
+            "report": {"worldExtras": world_report} if world_report else {}}
 
 
 def _repair_namemap(doc):
@@ -606,7 +645,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
                      outfit=True, difficulty="flat", faithful=False, variety=False,
                      extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0,
                      tumbler_value=60.0, area_densities=None, miniboss_config=None,
-                     just_mult=1.5, air_count=2, combat_transform_ids=None):
+                     just_mult=1.5, air_count=2, combat_transform_ids=None,
+                     world_extra_ids=None, world_values=None):
     """Compila el pak mini-boss completo (10 tablas) a work_dir. Devuelve dict.
 
     Por defecto usa build_core -> incluye el fix anti-farm (excluye spawns
@@ -683,6 +723,11 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     skx = _apply_skill_extras_pass(work_dir, extras, just_mult, air_count)
     if skx:
         report["skillExtras"] = skx
+    # Mundo: solo las tablas que este pak ya trae (RewardGroupTable); el resto va
+    # en el pak StellarSouls-World que compila build_custom.
+    wx = _apply_world_extras_pass(work_dir, world_extra_ids, world_values)
+    if wx:
+        report["worldExtras"] = wx
     if toml_dir:  # patches TOML del usuario (opcional) sobre los uassets
         import toml_patch
         report["tomlPatches"] = toml_patch.apply_toml_dir(toml_dir, work_dir)

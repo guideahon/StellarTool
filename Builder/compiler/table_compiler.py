@@ -177,7 +177,7 @@ def _blaster_x2(doc, vanilla):
 PARAMS = {
     "harder_mult": 2.0, "gear_mult": 2.0, "combat_levels": {},
     "economy_levels": {}, "blaster_mult": 2.0, "just_mult": 1.5, "air_count": 2,
-    "tumbler_value": 60.0,
+    "tumbler_value": 60.0, "world_values": {},
 }
 
 
@@ -352,6 +352,8 @@ def _reg_extra(tid, table, base, fn_name, module):
                 "attack_speed"}:
             values = PARAMS.get("extra_values", {}).get(_f, {})
             n = fn(doc, **values)
+        elif _m == "world_extras":
+            n = fn(doc, **mod.values_for(_f, PARAMS.get("world_values", {})))
         else:
             n = fn(doc)
         doc.setdefault("_report", {})[_f] = n
@@ -410,6 +412,9 @@ def _hardcore_enemies_insane(doc, _vanilla):
     doc.setdefault("_report", {})["hardcoreEnemies"] = hardcore_enemies.apply(doc, "insane")
 _reg_extra("extras.dashCooldown4", "SkillTable", "full", "dash_cooldown_4s", "skill_extras")
 _reg_extra("extras.droneScanCooldown", "SkillTable", "full", "drone_scan_cooldown_5s", "skill_extras")
+# Mundo/economia: tablas que ningun pak previo tocaba, siempre desde vanilla.
+for _wid, (_wtable, _wfn) in __import__("world_extras").WORLD_EXTRAS.items():
+    _reg_extra(f"world.{_wid}", _wtable, "vanilla", _wfn, "world_extras")
 _reg_extra("extras.droneScanDuration", "EffectTable", "full", "drone_scan_duration", "effect_extras")
 _reg_extra("extrasVanilla.droneScanDuration", "EffectTable", "vanilla", "drone_scan_duration", "effect_extras")
 
@@ -483,6 +488,16 @@ def _generate_writable_vanilla(table, output):
         shutil.rmtree(stage, ignore_errors=True)
 
 
+def _is_baseline_cache(path) -> bool:
+    """True si la ruta apunta al cache de tablas vanilla de Stellar Tool.
+
+    Esas tablas no se versionan (son contenido del juego): se extraen del pak
+    del usuario la primera vez que un transform las pide.
+    """
+    parts = [p.lower() for p in Path(path).parts]
+    return "baseline" in parts and "uasset_json" in parts
+
+
 def load_table(name, base):
     tables, env = _sources()
     configured = os.path.expandvars(tables[name][base])
@@ -492,7 +507,7 @@ def load_table(name, base):
         cand = _VENDOR_SSMOD / _VENDOR_RENAME.get(fname, fname)
         if cand.exists():
             orig = cand
-    if name in {"CharacterTable", "DifficultyStatGroupTable"} and not orig.exists():
+    if not orig.exists() and _is_baseline_cache(orig):
         _generate_writable_vanilla(name, orig)
     if not orig.exists():
         raise FileNotFoundError(
