@@ -52,10 +52,18 @@ int main(int argc, char *argv[]) {
         QCommandLineParser parser;
         parser.setApplicationDescription(QStringLiteral(
             "Stellar Tool headless.\n"
-            "  StellarTool --headless analyze --mod <ruta>... [--baseline <dir>]\n"
-            "  StellarTool --headless merge   --mod <ruta>... --out <dir> [--baseline <dir>] [--prefer <mod>]\n"
-            "  StellarTool --headless cns      --mod <ruta> --out <dir> [--name <nombre>]\n"
-            "  StellarTool --headless replacer --mod <ruta> --out <dir> --replace <outfit> [--select <variante>]"));
+            "  StellarTool --headless analyze   --mod <ruta>... [--baseline <dir>]\n"
+            "  StellarTool --headless merge     --mod <ruta>... --out <dir> [--baseline <dir>] [--prefer <mod>]\n"
+            "  StellarTool --headless cns       --mod <ruta> --out <dir> [--name <nombre>]\n"
+            "  StellarTool --headless replacer  --mod <ruta> --out <dir> --replace <outfit> [--select <variante>]\n"
+            "  StellarTool --headless build     --answers <json|archivo> --out <dir> [--install-paks] [--install-helper]\n"
+            "  StellarTool --headless build     --preset <nombre> --out <dir>\n"
+            "  StellarTool --headless baseline  [--game <dir>]\n"
+            "  StellarTool --headless status\n"
+            "  StellarTool --headless detect\n"
+            "  StellarTool --headless uninstall [--paks] [--helper]\n"
+            "  StellarTool --headless fixids    --mod <dir> [--apply]\n"
+            "  StellarTool --headless presets"));
         parser.addHelpOption();
         parser.addVersionOption();
         parser.addOption({QStringLiteral("headless"), QStringLiteral("Modo sin UI")});
@@ -69,13 +77,40 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("name"), QStringLiteral("Nombre visible del outfit convertido"), QStringLiteral("nombre")});
         parser.addOption({QStringLiteral("replace"), QStringLiteral("Nombre del outfit vanilla a reemplazar"), QStringLiteral("outfit")});
         parser.addOption({QStringLiteral("select"), QStringLiteral("Variante CNS por nombre o índice"), QStringLiteral("variante")});
+        parser.addOption({QStringLiteral("answers"), QStringLiteral("Respuestas del Builder: JSON inline, .json o .stpreset"), QStringLiteral("json|archivo")});
+        parser.addOption({QStringLiteral("preset"), QStringLiteral("Nombre de un preset guardado del Builder"), QStringLiteral("nombre")});
+        parser.addOption({QStringLiteral("install-paks"), QStringLiteral("Instalar los paks compilados en el juego")});
+        parser.addOption({QStringLiteral("install-helper"), QStringLiteral("Instalar y activar el helper UE4SS")});
+        parser.addOption({QStringLiteral("paks"), QStringLiteral("uninstall: quitar los paks que instaló la tool")});
+        parser.addOption({QStringLiteral("helper"), QStringLiteral("uninstall: quitar el helper que instaló la tool")});
+        parser.addOption({QStringLiteral("apply"), QStringLiteral("fixids: escribir los cambios (por defecto solo reporta)")});
         parser.process(app);
 
         const QStringList pos = parser.positionalArguments();
         const QString command = pos.isEmpty() ? QStringLiteral("analyze") : pos.first();
-        if (command != QLatin1String("analyze") && command != QLatin1String("merge")
-            && command != QLatin1String("cns") && command != QLatin1String("replacer")) {
-            fprintf(stderr, "Comando desconocido: %s (usar analyze | merge | cns | replacer)\n", qPrintable(command));
+
+        st::HeadlessRunner::Options options;
+        options.mods = parser.values(QStringLiteral("mod"));
+        options.outDir = parser.value(QStringLiteral("out"));
+        options.baselineDir = parser.value(QStringLiteral("baseline"));
+        options.preferMod = parser.value(QStringLiteral("prefer"));
+        options.name = parser.value(QStringLiteral("name"));
+        options.replacement = parser.value(QStringLiteral("replace"));
+        options.selection = parser.value(QStringLiteral("select"));
+        options.answers = parser.value(QStringLiteral("answers"));
+        options.preset = parser.value(QStringLiteral("preset"));
+        options.rebuildBaseline = parser.isSet(QStringLiteral("rebuild-baseline"));
+        options.installPaks = parser.isSet(QStringLiteral("install-paks"));
+        options.installHelper = parser.isSet(QStringLiteral("install-helper"));
+        options.uninstallPaks = parser.isSet(QStringLiteral("paks"));
+        options.uninstallHelper = parser.isSet(QStringLiteral("helper"));
+        options.applyFixes = parser.isSet(QStringLiteral("apply"));
+
+        // Validar antes de construir el controller: un comando mal escrito no
+        // tiene por que arrancar servicios ni tocar el juego.
+        QString error;
+        if (!st::HeadlessRunner::validate(command, options, &error)) {
+            fprintf(stderr, "%s\n", qPrintable(error));
             return 2;
         }
 
@@ -85,17 +120,7 @@ int main(int argc, char *argv[]) {
         st::AppController controller(&translator);
         controller.setExportZip(!parser.isSet(QStringLiteral("no-zip")));
         st::HeadlessRunner runner(&controller);
-        if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
-            return runner.runCns(command, parser.values(QStringLiteral("mod")).value(0),
-                                 parser.value(QStringLiteral("out")),
-                                 parser.value(QStringLiteral("name")),
-                                 parser.value(QStringLiteral("replace")),
-                                 parser.value(QStringLiteral("select")));
-        return runner.run(command, parser.values(QStringLiteral("mod")),
-                          parser.value(QStringLiteral("out")),
-                          parser.value(QStringLiteral("baseline")),
-                          parser.value(QStringLiteral("prefer")),
-                          parser.isSet(QStringLiteral("rebuild-baseline")));
+        return runner.exec(command, options);
     }
 
     QGuiApplication app(argc, argv);

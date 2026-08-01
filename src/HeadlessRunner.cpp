@@ -4,6 +4,11 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QEventLoop>
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QTimer>
 #include <QUrl>
 
@@ -14,6 +19,70 @@ namespace st {
 static void out(const QString &s) {
     std::fputs(qPrintable(s + QLatin1Char('\n')), stdout);
     std::fflush(stdout);
+}
+
+QStringList HeadlessRunner::knownCommands() {
+    return {QStringLiteral("analyze"),  QStringLiteral("merge"),
+            QStringLiteral("cns"),      QStringLiteral("replacer"),
+            QStringLiteral("build"),    QStringLiteral("baseline"),
+            QStringLiteral("status"),   QStringLiteral("detect"),
+            QStringLiteral("uninstall"), QStringLiteral("fixids"),
+            QStringLiteral("presets")};
+}
+
+bool HeadlessRunner::isKnownCommand(const QString &command) {
+    return knownCommands().contains(command);
+}
+
+bool HeadlessRunner::validate(const QString &command, const Options &o, QString *error) {
+    const auto fail = [error](const QString &msg) {
+        if (error) *error = msg;
+        return false;
+    };
+    if (!isKnownCommand(command))
+        return fail(QStringLiteral("Comando desconocido: %1 (usar %2)")
+                        .arg(command, knownCommands().join(QStringLiteral(" | "))));
+
+    if (command == QLatin1String("analyze") || command == QLatin1String("merge")) {
+        if (o.mods.isEmpty()) return fail(QStringLiteral("Falta al menos un --mod <ruta>"));
+        if (command == QLatin1String("merge") && o.outDir.isEmpty())
+            return fail(QStringLiteral("merge necesita --out <dir>"));
+    } else if (command == QLatin1String("cns") || command == QLatin1String("replacer")) {
+        if (o.mods.isEmpty() || o.outDir.isEmpty())
+            return fail(QStringLiteral("%1 necesita --mod <entrada> y --out <dir>").arg(command));
+        if (command == QLatin1String("replacer") && o.replacement.isEmpty())
+            return fail(QStringLiteral("replacer necesita --replace <outfit>"));
+    } else if (command == QLatin1String("build")) {
+        if (o.answers.isEmpty() && o.preset.isEmpty())
+            return fail(QStringLiteral("build necesita --answers <json|archivo> o --preset <nombre>"));
+        if (!o.answers.isEmpty() && !o.preset.isEmpty())
+            return fail(QStringLiteral("build acepta --answers o --preset, no los dos"));
+        if (o.outDir.isEmpty()) return fail(QStringLiteral("build necesita --out <dir>"));
+    } else if (command == QLatin1String("uninstall")) {
+        if (!o.uninstallPaks && !o.uninstallHelper)
+            return fail(QStringLiteral("uninstall necesita --paks y/o --helper"));
+    } else if (command == QLatin1String("fixids")) {
+        if (o.mods.isEmpty()) return fail(QStringLiteral("fixids necesita --mod <dir>"));
+    }
+    return true;
+}
+
+int HeadlessRunner::exec(const QString &command, const Options &o) {
+    QString error;
+    if (!validate(command, o, &error)) {
+        out(QStringLiteral("[ERROR] ") + error);
+        return 2;
+    }
+    if (command == QLatin1String("build")) return runBuild(o);
+    if (command == QLatin1String("baseline")) return runBaseline(o);
+    if (command == QLatin1String("status")) return runStatus();
+    if (command == QLatin1String("detect")) return runDetect();
+    if (command == QLatin1String("uninstall")) return runUninstall(o);
+    if (command == QLatin1String("fixids")) return runFixIds(o);
+    if (command == QLatin1String("presets")) return runPresets();
+    if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
+        return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection);
+    return run(command, o.mods, o.outDir, o.baselineDir, o.preferMod, o.rebuildBaseline);
 }
 
 HeadlessRunner::HeadlessRunner(AppController *controller, QObject *parent)
@@ -150,6 +219,126 @@ int HeadlessRunner::runCns(const QString &command, const QString &input,
     if (!waitIdle()) return 3;
     out(m_controller->lastCnsResult());
     return m_controller->lastCnsResult().contains(QLatin1String("assets convertidos")) ? 0 : 5;
+}
+
+QString HeadlessRunner::answersFromValue(const QString &value, QString *error) {
+    const QString trimmed = value.trimmed();
+    if (trimmed.startsWith(QLatin1Char('{'))) return trimmed;
+    QFile f(trimmed);
+    if (!f.open(QIODevice::ReadOnly)) {
+        if (error) *error = QStringLiteral("No se pudo leer --answers: %1").arg(trimmed);
+        return {};
+    }
+    const QString body = QString::fromUtf8(f.readAll());
+    // Un .stpreset envuelve las respuestas en {format, schemaVersion, answers}.
+    const QJsonObject root = QJsonDocument::fromJson(body.toUtf8()).object();
+    if (root.contains(QStringLiteral("answers")))
+        return QString::fromUtf8(QJsonDocument(root.value(QStringLiteral("answers")).toObject())
+                                     .toJson(QJsonDocument::Compact));
+    if (root.isEmpty()) {
+        if (error) *error = QStringLiteral("--answers no es JSON valido: %1").arg(trimmed);
+        return {};
+    }
+    return body;
+}
+
+int HeadlessRunner::runBuild(const Options &o) {
+    QString answers = o.answers;
+    if (!o.preset.isEmpty()) {
+        // Un preset guardado desde la UI: se compila exactamente lo mismo.
+        const QJsonArray presets =
+            QJsonDocument::fromJson(m_controller->builderPresets().toUtf8()).array();
+        for (const QJsonValue &v : presets) {
+            const QJsonObject p = v.toObject();
+            if (p.value(QStringLiteral("name")).toString().compare(
+                    o.preset, Qt::CaseInsensitive) == 0) {
+                answers = QString::fromUtf8(
+                    QJsonDocument(p.value(QStringLiteral("answers")).toObject())
+                        .toJson(QJsonDocument::Compact));
+                break;
+            }
+        }
+        if (answers.isEmpty()) {
+            out(QStringLiteral("[ERROR] No hay un preset llamado '%1' (ver: --headless presets)")
+                    .arg(o.preset));
+            return 2;
+        }
+    } else {
+        QString error;
+        answers = answersFromValue(o.answers, &error);
+        if (answers.isEmpty()) {
+            out(QStringLiteral("[ERROR] ") + error);
+            return 2;
+        }
+    }
+
+    QString zip;
+    QObject::connect(m_controller, &AppController::builderFinished, this,
+                     [&zip](const QString &path) { zip = path; });
+    out(QStringLiteral("[INFO] Compilando el mod en %1 ...").arg(o.outDir));
+    QDir().mkpath(o.outDir);
+    m_controller->runBuilder(answers, QUrl::fromLocalFile(o.outDir),
+                             o.installPaks, o.installHelper, QString());
+    if (!waitIdle()) return 3;
+    if (zip.isEmpty()) return 5;
+    out(QStringLiteral("[OK] %1").arg(zip));
+    if (o.installPaks || o.installHelper)
+        out(QStringLiteral("[INFO] Instalado: ") + m_controller->installedStatus());
+    return 0;
+}
+
+int HeadlessRunner::runBaseline(const Options &) {
+    out(QStringLiteral("[INFO] Reconstruyendo baseline desde el juego (CUE4Parse)..."));
+    m_controller->buildBaselineFromGame();
+    if (!waitIdle()) return 3;
+    const bool ok = m_controller->hasBaseline();
+    out(ok ? QStringLiteral("[OK] Baseline lista.")
+           : QStringLiteral("[ERROR] No se pudo construir la baseline."));
+    return ok ? 0 : 5;
+}
+
+int HeadlessRunner::runStatus() {
+    out(m_controller->installedStatus());
+    return 0;
+}
+
+int HeadlessRunner::runDetect() {
+    const QString game = m_controller->detectStellarBlade();
+    if (game.isEmpty()) {
+        out(QStringLiteral("[ERROR] No se encontro la instalacion de Stellar Blade."));
+        return 5;
+    }
+    out(game);
+    return 0;
+}
+
+int HeadlessRunner::runUninstall(const Options &o) {
+    if (o.uninstallPaks) {
+        m_controller->uninstallMod();
+        if (!waitIdle()) return 3;
+    }
+    if (o.uninstallHelper) {
+        m_controller->uninstallHelper();
+        if (!waitIdle()) return 3;
+    }
+    out(m_controller->installedStatus());
+    return 0;
+}
+
+int HeadlessRunner::runFixIds(const Options &o) {
+    out(QStringLiteral("[INFO] Revisando IDs CNS en %1%2")
+            .arg(o.mods.value(0), o.applyFixes ? QStringLiteral(" (aplicando cambios)")
+                                               : QStringLiteral(" (solo reporte)")));
+    m_controller->runCnsIdFixer(QUrl::fromLocalFile(o.mods.value(0)), o.applyFixes);
+    if (!waitIdle()) return 3;
+    const QString report = m_controller->cnsIdFixerReport();
+    out(report.isEmpty() ? QStringLiteral("[ERROR] Sin reporte.") : report);
+    return report.isEmpty() ? 5 : 0;
+}
+
+int HeadlessRunner::runPresets() {
+    out(m_controller->builderPresets());
+    return 0;
 }
 
 } // namespace st

@@ -104,6 +104,7 @@ if (BUILD_TESTS)
         tests/TestBuilderUi.cpp
         tests/TestCnsConverter.cpp
         tests/TestCnsIdFixer.cpp
+        tests/TestHeadless.cpp
         src/core/UpdateService.cpp
         src/core/UpdateService.h
         ${CORE_SOURCES}

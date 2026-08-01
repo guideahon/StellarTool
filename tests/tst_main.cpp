@@ -6,6 +6,7 @@ void runTestUpdateService(int &failures, int argc, char **argv);
 void runTestBuilderUi(int &failures, int argc, char **argv);
 void runTestCnsConverter(int &failures, int argc, char **argv);
 void runTestCnsIdFixer(int &failures, int argc, char **argv);
+void runTestHeadless(int &failures, int argc, char **argv);
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
@@ -51,6 +52,13 @@ int main(int argc, char **argv) {
         char builderLog[] = "test_builder_ui.txt,txt";
         char *args[] = {arg0, argOut, builderLog};
         runTestBuilderUi(failures, 3, args);
+    }
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char headlessLog[] = "test_headless.txt,txt";
+        char *args[] = {arg0, argOut, headlessLog};
+        runTestHeadless(failures, 3, args);
     }
     return failures;
 }
