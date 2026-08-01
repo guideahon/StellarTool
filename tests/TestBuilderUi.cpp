@@ -22,6 +22,7 @@ private slots:
     void cnsConverterUsesThemedCombos();
     void presetFilesRoundTrip();
     void presetImportRejectsForeignFiles();
+    void builderProgressLinesAreParsed();
 };
 
 namespace {
@@ -213,6 +214,29 @@ void TestBuilderUi::cnsConverterUsesThemedCombos() {
     QVERIFY(source.contains("import \"../components\""));
     QCOMPARE(source.count("FieldCombo {"), 2);
     QVERIFY(!source.contains("ComboBox {"));
+}
+
+// El builder (Python) emite estas líneas para que la UI diga qué tabla está
+// extrayendo; extraer una baseline son minutos y sin esto el spinner parece
+// colgado. Si cambia el formato de un lado, esto avisa antes que el usuario.
+void TestBuilderUi::builderProgressLinesAreParsed() {
+    QString table;
+    int step = 0;
+    QVERIFY(st::AppController::parseBuilderProgress(
+        QStringLiteral("PROGRESS baseline 3 ShopItemTable"), &table, &step));
+    QCOMPARE(table, QStringLiteral("ShopItemTable"));
+    QCOMPARE(step, 3);
+
+    // Salida normal del build: no toca el mensaje de la UI.
+    QVERIFY(!st::AppController::parseBuilderProgress(
+        QStringLiteral("OK -> C:/out/StellarSouls-Custom-51572abf.zip"), &table, &step));
+    QVERIFY(!st::AppController::parseBuilderProgress(QString(), &table, &step));
+    // Otros 'kind' todavía no tienen texto traducido: se ignoran sin romper.
+    QVERIFY(!st::AppController::parseBuilderProgress(
+        QStringLiteral("PROGRESS otracosa 1 X"), &table, &step));
+    // Contador no numérico = línea corrupta.
+    QVERIFY(!st::AppController::parseBuilderProgress(
+        QStringLiteral("PROGRESS baseline x ShopItemTable"), &table, &step));
 }
 
 #include "TestBuilderUi.moc"

@@ -1233,6 +1233,20 @@ static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = null
     return QString::fromUtf8(proc.readAllStandardOutput());
 }
 
+bool AppController::parseBuilderProgress(const QString &line, QString *table, int *step) {
+    if (!line.startsWith(QStringLiteral("PROGRESS "))) return false;
+    const QStringList f = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+    // PROGRESS <kind> <n> <detalle>; hoy sólo 'baseline' tiene texto en la UI.
+    if (f.size() < 4 || f.at(1) != QStringLiteral("baseline")) return false;
+    bool ok = false;
+    const int n = f.at(2).toInt(&ok);
+    if (!ok) return false;
+    if (step) *step = n;
+    // El detalle puede traer espacios: se toma todo lo que sigue al contador.
+    if (table) *table = f.mid(3).join(QLatin1Char(' '));
+    return true;
+}
+
 void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl,
                               bool installPaks, bool installHelper, const QString &gameDir) {
     if (m_busy) return;
@@ -1265,11 +1279,11 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
                 const QString line = pending.left(nl).trimmed();
                 pending.remove(0, nl + 1);
                 collected += line + QLatin1Char('\n');
-                if (!line.startsWith(QStringLiteral("PROGRESS "))) continue;
-                const QStringList f = line.split(QLatin1Char(' '), Qt::SkipEmptyParts);
-                if (f.size() < 4 || f.at(1) != QStringLiteral("baseline")) continue;
+                QString table;
+                int step = 0;
+                if (!parseBuilderProgress(line, &table, &step)) continue;
                 const QString msg = t(QStringLiteral("builder_baseline_progress"))
-                                        .arg(f.at(3)).arg(f.at(2));
+                                        .arg(table).arg(step);
                 QMetaObject::invokeMethod(this, [this, msg] { setBusy(true, msg); },
                                           Qt::QueuedConnection);
             }

@@ -97,6 +97,11 @@ public:
     Q_INVOKABLE void runBuilder(const QString &answersJson, const QUrl &outDirUrl,
                                 bool installPaks = false, bool installHelper = false,
                                 const QString &gameDir = {});
+
+    // Interpreta una línea "PROGRESS baseline <n> <Tabla>" del builder. Devuelve
+    // false si la línea es cualquier otra cosa (salida normal del build). El
+    // builder emite CRLF: la línea llega ya recortada.
+    static bool parseBuilderProgress(const QString &line, QString *table, int *step);
     // Autodeteccion de la instalacion de Stellar Blade (vacio si no se encuentra).
     Q_INVOKABLE QString detectStellarBlade();
     // Historial de configs: JSON array [{id,label,timestamp,zip,answers}].
