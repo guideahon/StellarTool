@@ -564,6 +564,8 @@ def repair_namemap(doc):
     name_map = doc.get("NameMap")
     if not isinstance(name_map, list):
         return 0
+    if not doc.get("Exports"):   # uasset sin tabla: nada que registrar
+        return 0
 
     known = set(name_map)
     added = []

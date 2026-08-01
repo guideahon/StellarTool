@@ -117,7 +117,11 @@ def edit_uasset(uasset: Path, mutators, repair: bool = True) -> dict:
     with _UAG_LOCK:
         cp = _run([str(tools_dir() / "UAssetGUI.exe"), "fromjson", str(tmp),
                    str(uasset), "StellarBlade"])
-    if uasset.stat().st_mtime_ns == before:
+    # UAssetGUI puede fallar dejando el uasset sin tocar o directamente
+    # borrandolo: los dos casos son el mismo problema y merecen el mismo
+    # mensaje, no un FileNotFoundError pelado desde el stat.
+    after = uasset.stat().st_mtime_ns if uasset.exists() else None
+    if after is None or after == before:
         raise RuntimeError(
             f"fromjson no reescribio {uasset.name} (probable FName faltante en "
             f"NameMap). salida={out_err(cp, 800)}")

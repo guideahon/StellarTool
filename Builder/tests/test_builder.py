@@ -5,6 +5,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 BUILDER = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BUILDER / "compiler"))
 
@@ -453,6 +455,37 @@ def test_miniboss_build_keeps_granular_economy_transforms():
 
     _skill, skill_report = table_compiler.apply_transforms("SkillTable", ids)
     assert skill_report["transforms"] == ["combat.antiSpamSkill"]
+
+
+def test_edit_uasset_reports_when_fromjson_writes_nothing(tmp_path, monkeypatch):
+    """UAssetGUI puede fallar dejando el uasset intacto o borrandolo. Los dos
+    casos tienen que dar el mismo error accionable, no pasar desapercibidos ni
+    reventar con un FileNotFoundError del stat."""
+    import toolchain
+
+    target = tmp_path / "SomeTable.uasset"
+    target.write_text("original", encoding="utf-8")
+
+    def run_stub(args, *a, **kw):
+        if "tojson" in args:
+            Path(args[3]).write_text('{"NameMap": [], "Exports": []}', encoding="utf-8")
+        elif "fromjson" in args and delete_target:
+            Path(args[3]).unlink(missing_ok=True)
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(toolchain, "_run", run_stub)
+    for delete_target in (False, True):
+        with pytest.raises(RuntimeError, match="no reescribio"):
+            toolchain.edit_uasset(target, [lambda doc: {}])
+        target.write_text("original", encoding="utf-8")
+
+
+def test_edit_uasset_is_a_noop_without_target_or_mutators(tmp_path):
+    import toolchain
+    assert toolchain.edit_uasset(tmp_path / "NoSuch.uasset", [lambda doc: {}]) == {}
+    present = tmp_path / "T.uasset"
+    present.write_text("x", encoding="utf-8")
+    assert toolchain.edit_uasset(present, []) == {}
 
 
 def test_uassetgui_calls_are_serialized(tmp_path, monkeypatch):
