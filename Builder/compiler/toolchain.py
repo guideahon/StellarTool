@@ -58,19 +58,84 @@ def out_err(cp: subprocess.CompletedProcess, limit: int = 500) -> str:
     return ((cp.stdout or "") + (cp.stderr or ""))[-limit:]
 
 
+def is_wine() -> bool:
+    """True si este Python corre bajo Wine/Proton (Linux, Steam Deck).
+
+    Deteccion canonica: ntdll exporta wine_get_version solo bajo Wine.
+    """
+    try:
+        import ctypes
+        ntdll = ctypes.WinDLL("ntdll")
+        return hasattr(ntdll, "wine_get_version")
+    except Exception:
+        return False
+
+
+def _uag_failure(what: str, cp: subprocess.CompletedProcess) -> str:
+    """Mensaje de fallo de UAssetGUI con la causa mas probable segun el entorno.
+
+    Bajo Wine UAssetGUI (WinForms/.NET) puede morir sin escribir NADA y sin
+    salida: el mensaje generico de "FName faltante" mandaba al usuario a buscar
+    un bug que no existe. Se distingue por rc y por la ausencia de salida.
+    """
+    tail = out_err(cp, 800)
+    msg = f"{what} (UAssetGUI rc={cp.returncode}). salida={tail or '<vacia>'}"
+    if is_wine() and not tail:
+        return msg + "\n" + WINE_DOTNET_HINT
+    if not tail:
+        return msg + "\nCausa mas probable: un FName nuevo falta en el NameMap."
+    return msg
+
+
+WINE_DOTNET_HINT = (
+    "UAssetGUI (app .NET/WinForms) no arranca en este prefijo de Wine/Proton: "
+    "termina sin escribir nada ni reportar error. Instala el runtime de .NET en "
+    "el prefijo (winetricks dotnetdesktop8, o dotnet48 para builds viejas de "
+    "UAssetGUI) y volve a compilar. Las pestanas de merge no necesitan esto.")
+
+
+def selftest_uassetgui() -> str | None:
+    """Chequea que UAssetGUI pueda ejecutarse. None si esta OK, si no el motivo.
+
+    Un build compila varias tablas y antes extrae baselines: pueden ser minutos
+    de trabajo tirados si el exe nunca iba a correr. Se invoca con argumentos
+    incompletos a proposito: la rama CLI imprime el uso y sale sin abrir ventana.
+    """
+    exe = tools_dir() / "UAssetGUI.exe"
+    if not exe.exists():
+        return f"Falta {exe}. Reinstala Stellar Tool (carpeta tools\\ incompleta)."
+    try:
+        cp = _run([str(exe), "fromjson"], timeout=90)
+    except subprocess.TimeoutExpired:
+        return None   # arranco (se quedo esperando): el toolchain esta vivo
+    except OSError as e:
+        return f"No se pudo ejecutar UAssetGUI.exe: {e}"
+    if cp.returncode == 0:
+        return None   # llego a parsear argumentos: el runtime esta
+    # rc != 0 con argumentos incompletos = el proceso murio antes del CLI
+    # (tipico: falta el runtime .NET, o el antivirus/prefijo lo bloquea).
+    tail = out_err(cp, 300).strip()
+    if is_wine():
+        return WINE_DOTNET_HINT + (f"\nSalida: {tail}" if tail else "")
+    return (f"UAssetGUI.exe no arranca (rc={cp.returncode}). Falta el .NET "
+            "Desktop Runtime o un antivirus lo esta bloqueando."
+            + (f"\nSalida: {tail}" if tail else ""))
+
+
 def fromjson(json_path: Path, out_uasset: Path) -> Path:
     """JSON UAssetAPI -> .uasset (+.uexp). Falla si no se escribe el archivo."""
     exe = tools_dir() / "UAssetGUI.exe"
     out_uasset = Path(out_uasset)
     out_uasset.parent.mkdir(parents=True, exist_ok=True)
-    with _UAG_LOCK:
-        cp = _run([str(exe), "fromjson", str(json_path), str(out_uasset), "StellarBlade"])
-    if not out_uasset.exists() or out_uasset.stat().st_size == 0:
-        raise RuntimeError(
-            f"fromjson no escribio {out_uasset.name} (probable FName faltante en NameMap). "
-            f"salida={out_err(cp, 800)}"
-        )
-    return out_uasset
+    # Un reintento: UAssetGUI falla de forma intermitente (recursos globales,
+    # portapapeles) y rehacer la tabla cuesta segundos frente a perder el build.
+    for _ in range(2):
+        with _UAG_LOCK:
+            cp = _run([str(exe), "fromjson", str(json_path), str(out_uasset),
+                       "StellarBlade"])
+        if out_uasset.exists() and out_uasset.stat().st_size > 0:
+            return out_uasset
+    raise RuntimeError(_uag_failure(f"fromjson no escribio {out_uasset.name}", cp))
 
 
 def tojson(uasset: Path, out_json: Path, timeout: int = 900) -> Path:
@@ -82,8 +147,8 @@ def tojson(uasset: Path, out_json: Path, timeout: int = 900) -> Path:
         cp = _run([str(exe), "tojson", str(uasset), str(out_json), "VER_UE4_26",
                    str(tools_dir() / "StellarBlade.usmap")], timeout)
     if not out_json.exists():
-        raise RuntimeError(
-            f"tojson no genero el JSON de {Path(uasset).name}. salida={out_err(cp, 800)}")
+        raise RuntimeError(_uag_failure(
+            f"tojson no genero el JSON de {Path(uasset).name}", cp))
     return out_json
 
 
@@ -122,9 +187,7 @@ def edit_uasset(uasset: Path, mutators, repair: bool = True) -> dict:
     # mensaje, no un FileNotFoundError pelado desde el stat.
     after = uasset.stat().st_mtime_ns if uasset.exists() else None
     if after is None or after == before:
-        raise RuntimeError(
-            f"fromjson no reescribio {uasset.name} (probable FName faltante en "
-            f"NameMap). salida={out_err(cp, 800)}")
+        raise RuntimeError(_uag_failure(f"fromjson no reescribio {uasset.name}", cp))
     tmp.unlink(missing_ok=True)
     return report
 
@@ -132,11 +195,23 @@ def edit_uasset(uasset: Path, mutators, repair: bool = True) -> dict:
 _OODLE = "oo2core_9_win64.dll"
 
 
+_OODLE_CACHE: list = []   # [] = sin resolver; [valor] = resuelto (puede ser None)
+
+
 def oodle_dir() -> Path | None:
     """Directorio que contiene oo2core (Oodle). NO se redistribuye (propietario):
     se usa DIRECTO de la instalacion del juego del usuario (sin copiar al tool).
     Orden: junto a retoc (dev), luego el juego detectado. None si no se encuentra.
-    Override: env STELLAR_OODLE_DIR."""
+    Override: env STELLAR_OODLE_DIR. El resultado se cachea: el fallback recorre
+    toda la carpeta del juego y se consulta en cada tabla."""
+    if _OODLE_CACHE:
+        return _OODLE_CACHE[0]
+    found = _oodle_dir_uncached()
+    _OODLE_CACHE.append(found)
+    return found
+
+
+def _oodle_dir_uncached() -> Path | None:
     env = os.environ.get("STELLAR_OODLE_DIR")
     if env and (Path(env) / _OODLE).exists():
         return Path(env)
@@ -150,12 +225,33 @@ def oodle_dir() -> Path | None:
     if game:
         g = Path(game)
         for c in (g / "SB" / "Binaries" / "Win64",
+                  g / "SB" / "Binaries" / "Win64" / "ThirdParty" / "Oodle",
+                  g / "Engine" / "Binaries" / "ThirdParty" / "Oodle" / "Win64",
+                  g / "Engine" / "Binaries" / "Win64",
                   g / "CNSRepacker" / "tools" / "retoc"):
             if (c / _OODLE).exists():
                 return c
-        hit = next(iter(g.rglob(_OODLE)), None)  # fallback: cualquier copia
+        hit = _find_oodle(g)  # fallback: cualquier copia, sin importar mayusculas
         if hit:
             return hit.parent
+    return None
+
+
+def _find_oodle(root: Path) -> Path | None:
+    """Busca oo2core en ``root`` ignorando mayusculas.
+
+    En Linux (Proton/Steam Deck) el filesystem distingue mayusculas y el DLL
+    puede estar como ``oo2core_9_win64.DLL``: ``rglob`` compara texto plano y no
+    lo encontraba, con lo que el build moria diciendo que el juego no lo tiene.
+    """
+    target = _OODLE.lower()
+    try:
+        for dirpath, _dirnames, filenames in os.walk(root):
+            for f in filenames:
+                if f.lower() == target:
+                    return Path(dirpath) / f
+    except OSError:
+        pass
     return None
 
 

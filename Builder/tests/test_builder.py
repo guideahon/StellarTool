@@ -524,6 +524,57 @@ def test_uassetgui_calls_are_serialized(tmp_path, monkeypatch):
     assert not overlapped, "dos UAssetGUI a la vez: el lock de toolchain no cubre esta ruta"
 
 
+def test_fromjson_retries_once_before_failing(tmp_path, monkeypatch):
+    """UAssetGUI falla de forma intermitente (recursos globales). Un reintento
+    salva el build entero; sin el, la tabla siguiente ni se compila."""
+    import toolchain
+
+    calls = []
+
+    def flaky_run(args, *a, **kw):
+        calls.append(args)
+        if len(calls) > 1:
+            Path(args[3]).write_text("x", encoding="utf-8")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(toolchain, "_run", flaky_run)
+    src = tmp_path / "t.json"
+    src.write_text("{}", encoding="utf-8")
+    assert toolchain.fromjson(src, tmp_path / "t.uasset").exists()
+    assert len(calls) == 2
+
+
+def test_selftest_flags_a_uassetgui_that_cannot_run(tmp_path, monkeypatch):
+    """Bajo Wine sin .NET el exe muere antes del CLI. Hay que avisar ANTES de
+    extraer baselines y compilar tablas, no despues de varios minutos."""
+    import toolchain
+
+    monkeypatch.setattr(toolchain, "tools_dir", lambda: tmp_path)
+    (tmp_path / "UAssetGUI.exe").write_text("x", encoding="utf-8")
+
+    monkeypatch.setattr(toolchain, "_run",
+                        lambda args, *a, **kw: subprocess.CompletedProcess(args, 0, "", ""))
+    assert toolchain.selftest_uassetgui() is None
+
+    monkeypatch.setattr(toolchain, "_run",
+                        lambda args, *a, **kw: subprocess.CompletedProcess(args, 53, "", ""))
+    monkeypatch.setattr(toolchain, "is_wine", lambda: True)
+    assert "winetricks" in toolchain.selftest_uassetgui()
+
+
+def test_oodle_is_found_when_the_dll_case_differs(tmp_path, monkeypatch):
+    """Linux/Proton: el filesystem distingue mayusculas y la copia del juego
+    puede ser oo2core_9_win64.DLL. rglob no la veia y el build moria diciendo
+    que el juego no la tiene."""
+    import toolchain
+
+    game = tmp_path / "StellarBlade"
+    weird = game / "SB" / "Plugins" / "Oodle"
+    weird.mkdir(parents=True)
+    (weird / "oo2core_9_win64.DLL").write_bytes(b"x")
+    assert toolchain._find_oodle(game).parent == weird
+
+
 def test_repair_namemap_ignores_array_indices():
     """Los elementos de un ArrayProperty llevan el indice como Name ("0", "1"):
     registrarlos infla el NameMap y aleja el uasset del vanilla byte a byte."""

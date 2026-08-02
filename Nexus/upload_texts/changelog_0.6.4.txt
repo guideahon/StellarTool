@@ -1,0 +1,30 @@
+Version 0.6.4
+
+Better failures in Stellar Souls Builder, mostly for people running Stellar Tool
+on Linux through Wine or Proton.
+
+Fixed: the build could stop with "oo2core_9_win64.dll (Oodle) not found" even
+though the DLL was there. Oodle is read straight from your own game install, and
+the search compared file names letter by letter. On Linux the filesystem is
+case sensitive, so a copy named oo2core_9_win64.DLL was invisible. The search is
+now case insensitive, looks in more of the usual folders, and runs once per
+build instead of once per table.
+
+Fixed: "fromjson did not write <Table>.uasset" always blamed a missing FName,
+even when UAssetGUI never started. It now reports the exit code, and under
+Wine/Proton it tells you the real cause: UAssetGUI is a .NET app and needs the
+.NET runtime installed in the prefix (winetricks dotnetdesktop8, or dotnet48 for
+older UAssetGUI builds).
+
+New: the Builder checks that UAssetGUI can actually run before it starts. If it
+cannot, you get the message in about a second instead of after several minutes
+of extracting baselines and compiling tables.
+
+New: if UAssetGUI fails to write a table, the Builder retries that table once.
+UAssetGUI fails intermittently, and one retry saves the whole build.
+
+If the DLL is missing from your game folder, you can now also drop
+oo2core_9_win64.dll into the tool's tools\ folder or set STELLAR_OODLE_DIR to
+the folder that holds it. It is never bundled: it is proprietary.
+
+Everything from 0.6.3 is included.

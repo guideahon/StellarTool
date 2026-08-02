@@ -38,6 +38,7 @@ for _s in (sys.stdout, sys.stderr):
 from helper_compiler import compile_helper
 import build_specs
 import table_compiler
+import toolchain
 import vanilla_helper
 
 BUILDER_DIR = Path(__file__).resolve().parent.parent
@@ -305,6 +306,12 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     # resolver, asi que se saltea todo el pipeline de gameplay.
     if only_vanilla_helper(a):
         return build_vanilla_helper_only(a, Path(out_dir), install)
+    # Fail-fast: el pipeline extrae baselines y compila tablas (minutos) antes de
+    # tocar UAssetGUI. Si el exe no puede correr (tipico bajo Wine/Proton sin
+    # .NET), se avisa ahora y no despues de todo ese trabajo.
+    problem = toolchain.selftest_uassetgui()
+    if problem:
+        raise RuntimeError(problem)
     plan = resolve(a)
     out_dir = Path(out_dir)
     stage = out_dir / "stage"

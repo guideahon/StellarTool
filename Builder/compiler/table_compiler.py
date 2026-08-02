@@ -468,8 +468,10 @@ def _generate_writable_vanilla(table, output):
         raise FileNotFoundError(
             f"{table} se extrae de los paks del juego con retoc, que necesita "
             "oo2core_9_win64.dll (Oodle) de la instalación de Stellar Blade y no "
-            f"se encontró bajo {game}. Verificá la instalación o definí "
-            "STELLAR_OODLE_DIR con la carpeta que contiene el DLL.")
+            f"se encontró bajo {game}. Verificá que la ruta del juego sea la que "
+            "contiene SB\\Content\\Paks; si el DLL no está ahí, copiá "
+            "oo2core_9_win64.dll a la carpeta tools\\ de Stellar Tool o definí "
+            "STELLAR_OODLE_DIR con la carpeta que lo contiene.")
     # Cada extraccion escanea TODOS los contenedores del juego: son minutos por
     # tabla. Sin esta linea la UI muestra "Compilando..." fijo y parece colgada.
     _emit_progress("baseline", table)
