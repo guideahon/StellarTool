@@ -1,5 +1,6 @@
 #include "PakService.h"
 
+#include "Translator.h"
 #include "core/GamePaths.h"
 
 #include <QCoreApplication>
@@ -13,6 +14,7 @@
 #include <QMutex>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QSettings>
 #include <QStandardPaths>
 #include <QLoggingCategory>
 
@@ -63,48 +65,135 @@ QString PakService::cnsRetocPath() {
 
 bool PakService::zenAvailable() const { return !retocPath().isEmpty(); }
 
-QString PakService::oodleDir() {
-    // Se llama en CADA corrida de retoc/cue4parse y el último recurso es un
-    // barrido recursivo de la carpeta del juego (decenas de GB): sin cache eso
-    // se pagaba una vez por pak. Cacheado por gameRoot (cambia si el usuario
-    // reconfigura la ruta).
-    static QMutex mutex;              // se llama desde worker threads
-    static QString cachedRoot;
-    static QString cachedDir;
-    static bool cached = false;
-    QMutexLocker lock(&mutex);
+static const QLatin1String kOodleDll("oo2core_9_win64.dll");
+
+// La DLL puede estar con otra caja (oo2core_9_win64.DLL en copias hechas a mano
+// o en prefijos Wine sobre filesystems case-sensitive). Se compara el nombre en
+// minúsculas contra el contenido real del directorio, no con QFileInfo::exists.
+static QString oodleInDir(const QString &dir) {
+    if (dir.isEmpty()) return {};
+    const QString exact = QDir::cleanPath(dir) + QLatin1Char('/') + kOodleDll;
+    if (QFileInfo::exists(exact)) return QFileInfo(exact).absoluteFilePath();
+    QDir d(dir);
+    if (!d.exists()) return {};
+    const QString target = QString(kOodleDll).toLower();
+    for (const QFileInfo &fi : d.entryInfoList(QDir::Files))
+        if (fi.fileName().toLower() == target) return fi.absoluteFilePath();
+    return {};
+}
+
+// Acepta que el usuario/env apunten al archivo mismo o a la carpeta.
+static QString oodleAt(const QString &pathOrFile) {
+    if (pathOrFile.isEmpty()) return {};
+    const QFileInfo fi(pathOrFile);
+    if (fi.isFile()) return fi.absoluteFilePath();
+    return oodleInDir(pathOrFile);
+}
+
+QString PakService::userOodlePath() {
+    QSettings s;
+    return s.value(QStringLiteral("oodlePath")).toString();
+}
+
+void PakService::setUserOodlePath(const QString &pathOrFile) {
+    QSettings s;
+    if (pathOrFile.isEmpty()) s.remove(QStringLiteral("oodlePath"));
+    else s.setValue(QStringLiteral("oodlePath"), pathOrFile);
+    resetOodleCache();
+}
+
+// Lugares donde se busca, en orden. Se usa también para el mensaje de error:
+// sin la lista concreta los reportes ("sigue fallando") no son diagnosticables.
+static QStringList oodleCandidates(const QString &root) {
+    QStringList out{
+        PakService::userOodlePath(),
+        QProcessEnvironment::systemEnvironment().value(QStringLiteral("STELLAR_OODLE_DIR")),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/tools"),
+        QCoreApplication::applicationDirPath(),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools")};
+    if (!root.isEmpty())
+        out << root + QStringLiteral("/SB/Binaries/Win64")
+            << root + QStringLiteral("/SB/Binaries/Win64/ThirdParty/Oodle")
+            << root + QStringLiteral("/Engine/Binaries/ThirdParty/Oodle/Win64")
+            << root + QStringLiteral("/Engine/Binaries/Win64")
+            << root + QStringLiteral("/CNSRepacker/tools/retoc")
+            << root;
+    out.removeAll(QString());
+    return out;
+}
+
+// Se llama en CADA corrida de retoc/cue4parse y el último recurso es un barrido
+// recursivo de la carpeta del juego (decenas de GB): sin cache eso se pagaba una
+// vez por pak. Cacheado por gameRoot y invalidable a mano (resetOodleCache).
+static QMutex g_oodleMutex;           // se llama desde worker threads
+static QString g_oodleRoot;
+static QString g_oodleFile;
+static bool g_oodleCached = false;
+
+QString PakService::oodleFilePath() {
+    QMutexLocker lock(&g_oodleMutex);
     const QString root = GamePaths::gameRoot();
-    if (cached && cachedRoot == root) return cachedDir;
+    if (g_oodleCached && g_oodleRoot == root) return g_oodleFile;
 
     const auto locate = [&root]() -> QString {
-        const QString dll = QStringLiteral("oo2core_9_win64.dll");
-        const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("STELLAR_OODLE_DIR"));
-        if (!env.isEmpty() && QFileInfo::exists(env + QLatin1Char('/') + dll))
-            return QFileInfo(env).absoluteFilePath();
-        const QStringList local{
-            QCoreApplication::applicationDirPath() + QStringLiteral("/tools"),
-            QCoreApplication::applicationDirPath(),
-            QCoreApplication::applicationDirPath() + QStringLiteral("/../../tools")};
-        for (const QString &c : local)
-            if (QFileInfo::exists(c + QLatin1Char('/') + dll))
-                return QFileInfo(c).absoluteFilePath();
+        for (const QString &c : oodleCandidates(root)) {
+            const QString hit = oodleAt(c);
+            if (!hit.isEmpty()) return hit;
+        }
         if (root.isEmpty()) return {};
-        const QStringList inGame{root + QStringLiteral("/SB/Binaries/Win64"),
-                                 root + QStringLiteral("/CNSRepacker/tools/retoc")};
-        for (const QString &c : inGame)
-            if (QFileInfo::exists(c + QLatin1Char('/') + dll)) return c;
-        QDirIterator it(root, {dll}, QDir::Files, QDirIterator::Subdirectories);
-        if (it.hasNext()) {
+        // Último recurso: barrido del juego comparando en minúsculas (el filtro
+        // de nombres de QDirIterator es case-sensitive fuera de Windows).
+        const QString target = QString(kOodleDll).toLower();
+        QDirIterator it(root, QDir::Files, QDirIterator::Subdirectories);
+        while (it.hasNext()) {
             it.next();
-            return it.fileInfo().absolutePath();
+            if (it.fileName().toLower() == target) return it.fileInfo().absoluteFilePath();
         }
         return {};
     };
 
-    cachedDir = locate();
-    cachedRoot = root;
-    cached = true;
-    return cachedDir;
+    g_oodleFile = locate();
+    g_oodleRoot = root;
+    g_oodleCached = true;
+    if (g_oodleFile.isEmpty())
+        qCWarning(lcPak) << "oodle not found; searched:" << oodleCandidates(root);
+    else
+        qCInfo(lcPak) << "oodle:" << g_oodleFile;
+    return g_oodleFile;
+}
+
+QString PakService::oodleDir() {
+    const QString f = oodleFilePath();
+    return f.isEmpty() ? QString() : QFileInfo(f).absolutePath();
+}
+
+void PakService::resetOodleCache() {
+    // El cache se invalida solo por gameRoot; si el usuario copia la DLL o
+    // elige una a mano hay que forzar una búsqueda nueva sin reiniciar.
+    QMutexLocker lock(&g_oodleMutex);
+    g_oodleCached = false;
+    g_oodleFile.clear();
+    g_oodleRoot.clear();
+}
+
+QString PakService::oodleSearchReport() {
+    const QString root = GamePaths::gameRoot();
+    QStringList lines;
+    lines << (root.isEmpty() ? QStringLiteral("game folder: (not set)")
+                             : QStringLiteral("game folder: ") + QDir::toNativeSeparators(root));
+    for (const QString &c : oodleCandidates(root))
+        lines << QStringLiteral("  - ") + QDir::toNativeSeparators(QDir::cleanPath(c));
+    return lines.join(QLatin1Char('\n'));
+}
+
+// Copia la DLL junto a un exe (retoc/cue4parse la buscan por nombre exacto en
+// su propio directorio). Devuelve false si no hay DLL.
+static bool copyOodleBeside(const QString &exe) {
+    const QString src = PakService::oodleFilePath();
+    if (src.isEmpty()) return false;
+    const QString beside = QFileInfo(exe).absolutePath() + QLatin1Char('/') + kOodleDll;
+    if (!QFileInfo::exists(beside)) QFile::copy(src, beside); // best effort
+    return true;
 }
 
 bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QString *error) {
@@ -131,11 +220,15 @@ bool PakService::runProcess(const QString &exe, const QStringList &args, QString
     const QString baseName = QFileInfo(exe).completeBaseName().toLower();
     if (baseName == QLatin1String("retoc") || baseName == QLatin1String("cue4parse")) {
         const QString oodle = oodleDir();
-        if (!oodle.isEmpty()) {
-            const QString dll = QStringLiteral("oo2core_9_win64.dll");
-            const QString beside = QFileInfo(exe).absolutePath() + QLatin1Char('/') + dll;
-            if (!QFileInfo::exists(beside))
-                QFile::copy(oodle + QLatin1Char('/') + dll, beside); // best effort
+        if (oodle.isEmpty()) {
+            // Sin DLL, retoc intenta bajarla y se cuelga: mejor fallar con el
+            // mismo mensaje diagnosticable que usa CUE4Parse.
+            if (error) *error = tr_(QStringLiteral("err_oodle_missing"))
+                                + QLatin1Char('\n') + oodleSearchReport();
+            return false;
+        }
+        {
+            copyOodleBeside(exe);
             QProcessEnvironment envp = QProcessEnvironment::systemEnvironment();
             envp.insert(QStringLiteral("PATH"),
                         QDir::toNativeSeparators(oodle) + QLatin1Char(';')

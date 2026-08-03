@@ -785,6 +785,31 @@ def test_builder_long_option_groups_do_not_use_a_single_overflowing_row():
         assert "Layout.fillWidth: true" in block
 
 
+def test_scripted_spawns_excluded():
+    import json
+    import miniboss_builder as mb
+    row = lambda **kw: {"Name": "r", "Value": [
+        {"Name": k, "Value": v, "IsZero": False} for k, v in kw.items()]}
+    assert mb._is_scripted(row(EventOnDead=[{"Value": "ev"}]))
+    assert mb._is_scripted(row(ConditionsTrigger=[{"Value": "c"}]))
+    assert mb._is_scripted(row(MetaAIAlias="E05_MetaAI"))
+    assert mb._is_scripted(row(bEnableTransitZoneByEnemyActor=True))
+    assert not mb._is_scripted(row(EventOnDead=[], MetaAIAlias="None"))
+
+    src = mb._SSMOD
+    ct = json.loads((src / "combatCT.json").read_text(encoding="utf-8"))
+    es = json.loads((src / "EventSpawnTable.json").read_text(encoding="utf-8"))
+    rep = mb.build_core(ct, es, density="p20", region="allRegions")
+    assert rep["skippedScripted"] > 0, rep
+    # ningun encuentro guionado quedo convertido: es el softlock de la arena
+    # con barrera (mini-boss sin barra de vida y no targeteable).
+    for r in mb.R(es):
+        if not mb._is_scripted(r):
+            continue
+        alias = (mb.prop(r, "CharacterAlias")["Value"] or [{}])[0].get("Value", "")
+        assert not alias.endswith("_MB"), mb.gv(r, "SpawnPointName")
+
+
 def test_miniboss_density_scales():
     import json
     import miniboss_builder as mb

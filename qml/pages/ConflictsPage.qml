@@ -1,3 +1,6 @@
+// Página de conflictos: cada ConflictGroup muestra los candidatos de cada mod
+// con radio buttons para elegir cuál gana. Resolución masiva por mod en la parte
+// superior. Badge con contador de conflictos pendientes.
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts

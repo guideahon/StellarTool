@@ -19,9 +19,17 @@ public:
     // (propietario): se usa directo de la instalación del juego, como hace
     // Builder/compiler/toolchain.py. Sin ella, retoc/cue4parse intentan
     // DESCARGARLA de GitHub en runtime, lo que cuelga sin red o con GitHub
-    // bloqueado (China). Orden: env STELLAR_OODLE_DIR, tools/ junto al exe,
-    // SB/Binaries/Win64 del juego, cualquier copia bajo el juego. "" si no hay.
+    // bloqueado (China). Orden: ruta elegida por el usuario (Ajustes), env
+    // STELLAR_OODLE_DIR, tools/ junto al exe, SB/Binaries/Win64 y demás carpetas
+    // del juego, y por último cualquier copia bajo el juego. "" si no hay.
+    // La comparación de nombre ignora mayúsculas (Wine/Proton).
     static QString oodleDir();
+    static QString oodleFilePath();     // ruta completa a la DLL encontrada ("" si no hay)
+    static QString oodleSearchReport(); // dónde se buscó: para mensajes de error
+    static void resetOodleCache();
+    // Override del usuario: puede ser la DLL o la carpeta que la contiene.
+    static QString userOodlePath();
+    static void setUserOodlePath(const QString &pathOrFile);
     bool available() const;
     bool zenAvailable() const;
 

@@ -1742,6 +1742,20 @@ Item {
                     }
                 }
 
+                // Mismo build, sin tocar la carpeta del juego: sirve para armar el
+                // zip y pasarselo a otro (o probarlo antes de instalar).
+                Button {
+                    id: buildZipOnlyButton
+                    Layout.fillWidth: true
+                    text: I18n.s.builder_build_zip_only || "Compilar solo el ZIP"
+                    enabled: buildButton.enabled
+                    onClicked: {
+                        root.resultZip = ""
+                        App.runBuilder(JSON.stringify(buildButton.currentAnswers()),
+                                       toFolderUrl(outField.text), false, false, root.gamePath)
+                    }
+                }
+
                 Text { visible: App.busy; text: App.statusText; color: Theme.textDim }
 
                 Card {

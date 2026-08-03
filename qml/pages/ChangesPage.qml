@@ -1,3 +1,6 @@
+// Página de cambios detectados: lista de ChangeItems con checkbox,
+// búsqueda, filtro de conflictos, edición inline y transformaciones masivas.
+// Secciones por nombre de tabla con select/deselect masivo.
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts

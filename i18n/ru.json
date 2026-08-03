@@ -78,6 +78,7 @@
   "builder_q_lang": "Язык",
   "builder_out": "Папка вывода ZIP",
   "builder_build": "Собрать мод",
+  "builder_build_zip_only": "Собрать только ZIP",
   "builder_compiling": "Компиляция...",
   "builder_baseline_progress": "Извлечение ванильной таблицы: %1 (%2)",
   "builder_done": "Готово. Ваш мод:",
@@ -214,5 +215,13 @@
   "err_preset_read": "Не удалось прочитать файл пресета: %1",
   "err_preset_write": "Не удалось записать файл пресета: %1",
   "err_preset_format": "Этот файл не является пресетом билдера Stellar Tool.",
-  "err_preset_newer": "Этот пресет создан в более новой версии Stellar Tool. Обновите приложение, чтобы импортировать его."
+  "err_preset_newer": "Этот пресет создан в более новой версии Stellar Tool. Обновите приложение, чтобы импортировать его.",
+  "err_oodle_missing": "oo2core_9_win64.dll (Oodle) не найдена. Она нужна CUE4Parse и берётся из вашей собственной установки Stellar Blade (SB\\Binaries\\Win64), так как лицензия запрещает её распространять. Укажите папку игры в настройках, укажите DLL в «Настройки > Oodle» или скопируйте её в tools\\ рядом с программой. Искали в:",
+  "settings_oodle": "Oodle (oo2core_9_win64.dll)",
+  "settings_oodle_desc": "Нужна для чтения и записи паков Zen/IoStore. Никогда не поставляется с программой (проприетарная): читается из вашей установки Stellar Blade. Указывайте вручную, только если программа её не находит.",
+  "settings_oodle_auto": "Найдена автоматически: %1",
+  "settings_oodle_none": "Не найдена. Укажите папку игры выше или DLL здесь.",
+  "settings_oodle_choose": "Выбрать DLL...",
+  "settings_oodle_reset": "Автоопределение",
+  "err_oodle_bad_file": "Это не файл oo2core_9_win64.dll."
 }

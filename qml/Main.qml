@@ -6,6 +6,10 @@ import "."
 import "pages"
 import "components"
 
+// Ventana principal: barra lateral de navegación + StackLayout de páginas.
+// La lógica vive en AppController (C++); QML solo presenta y enlaza señales.
+// El sidebar cambia según advancedMode: modo fácil (EasyMerge+Builder+CNS)
+// vs modo avanzado (Mods → Changes → Conflicts → Merge).
 ApplicationWindow {
     id: win
     visible: true
@@ -64,6 +68,7 @@ ApplicationWindow {
                                { key: "nav_builder", icon: "🛠️", page: 6 },
                                { key: "nav_cns", icon: "👗", page: 7 },
                                { label: "CNS ID Fixer", icon: "🆔", page: 8 },
+                               { label: "Live", icon: "🎮", page: 9 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                            : [
@@ -71,6 +76,7 @@ ApplicationWindow {
                                { key: "nav_builder", icon: "🛠️", page: 6 },
                                { key: "nav_cns", icon: "👗", page: 7 },
                                { label: "CNS ID Fixer", icon: "🆔", page: 8 },
+                               { label: "Live", icon: "🎮", page: 9 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                     delegate: Rectangle {
@@ -251,6 +257,7 @@ ApplicationWindow {
             BuilderPage {}
             CnsConverterPage {}
             CnsIdFixerPage {}
+            LivePage { onOpenSettings: win.currentPage = 5 }
         }
     }
 
@@ -282,7 +289,26 @@ ApplicationWindow {
         id: langDialog
         anchors.centerIn: parent
     }
-    Component.onCompleted: if (!I18n.chosen) langDialog.open()
+    Component.onCompleted: {
+        if (!I18n.chosen) langDialog.open()
+        else win.maybeWarnBaseline()
+    }
+
+    // Aviso de baseline faltante/vieja: una sola vez por sesión y después de los
+    // popups de idioma/actualización, para no apilar diálogos al arrancar.
+    property bool baselineWarned: false
+    function maybeWarnBaseline() {
+        if (win.baselineWarned) return
+        if (langDialog.opened || updateDialog.opened || win.updatePending) return
+        if (App.hasBaseline && !App.baselineStale) return
+        win.baselineWarned = true
+        baselineDialog.open()
+    }
+    BaselineDialog {
+        id: baselineDialog
+        anchors.centerIn: parent
+        onOpenSettings: win.currentPage = 5
+    }
 
     // Aviso de actualización (chequeo silencioso al arrancar + botón en Settings).
     UpdateDialog {
@@ -304,7 +330,13 @@ ApplicationWindow {
             if (win.updatePending) {
                 win.updatePending = false
                 updateDialog.open()
+            } else {
+                win.maybeWarnBaseline()
             }
         }
+    }
+    Connections {
+        target: updateDialog
+        function onClosed() { win.maybeWarnBaseline() }
     }
 }

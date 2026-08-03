@@ -28,4 +28,16 @@ Fixed: "Oodle not found" always claimed Stellar Blade could not be detected,
 even when it had been detected and only the DLL was missing. The two cases now
 read differently and each says what to do.
 
+Fixed: the merge side (CUE4Parse/retoc) kept failing with "oo2core_9_win64.dll
+not found" for people whose game the tool could not locate, and its message was
+in Spanish no matter what language you picked. The 0.6.4 search fixes only
+landed in the Builder; the merge side now does the same: case-insensitive name
+matching, more folders inside the game (Engine and ThirdParty\Oodle included),
+and the message is translated and lists every folder it looked in, so you can
+see what to fix.
+
+New: Settings > Oodle. If auto-detection fails, point the tool straight at
+oo2core_9_win64.dll and it stops guessing. The DLL is still never bundled: its
+licence forbids it, and your game install already has one.
+
 Everything from 0.6.4 is included.

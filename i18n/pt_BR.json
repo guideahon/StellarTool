@@ -78,6 +78,7 @@
   "builder_q_lang": "Idioma",
   "builder_out": "Pasta de saida do ZIP",
   "builder_build": "Compilar meu mod",
+  "builder_build_zip_only": "Compilar somente o ZIP",
   "builder_compiling": "Compilando...",
   "builder_baseline_progress": "Extraindo tabela vanilla: %1 (%2)",
   "builder_done": "Pronto. Seu mod:",
@@ -214,5 +215,13 @@
   "err_preset_read": "Não foi possível ler o arquivo de preset: %1",
   "err_preset_write": "Não foi possível gravar o arquivo de preset: %1",
   "err_preset_format": "O arquivo não é um preset do Builder do Stellar Tool.",
-  "err_preset_newer": "Este preset vem de uma versão mais nova do Stellar Tool. Atualize o app para importá-lo."
+  "err_preset_newer": "Este preset vem de uma versão mais nova do Stellar Tool. Atualize o app para importá-lo.",
+  "err_oodle_missing": "oo2core_9_win64.dll (Oodle) nao encontrada. O CUE4Parse precisa dela, e ela e lida da sua propria instalacao de Stellar Blade (SB\\Binaries\\Win64), porque a licenca proibe distribui-la. Escolha a pasta do jogo em Configuracoes, aponte Configuracoes > Oodle para a DLL, ou copie-a para tools\\ ao lado do programa. Procurada em:",
+  "settings_oodle": "Oodle (oo2core_9_win64.dll)",
+  "settings_oodle_desc": "Necessaria para ler e escrever os paks Zen/IoStore do jogo. Nunca vem junto (proprietaria): e lida da sua instalacao de Stellar Blade. Configure so se a ferramenta nao encontrar.",
+  "settings_oodle_auto": "Encontrada automaticamente: %1",
+  "settings_oodle_none": "Nao encontrada. Escolha a pasta do jogo acima, ou a DLL aqui.",
+  "settings_oodle_choose": "Escolher DLL...",
+  "settings_oodle_reset": "Detectar sozinho",
+  "err_oodle_bad_file": "Esse arquivo nao e oo2core_9_win64.dll."
 }

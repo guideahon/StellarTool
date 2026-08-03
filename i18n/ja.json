@@ -78,6 +78,7 @@
   "builder_q_lang": "言語",
   "builder_out": "ZIPの出力フォルダ",
   "builder_build": "MODをビルド",
+  "builder_build_zip_only": "ZIPのみビルド",
   "builder_compiling": "コンパイル中...",
   "builder_baseline_progress": "バニラテーブルを抽出中: %1 (%2)",
   "builder_done": "完了。あなたのMOD:",
@@ -214,5 +215,13 @@
   "err_preset_read": "プリセットファイルを読み込めませんでした: %1",
   "err_preset_write": "プリセットファイルを書き込めませんでした: %1",
   "err_preset_format": "このファイルは Stellar Tool ビルダーのプリセットではありません。",
-  "err_preset_newer": "このプリセットはより新しいバージョンの Stellar Tool のものです。アプリを更新してから読み込んでください。"
+  "err_preset_newer": "このプリセットはより新しいバージョンの Stellar Tool のものです。アプリを更新してから読み込んでください。",
+  "err_oodle_missing": "oo2core_9_win64.dll（Oodle）が見つかりません。CUE4Parse に必要で、ライセンス上同梱できないため、お使いの Stellar Blade のインストール先（SB\\Binaries\\Win64）から読み込みます。設定でゲームフォルダを選ぶか、「設定 > Oodle」で DLL を指定するか、本体と同じ tools\\ にコピーしてください。検索した場所:",
+  "settings_oodle": "Oodle（oo2core_9_win64.dll）",
+  "settings_oodle_desc": "ゲームの Zen/IoStore pak の読み書きに必要です。同梱はされません（プロプライエタリ）。Stellar Blade のインストール先から読み込みます。見つからない場合のみ手動で指定してください。",
+  "settings_oodle_auto": "自動検出: %1",
+  "settings_oodle_none": "見つかりません。上でゲームフォルダを選ぶか、ここで DLL を指定してください。",
+  "settings_oodle_choose": "DLL を選択...",
+  "settings_oodle_reset": "自動検出に戻す",
+  "err_oodle_bad_file": "そのファイルは oo2core_9_win64.dll ではありません。"
 }

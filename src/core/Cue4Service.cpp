@@ -1,5 +1,6 @@
 #include "Cue4Service.h"
 
+#include "Translator.h"
 #include "core/PakService.h"
 
 #include <QCoreApplication>
@@ -56,20 +57,20 @@ bool Cue4Service::run(const QStringList &args, QString *error, int idleTimeoutMs
     // si no está, intenta DESCARGARLA de internet, lo que se cuelga sin red o
     // con GitHub/CDN bloqueados (China). Nunca dejamos que descargue: se apunta
     // CWD y PATH a la copia del juego, o se falla rápido con instrucciones.
-    const QString oodle = PakService::oodleDir();
-    if (oodle.isEmpty()) {
+    const QString oodleFile = PakService::oodleFilePath();
+    if (oodleFile.isEmpty()) {
+        // El mensaje lleva la lista de carpetas revisadas: los reportes de
+        // "sigue faltando" sin eso no se pueden diagnosticar.
         if (error)
-            *error = QStringLiteral(
-                "No se encontró oo2core_9_win64.dll (Oodle). CUE4Parse la necesita y "
-                "se toma de la instalación de Stellar Blade (SB/Binaries/Win64). "
-                "Elegí la carpeta del juego en Ajustes, o copiá la DLL a tools/ junto "
-                "al exe, o definí STELLAR_OODLE_DIR con la carpeta que la contiene.");
+            *error = tr_(QStringLiteral("err_oodle_missing"))
+                     + QLatin1Char('\n') + PakService::oodleSearchReport();
         return false;
     }
+    const QString oodle = QFileInfo(oodleFile).absolutePath();
     const QString dll = QStringLiteral("oo2core_9_win64.dll");
     const QString beside = QFileInfo(exe).absolutePath() + QLatin1Char('/') + dll;
     if (!QFileInfo::exists(beside))
-        QFile::copy(oodle + QLatin1Char('/') + dll, beside); // best effort
+        QFile::copy(oodleFile, beside); // best effort
     QProcess p;
     p.setProcessChannelMode(QProcess::MergedChannels);
     QProcessEnvironment envp = QProcessEnvironment::systemEnvironment();

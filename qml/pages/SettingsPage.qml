@@ -160,6 +160,56 @@ Item {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
+        // ---- Oodle (oo2core_9_win64.dll) ----
+        // Nunca se distribuye (licencia): sale del juego del usuario. Cuando la
+        // autodetección falla no había forma de arreglarlo desde la UI.
+        Label {
+            text: I18n.s.settings_oodle
+            color: Theme.text
+            font.pixelSize: 16
+            font.bold: true
+        }
+        Label {
+            text: I18n.s.settings_oodle_desc
+            color: Theme.textDim
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            spacing: 8
+            Rectangle {
+                Layout.fillWidth: true
+                height: 34
+                radius: Theme.radius
+                color: Theme.panel
+                border.color: Theme.border
+                Label {
+                    anchors.fill: parent
+                    anchors.leftMargin: 10
+                    verticalAlignment: Text.AlignVCenter
+                    text: App.oodlePath ? (App.oodleIsCustom
+                                           ? App.oodlePath
+                                           : I18n.s.settings_oodle_auto.arg(App.oodlePath))
+                                        : I18n.s.settings_oodle_none
+                    color: App.oodlePath ? Theme.ok : Theme.warn
+                    elide: Text.ElideMiddle
+                }
+            }
+            Button {
+                text: I18n.s.settings_oodle_choose
+                enabled: !App.busy
+                onClicked: oodleDialog.open()
+            }
+            Button {
+                text: I18n.s.settings_oodle_reset
+                enabled: !App.busy && App.oodleIsCustom
+                onClicked: App.clearOodlePath()
+            }
+        }
+
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
         Label {
             text: I18n.s.settings_language
             color: Theme.text
@@ -339,5 +389,11 @@ Item {
         id: usmapDialog
         nameFilters: ["Unreal mappings (*.usmap)"]
         onAccepted: App.setUsmapPath(selectedFile)
+    }
+
+    FileDialog {
+        id: oodleDialog
+        nameFilters: ["Oodle (oo2core_9_win64.dll)"]
+        onAccepted: App.setOodlePath(selectedFile)
     }
 }

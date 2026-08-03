@@ -78,6 +78,7 @@
   "builder_q_lang": "언어",
   "builder_out": "ZIP 출력 폴더",
   "builder_build": "모드 빌드",
+  "builder_build_zip_only": "ZIP만 빌드",
   "builder_compiling": "컴파일 중...",
   "builder_baseline_progress": "바닐라 테이블 추출 중: %1 (%2)",
   "builder_done": "완료. 당신의 모드:",
@@ -214,5 +215,13 @@
   "err_preset_read": "프리셋 파일을 읽을 수 없습니다: %1",
   "err_preset_write": "프리셋 파일을 저장할 수 없습니다: %1",
   "err_preset_format": "이 파일은 Stellar Tool 빌더 프리셋이 아닙니다.",
-  "err_preset_newer": "이 프리셋은 더 최신 버전의 Stellar Tool에서 만들어졌습니다. 앱을 업데이트한 뒤 가져오세요."
+  "err_preset_newer": "이 프리셋은 더 최신 버전의 Stellar Tool에서 만들어졌습니다. 앱을 업데이트한 뒤 가져오세요.",
+  "err_oodle_missing": "oo2core_9_win64.dll(Oodle)을 찾을 수 없습니다. CUE4Parse에 필요하며, 라이선스상 동봉할 수 없어 사용자의 Stellar Blade 설치 폴더(SB\\Binaries\\Win64)에서 읽습니다. 설정에서 게임 폴더를 선택하거나, [설정 > Oodle]에서 DLL을 지정하거나, 프로그램 옆 tools\\ 폴더에 복사하세요. 검색한 위치:",
+  "settings_oodle": "Oodle(oo2core_9_win64.dll)",
+  "settings_oodle_desc": "게임의 Zen/IoStore pak을 읽고 쓰는 데 필요합니다. 절대 동봉되지 않으며(독점 파일) Stellar Blade 설치 폴더에서 읽습니다. 도구가 찾지 못할 때만 직접 지정하세요.",
+  "settings_oodle_auto": "자동으로 찾음: %1",
+  "settings_oodle_none": "찾지 못했습니다. 위에서 게임 폴더를 선택하거나 여기서 DLL을 지정하세요.",
+  "settings_oodle_choose": "DLL 선택...",
+  "settings_oodle_reset": "자동 감지",
+  "err_oodle_bad_file": "해당 파일은 oo2core_9_win64.dll이 아닙니다."
 }

@@ -5,6 +5,8 @@ import QtQuick.Dialogs
 import ".."
 import "../components"
 
+// Página de inicio (modo avanzado): importar mods, ver lista, analizar.
+// En modo fácil se usa EasyMergePage en vez de esta.
 Item {
     id: page
     signal openSettings()

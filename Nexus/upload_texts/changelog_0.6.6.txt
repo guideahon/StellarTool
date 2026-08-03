@@ -1,0 +1,26 @@
+Version 0.6.6
+
+Fixed: the Builder could turn a scripted encounter into a mini-boss and soft-lock
+you. Some fights are staged by the game: an arena closes behind you and the
+barrier only drops when the enemy dies. Those spawns were being converted like
+any other, and a mini-boss carries the boss actor type, which the game only
+honours for enemies it registers as bosses. The result was an enemy with no
+health bar, impossible to target, stuck out of combat, inside a barrier that
+would never open. The Builder now leaves those encounters vanilla: any spawn
+that fires events on death, on battle or on spawn, that has trigger conditions,
+that runs on MetaAI, or that gates a zone transition is skipped. On a full
+allRegions build that is 508 spawns kept as-is, next to the 2 already skipped
+for the respawn farm. Ambient enemies keep converting exactly as before, so the
+mini-boss density you pick still means the same thing. Reported by FengYeLy.
+
+If you are already stuck inside one of those barriers, install this build and
+reload your save: the enemy alias is not stored in the save file, it is resolved
+from the mod's tables every time the zone loads, so the fight comes back as a
+normal enemy you can kill.
+
+New: "Build ZIP only", right under "Build my mod". Same build, but it never
+touches the game folder: no copy into ~mods, no edit of mods.txt. It just leaves
+the ZIP in your output folder. Handy for building a mod for someone else, or for
+looking at a build before you install it.
+
+Everything from 0.6.5 is included.

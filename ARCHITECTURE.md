@@ -2,20 +2,27 @@
 
 Herramienta de escritorio (Windows) para inspeccionar y **mergear mods de Stellar Blade**, con UI en **Qt 6 / QML** (mismo stack y convenciones que LlamaCode: core en C++ bajo `src/core`, UI en `qml/pages` + `qml/components`).
 
+Versión actual: **0.6.3**.
+
+---
+
 ## 1. Contexto del dominio
 
-- Los mods de Stellar Blade son archivos **`.pak` de Unreal Engine 4.26** (a veces con `.ucas/.utoc` si usan IoStore; los mods de gameplay típicos de `~mods` son `.pak` "legacy", sin firma y sin cifrado).
+- Los mods de Stellar Blade son archivos **`.pak` de Unreal Engine 4.26** (legacy V11) o contenedores **Zen/IoStore** (`.ucas/.utoc`, el formato típico de Nexus).
 - Los cambios de gameplay viven en **DataTables**: assets `.uasset` + `.uexp` (ej. `SB/Content/Local/Data/CharacterTable.uasset`). Cada DataTable es un mapa `RowName -> Struct` con propiedades tipadas (float, int, bool, FName, structs anidados, arrays).
 - **Conflicto**: dos mods incluyen el mismo asset (misma ruta dentro del pak). El motor carga uno solo (por orden alfabético del pak). El merge real requiere fusionar a nivel **fila/propiedad** y reempaquetar un único pak.
+
+---
 
 ## 2. Pipeline de datos
 
 ```
-mod.zip / carpeta / mod.pak
+mod.zip / carpeta / mod.pak / mod Zen (.utoc)
         │  (1) Ingesta
         ▼
-   Extracción .pak  ──────────  repak.exe (CLI externa, QProcess)
-        │  (2) árbol de assets extraídos
+   Extracción .pak  ──────────  repak.exe (legacy)
+        │                     └─ retoc to-legacy (Zen → legacy, si es convertible)
+        │                     └─ cue4parse.exe (Zen no convertible → JSON clean)
         ▼
    uasset → JSON  ────────────  UAssetGUI.exe tojson (CLI externa)
         │  (3) JSON por tabla (formato UAssetAPI)
@@ -29,43 +36,54 @@ mod.zip / carpeta / mod.pak
    Motor de merge → JSON final por tabla
         │  (6) JSON → uasset
         ▼
-   UAssetGUI.exe fromjson  →  repak.exe pack  →  zzz_StellarTool_Merged.pak
+   UAssetGUI.exe fromjson  →  retoc to-zen / repak pack  →  pak de salida
 ```
 
 ### Herramientas externas (bundled en `tools/`)
 | Tool | Uso | Invocación |
 |---|---|---|
-| `repak.exe` | unpack/pack de `.pak` (UE4.26, version v11) | `repak unpack`, `repak pack --version V11` |
+| `repak.exe` | unpack/pack de `.pak` legacy (UE4.26, version v11) | `repak unpack`, `repak pack --version V11` |
+| `retoc.exe` | Zen/IoStore: extraer vanilla del juego, empaquetar merge, verificar | `retoc to-legacy`, `retoc to-zen`, `retoc verify` |
 | `UAssetGUI.exe` | `.uasset` ↔ JSON (motor UAssetAPI) | `UAssetGUI tojson <uasset> <json> VER_UE4_26`, `fromjson` |
+| `cue4parse.exe` | Leer contenedores Zen/IoStore que retoc no puede revertir | `cue4parse extract --export-json` |
 
 Ambas se invocan vía `QProcess` con timeout, captura de stdout/stderr y verificación de exit code. Nunca se parsea binario uasset a mano.
 
 ### Baseline (vanilla)
 Para poder decir "este mod cambió X de 100 a 250" hace falta la tabla **original**. Estrategias, en orden:
-1. **Cache local de baseline**: primera vez, la tool extrae las tablas vanilla desde los paks del juego (ruta Steam configurable). Si los paks del juego están cifrados/IoStore y no se pueden leer, se cae a 2.
-2. **Baseline importada**: el usuario apunta a un dump JSON de tablas vanilla (se documenta cómo generarlo con FModel + clave AES).
+1. **Cache local de baseline**: primera vez, la tool extrae las tablas vanilla desde los paks del juego (ruta Steam configurable) usando CUE4Parse. Exporta solo las tablas que hacen falta bajo demanda (`ensureTables`), no barre el juego entero.
+2. **Baseline importada**: el usuario apunta a un dump JSON de tablas vanilla (se documenta cómo generarlo).
 3. **Sin baseline (degradado)**: la tool muestra los valores del mod sin "antes/después", y el diff se hace solo **entre mods** (suficiente para detectar y resolver conflictos).
 
 El diff mod-vs-mod **nunca** requiere baseline: conflicto = misma tabla + misma fila + misma propiedad con valores distintos.
 
+La baseline detecta staleness comparando tamaño+fecha de `pakchunk0` contra un stamp guardado. Las tablas confirmadas como inexistentes en vanilla se cachean para no intentar exportarlas de nuevo.
+
+---
+
 ## 3. Modelo de datos (C++ core)
 
 ```
-ModPackage            // un mod cargado (zip/carpeta/pak)
+ModPackage            // un mod cargado (zip/carpeta/pak/zen)
  ├─ id, name, sourcePath, loadOrder
- └─ assets: QList<ModAsset>
+ ├─ assets: QList<ModAsset>
+ └─ zenAssetsNotMerged: QStringList   // assets Zen no convertibles
 ModAsset              // un uasset dentro del mod
  ├─ gamePath          // "SB/Content/Local/Data/CharacterTable.uasset"
- ├─ kind              // DataTable | Other (binario no tabular)
+ ├─ kind              // DataTable | Other | Unreadable
+ ├─ cleanJson: bool   // JSON viene de CUE4Parse (valores limpios)
  └─ table: DataTableDoc?
 DataTableDoc          // JSON parseado (QJsonDocument retenido para round-trip)
  └─ rows: QMap<QString /*RowName*/, QJsonObject>
 ChangeItem            // unidad seleccionable ("check")
- ├─ modId, tablePath, rowName, propertyPath   // propertyPath con notación a.b[2].c
+ ├─ modId, tablePath, rowName, propertyPath   // propertyPath con notación K:/N:/I:
  ├─ baseValue?  (si hay baseline)
  ├─ newValue
- ├─ changeType       // Modified | RowAdded | RowRemoved | AssetReplaced(no-tabular)
+ ├─ changeType       // Modified | RowAdded | RowRemoved | AssetReplaced
  ├─ selected: bool
+ ├─ clean: bool      // valor de CUE4Parse (write-back solo escalares)
+ ├─ edited: bool     // modificado a mano por el usuario
+ ├─ dup: bool        // duplicado exacto de otro mod (oculto)
  └─ conflictGroup?   // id compartido entre ChangeItems que colisionan
 ConflictGroup
  ├─ key (tablePath+rowName+propertyPath)
@@ -77,21 +95,34 @@ MergePlan             // snapshot serializable (JSON) de selecciones + resolucio
 Claves de diseño:
 - El **round-trip es JSON-fiel**: al mergear se parte del JSON baseline (o del JSON del primer mod) y se aplican solo los `ChangeItem` seleccionados, sin regenerar estructura. Minimiza riesgo de corromper el uasset.
 - `propertyPath` es la identidad estable de un cambio. El diff recursivo sobre el JSON de UAssetAPI compara por `Name` de propiedad, no por índice, salvo en arrays puros.
-- Assets no tabulares (meshes, texturas si el mod los trae) se tratan como **AssetReplaced**: check todo-o-nada, conflicto = elegir un mod entero para ese asset.
+- Assets no tabulares (meshes, texturas, animaciones) se tratan como **AssetReplaced**: check todo-o-nada, conflicto = elegir un mod entero para ese asset.
+- **Normalización**: `normalizeDataTableDoc` convierte cualquier JSON (UAssetAPI o CUE4Parse) a una forma canónica limpia para comparar valores reales sin importar el parser usado.
+
+---
 
 ## 4. Módulos C++ (`src/core`)
 
 | Módulo | Responsabilidad |
 |---|---|
-| `PakService` | wrapper QProcess de repak: unpack a dir temporal por mod, pack final. Detección de zip/carpeta/pak (zip se extrae con `KZip`/miniz o QProcess + tar). |
+| `PakService` | wrapper QProcess de repak/retoc: unpack/pack legacy, to-legacy/to-zen de contenedores IoStore, compat-global para revertir mods Zen, extracción de zips. |
 | `UAssetService` | wrapper QProcess de UAssetGUI: tojson/fromjson, con detección de versión y reporte de fallos por asset. |
-| `BaselineManager` | cache de tablas vanilla en `%LOCALAPPDATA%/StellarTool/baseline/`, extracción desde el juego o importación. |
-| `ModImporter` | orquesta ingesta: extrae, convierte, clasifica assets, produce `ModPackage`. Corre en `QtConcurrent` con progreso. |
+| `Cue4Service` | wrapper QProcess de cue4parse.exe: lee contenedores Zen/IoStore que retoc no puede revertir, exportando DataTables a JSON. |
+| `BaselineManager` | cache de tablas vanilla en `%LOCALAPPDATA%/StellarTool/baseline/`, extracción bajo demanda desde el juego (CUE4Parse) o importación. Detecta staleness y tablas ausentes. |
+| `ModImporter` | orquesta ingesta: extrae, convierte, clasifica assets, produce `ModPackage`. Maneja mods legacy y Zen (con fallback a CUE4Parse). Corre en `QtConcurrent` con progreso. |
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
-| `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). |
-| `CnsConverterService` | port C++ del algoritmo MIT de StellarBladeCNSRepacker: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta replacer ↔ CNS con retoc. No ejecuta el repacker Java. |
+| `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Rewrites enums numerados. |
+| `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. |
+| `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta conflictos de `Package_Id`. |
+| `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
+| `UsmapService` | descarga mappings versionados desde el archivo de la comunidad, lee enums del usmap, detecta versión del juego. |
+| `GamePaths` | autodetección de instalación Steam, normalización de ruta, gestión de stages temporales para CUE4Parse. |
+| `TomlPatch` | parser/serializador mínimo de patches TOML estilo automod (import/export de cambios). |
 | `ProjectStore` | guarda/carga sesión (`.stproj` JSON): mods cargados, selecciones, resoluciones. |
+| `UpdateService` | autoactualización desde GitHub Releases: chequea, descarga, extrae y relanza. |
 | `AppController` | fachada QObject expuesta a QML (patrón LlamaCode). Modelos: `ModListModel`, `ChangeListModel` (por tabla, con roles para check/conflicto), `ConflictModel`. |
+| `HeadlessRunner` | modo CLI sin UI: toda función de la app accesible por línea de comandos. |
+
+---
 
 ## 5. UI (QML)
 
@@ -100,8 +131,14 @@ Páginas (`qml/pages`):
 2. **ChangesPage** — árbol: Mod → Tabla → Fila → Propiedad. Cada hoja con CheckBox, texto resumen ("`CharacterTable / EVE / MaxHP: 100 → 250`"), badge de conflicto. Filtros: solo conflictos / por tabla / búsqueda.
 3. **ConflictsPage** — vista lado a lado por `ConflictGroup`: valor de cada mod (y baseline si hay), RadioButtons para elegir ganador, "aplicar mod X a todos sus conflictos".
 4. **MergePage** — resumen del plan (N cambios, M conflictos resueltos, pendientes bloquean), destino del pak, log de progreso, resultado con verificación.
+5. **EasyMergePage** — flujo simplificado de merge.
+6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
+7. **CnsConverterPage** — conversor de outfits replacer ↔ CNS.
+8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados.
+9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
+10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
 
-Componentes reutilizables en `qml/components` (Card, SectionHeader). `Theme.qml` define las paletas Claro, Oscuro y OLED; `AppController.themeMode` persiste la selección en `QSettings` y la expone globalmente a QML.
+Componentes reutilizables en `qml/components` (FlatButton, FieldCombo, BulkTransformDialog, EditValueDialog, LanguageDialog, ThemedScrollBar, UpdateDialog). `Theme.qml` define las paletas Claro, Oscuro y OLED; `AppController.themeMode` persiste la selección en `QSettings` y la expone globalmente a QML.
 
 `BuilderPage` envía opciones semánticas al compilador Python de `Builder/`.
 Los cambios independientes son booleanos; las alternativas que modifican la
@@ -110,85 +147,44 @@ selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
 solamente los subconjuntos elegidos desde las bases autoritativas del mod. El
 idioma de la guía de instalación se toma de `I18n.language`; no se configura
 por separado dentro del Builder.
-Los valores editables de extras viajan en `gameplayExtraValues`; el registro de
-transforms los entrega como parámetros tipados a las funciones de cada tabla.
-En selección avanzada, los grupos `ammo_stacks`, `ammo_100x` y
-`consumable_stacks` incluyen un mapa `values` indexado por el nombre real de la
-propiedad (`StackBullet1..6` / `StackConsumable1..7`); sin ese mapa se mantiene
-el valor agregado compatible con configuraciones anteriores.
+
 Los presets nombrados guardan el mismo objeto de respuestas completo en
 `QSettings` (`builder/presets`), mientras el historial de builds sigue viviendo
 en `%LOCALAPPDATA%\StellarSoulsBuilder\history`. Además se exportan e importan
-como archivo `.stpreset` (`AppController::exportBuilderPreset` /
-`importBuilderPreset`): JSON con `format` (`stellartool.builder-preset`),
-`schemaVersion`, `appVersion` y `answers`. La importación rechaza un archivo sin
-ese `format` o con un `schemaVersion` mayor al soportado, y nunca pisa un preset
-existente: si el nombre está tomado entra como `Nombre (2)`.
-Los ajustes de mundo (`worldTweaks` + `worldTweakValues`, en `world_extras.py`)
-cubren tablas que ni el pak de combate ni el de outfit tocan: `ShopItemTable`,
-`RewardGroupTable`, `SPLevelTable`, `CharacterLevelTable` e `ItemFishTable`.
-Todos los valores son porcentajes sobre vanilla (100 = vanilla). Salen en el pak
-`StellarSouls-World`, compilado desde la baseline vanilla local; `load_table`
-genera esa baseline bajo demanda para cualquier tabla configurada dentro del
-cache `baseline/uasset_json`. Excepción: con mini-boss o First Run el pak
-combinado ya trae su propia `RewardGroupTable`, así que `dropRates` se aplica
-adentro de ese pak (`miniboss_builder._apply_world_extras_pass`) y el pak de
-mundo compila sólo el resto — empaquetar la misma tabla en dos paks dejaría que
-uno de los dos ganara en silencio.
-`hardcoreEnemyBoost` compila un pak independiente desde la baseline local de
-`DifficultyStatGroupTable`. Sólo recorre filas `HardMode`, clasifica los grupos
-específicos de boss por ID (301+) y excluye aliases Maelstrom. Los presets Main
-e Insane pueden acompañar tanto el pipeline normal como el combinado de
-mini-bosses sin modificar `CharacterTable` ni grupos de enemigos normales.
-Los transforms nativos `combat.enemyDamage` y `combat.enemyVulnerability`
-excluyen `ActorType_BossMonster`; `CharacterTable` granular parte de la baseline
-vanilla escribible local, nunca de `CharacterTable_sub` (fuente exclusiva del
-pipeline de mini-bosses).
-El swap de outfit se pide con `outfitMode` (`off` | `helper` | `noHelperAlpha`);
-`build_custom.normalize` deriva de ahí `outfitSkinSuit` y `outfitHelperless`, que
-son los que lee el resto del pipeline (respuestas viejas con solo el bool siguen
-funcionando). `noHelperAlpha` es el restore table-side: no instala helper y
-modifica únicamente `nanosuit_break.bPauseWhenPlayerAttachLevelSequence` de
-`true` a `false`. Se aplica por transform directo y también mediante
-`effect_extras` en los pipelines combinados de First Run/mini-boss.
-Qué helper se instala lo decide `helperMode`: los tres modos CNS compilan
-`StellarSoulsOutfitRestore`; `lastNoCns` no lo compila y fuerza
-`vanillaHelperBuild` (ALPHA del helper vanilla, `alpha6` por defecto).
+como archivo `.stpreset`.
 
 `CnsConverterPage` llama a `CnsConverterService` en un worker. La entrada se
 extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `UAssetService`, y el resultado se empaqueta como IoStore UE4.26 mediante
-`PakService`. Los mapas MIT descargados por `setup.bat` viven en
-`tools/CNSRepacker/data`; durante desarrollo también se acepta
-`ST_CNSREPACKER_DATA` o la instalación del repacker junto al juego.
-Al terminar, el directorio convertido se comprime con `PakService::createZip`;
-el ZIP deja `.pak/.ucas/.utoc/.dekcns.json` en la raíz para instalación directa
-con Vortex y luego se elimina el directorio descomprimido. `AppController`
-persiste hasta 100 entradas de historial en `QSettings` (`cns/history`) y
-recuerda `cns/outputDir` para la acción **Abrir carpeta**.
+`PakService`. `AppController` persiste hasta 100 entradas de historial en
+`QSettings` (`cns/history`).
 
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
 `Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos.
-Al corregir conserva el primer contenedor, genera IDs determinísticos únicos,
-crea un `.cnsidfixer.bak`, actualiza el encabezado y el chunk
-`ContainerHeader`, y vuelve a leer el archivo para verificarlo. No modifica
-`Package_Id`: son hashes estables de las rutas. Los TOC con perfect-hash se
-rechazan porque cambiar un chunk ID exigiría reconstruir sus índices.
+
+`LivePage` habla con `LiveService`, expuesto a QML como `Live` (context property
+propia, sin pasar por `AppController`: la página no comparte estado con el
+pipeline de merge). Ver §11.
+
+---
 
 ## 6. Manejo de errores
 
-- Cada paso externo (repak/UAssetGUI) reporta por-asset: un uasset que no convierte no aborta la ingesta; se lista como "no analizable" y se ofrece modo AssetReplaced.
+- Cada paso externo (repak/UAssetGUI/cue4parse) reporta por-asset: un uasset que no convierte no aborta la ingesta; se lista como "no analizable" y se ofrece modo AssetReplaced.
 - Merge escribe siempre a pak nuevo `zzz_StellarTool_Merged.pak` (prefijo `zzz` gana por orden alfabético); nunca modifica los mods de origen.
 - Verificación post-merge: reabrir el pak generado, tojson, re-diff contra el MergePlan; discrepancia = error visible antes de instalar.
 - Las herramientas externas pueden fallar **sin imprimir nada**: ver §7. Todo
   fallo de UAssetGUI deja un log en `%LOCALAPPDATA%/StellarTool/logs/` con
   comando, código de salida, salida de consola y el error real; en `fromjson`
-  también se guarda el JSON de entrada al lado. Es lo primero que hay que pedir
-  en un reporte de usuario.
+  también se guarda el JSON de entrada al lado.
 - El importador **encola** los mods: agregar varios llama `addMod` en ráfaga y
   descartar los que llegan mientras hay otra importación en curso perdía mods en
   silencio.
+- Una tabla sin cambios aplicados **no se emite** al pak (pisaría al mod de origen con vanilla).
+- Una tabla que falla la verificación **no cancela las demás**: se excluye, se registra en `merge_report.txt` y se avisa que el mod de origen debe permanecer habilitado para esa tabla.
+
+---
 
 ## 7. Escribir uassets: lo que aprendimos a los golpes
 
@@ -243,13 +239,21 @@ que quedó pendiente: [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md).
 `fillTemplate` reconstruye arrays/objetos desde la forma cruda vanilla y
 `buildRowFromTemplate` hace lo mismo para filas nuevas. Antes de escribir una
 fila reconstruida se convierten recursivamente los FName vacíos de `""` a
-`null`; el nombre de la fila y sus FName nuevos se registran en `NameMap`.
+`"None"`; el nombre de la fila y sus FName nuevos se registran en `NameMap`.
 
 Si un array vanilla está vacío, su `ArrayType` permite sintetizar wrappers para
 tipos escalares. Un `StructProperty` vacío sigue requiriendo un layout de
 plantilla y se saltea. `RowRemoved` clean se aplica directamente, salvo si un
 mod pierde más del 25% de las filas vanilla: ese caso se considera una posible
 exportación CUE4Parse incompleta y se bloquean sus borrados.
+
+### Enums numerados (`FName_3`)
+
+UE guarda `"Valor_3"` como el FName `"Valor"` con número, y UAssetGUI lo lee
+expandido pero no sabe volver a escribirlo: el uasset no se genera y la tabla
+entera queda fuera del merge. `MergeEngine::rewriteNumberedEnums` los detecta
+por no estar en el NameMap del asset y los reescribe como `ByteProperty`
+numérica (el índice dentro del enum), forma que sí round-tripea al mismo valor.
 
 ### Trampa al depurar: instancias colgadas de UAssetGUI
 
@@ -259,6 +263,89 @@ los resultados no son reproducibles. Matá el proceso antes de cada prueba. Sus
 `qWarning`/stderr tampoco se capturan desde el modo headless: para depurar hay
 que escribir a archivo.
 
+---
+
 ## 8. Build
 
-CMake + Qt 6.4+ (Core, Quick, Concurrent, Widgets), C++17, mismo esqueleto de `build.bat Release NOPAUSE` / `tests.bat` que LlamaCode. Tests con QtTest sobre `TableDiffEngine` y `MergeEngine` usando fixtures JSON (sin depender de binarios del juego).
+CMake + Qt 6.4+ (Core, Quick, Concurrent, Widgets, Multimedia, Network), C++17, mismo esqueleto de `build.bat Release NOPAUSE` / `tests.bat` que LlamaCode. Tests con QtTest sobre `TableDiffEngine`, `MergeEngine`, `UpdateService`, `CnsConverter`, `CnsIdFixer`, `LiveService`, `HeadlessRunner` y `BuilderUi` usando fixtures JSON (sin depender de binarios del juego).
+
+---
+
+## 9. Modo headless (CLI)
+
+`HeadlessRunner` expone toda la funcionalidad de la app por línea de comandos:
+
+```
+StellarTool --headless analyze   --mod <ruta>... [--baseline <dir>]
+StellarTool --headless merge     --mod <ruta>... --out <dir> [--prefer <mod>]
+StellarTool --headless cns       --mod <ruta> --out <dir> [--name <nombre>]
+StellarTool --headless replacer  --mod <ruta> --out <dir> --replace <outfit>
+StellarTool --headless build     --answers <json|archivo> --out <dir>
+StellarTool --headless baseline  [--game <dir>]
+StellarTool --headless status
+StellarTool --headless detect
+StellarTool --headless uninstall [--paks] [--helper]
+StellarTool --headless fixids    --mod <dir> [--apply]
+StellarTool --headless presets
+```
+
+Salida por stdout; exit code 0 = OK. `validate()` es testeable sin levantar la app entera.
+
+---
+
+## 10. Internacionalización
+
+10 idiomas soportados (`i18n/*.json`): es, en, fr, it, de, ja, ko, pt_BR, ru, zh_Hans.
+`Translator` carga el idioma activo y lo expone a toda la app (UI + headless + Builder).
+Las claves de traducción se propagan a los 10 idiomas por script; se recomienda revisar a ojo al menos es/en.
+
+---
+
+## 11. Live: control en vivo (fase 1)
+
+`LiveService` + `qml/pages/LivePage.qml` + el bridge Lua `assets/live/StellarToolLive`.
+Todo el código es propio de Stellar Tool; no incorpora nada de otras suites de mods.
+
+**Por qué reflection y no offsets.** El bridge resuelve las propiedades por
+nombre sobre el `PlayerController` vivo (`PlayerCameraManager`,
+`CharacterMovementComponent`) usando la reflection de UE4SS. No usa offsets ni
+firmas de memoria, así que no queda atado a una versión puntual del juego: si
+una property no existe en el build instalado, esa función queda apagada y el
+resto sigue andando.
+
+**Lo que el bridge NO hace**, por diseño: hooks, key binds, lectura de UObjects
+en background, escritura del save, inventario, dinero, equipamiento,
+progresión. Fase 1 es exclusivamente FOV / velocidad / salto.
+
+**Protocolo** (texto clave=valor, publicación atómica `.tmp` + rename en ambos
+lados, dentro de `…/ue4ss/Mods/StellarToolLive/`):
+
+| Archivo | Lo escribe | Contenido |
+|---|---|---|
+| `live_request.txt` | Stellar Tool | `api`, `seq`, `fov` (0 = no tocar), `speed`, `jump` |
+| `live_status.txt` | el bridge | `api`, `beat`, `ready`, `seq`, `fov_prop`, `*_base`, `*_live`, `message` |
+
+El marcador `api=stellar-tool-live-v1` es obligatorio para parsear: un heartbeat
+de otra herramienta en la misma carpeta se descarta como inválido.
+
+**Vivo ≠ archivo presente.** `live_status.txt` queda en disco con los últimos
+valores aunque el juego esté cerrado, así que `bridgeAlive` exige que el `beat`
+cambie: sin beat nuevo por 2 s, desconectado.
+
+**Reaplicación por tick.** El juego reescribe velocidad/salto/FOV solo (equipar,
+cinemáticas, cambios de estado), por eso el bridge reaplica cada 250 ms en vez
+de una sola vez por request. Al cambiar el pawn (cargar save, cambio de nivel)
+recaptura los valores base antes de multiplicar: si no, el multiplicador se
+aplicaría sobre un valor ya modificado y se acumularía.
+
+**Límites** duplicados a propósito en C++ y en Lua (la UI no es la única
+barrera): FOV 40–170° (>100 es experimental y la UI avisa), multiplicadores
+0.1–10.
+
+**Requisitos.** UE4SS lo instala el usuario por separado; Stellar Tool no lo
+distribuye. Sin juego configurado o sin UE4SS, la página se muestra
+deshabilitada con el motivo.
+
+**Desinstalar** borra solo `Mods/StellarToolLive`, y únicamente si adentro está
+nuestro `Scripts/main.lua`: si el usuario apuntó el juego a otra carpeta, no nos
+llevamos puesto nada ajeno.

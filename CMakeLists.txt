@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(StellarTool VERSION 0.6.5 LANGUAGES CXX)
+project(StellarTool VERSION 0.6.6 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -20,6 +20,7 @@ set(CORE_SOURCES
     src/core/CnsConverterService.cpp
     src/core/CnsIdFixerService.cpp
     src/core/GamePaths.cpp
+    src/core/LiveService.cpp
     src/core/UsmapService.cpp
     src/core/BaselineManager.cpp
     src/core/ModImporter.cpp
@@ -42,6 +43,7 @@ set(CORE_HEADERS
     src/core/CnsConverterService.h
     src/core/CnsIdFixerService.h
     src/core/GamePaths.h
+    src/core/LiveService.h
     src/core/UsmapService.h
     src/core/BaselineManager.h
     src/core/ModImporter.h
@@ -84,6 +86,18 @@ qt_add_resources(StellarTool "appicons"
     FILES assets/app_icon.png
 )
 
+# Bridge UE4SS de la pagina Live: se embebe y LiveService lo copia al juego.
+# Tambien va en los tests: TestLiveService instala desde el mismo recurso.
+set(LIVE_BRIDGE_FILES
+    assets/live/StellarToolLive/Scripts/main.lua
+    assets/live/StellarToolLive/enabled.txt
+    assets/live/StellarToolLive/README.txt
+)
+qt_add_resources(StellarTool "livebridge"
+    PREFIX "/"
+    FILES ${LIVE_BRIDGE_FILES}
+)
+
 qt_add_resources(StellarTool "audio"
     PREFIX "/"
     FILES assets/audio/keygen.wav
@@ -105,10 +119,16 @@ if (BUILD_TESTS)
         tests/TestCnsConverter.cpp
         tests/TestCnsIdFixer.cpp
         tests/TestHeadless.cpp
+        tests/TestOodle.cpp
+        tests/TestLiveService.cpp
         src/core/UpdateService.cpp
         src/core/UpdateService.h
         ${CORE_SOURCES}
         ${CORE_HEADERS}
+    )
+    qt_add_resources(StellarToolTests "livebridge"
+        PREFIX "/"
+        FILES ${LIVE_BRIDGE_FILES}
     )
     target_include_directories(StellarToolTests PRIVATE src tests)
     target_link_libraries(StellarToolTests PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Test Qt6::Network)

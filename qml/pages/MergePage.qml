@@ -1,3 +1,6 @@
+// Página de merge: resumen de cambios/conflictos, elección de directorio de
+// salida, exportación a ZIP y guardado/carga de proyectos (.stproj).
+// Botón de merge deshabilitado si hay conflictos pendientes.
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts

@@ -78,6 +78,7 @@
   "builder_q_lang": "语言",
   "builder_out": "ZIP输出文件夹",
   "builder_build": "编译我的MOD",
+  "builder_build_zip_only": "仅编译ZIP",
   "builder_compiling": "编译中...",
   "builder_baseline_progress": "正在提取原版数据表：%1 (%2)",
   "builder_done": "完成。你的MOD:",
@@ -214,5 +215,13 @@
   "err_preset_read": "无法读取预设文件：%1",
   "err_preset_write": "无法写入预设文件：%1",
   "err_preset_format": "该文件不是 Stellar Tool 生成器的预设。",
-  "err_preset_newer": "该预设来自更新版本的 Stellar Tool。请先更新应用再导入。"
+  "err_preset_newer": "该预设来自更新版本的 Stellar Tool。请先更新应用再导入。",
+  "err_oodle_missing": "未找到 oo2core_9_win64.dll（Oodle）。CUE4Parse 需要它，并且只能从你自己的 Stellar Blade 安装目录读取（SB\\Binaries\\Win64），因为其许可证禁止随工具分发。请在设置中选择游戏文件夹，或在“设置 > Oodle”中指定该 DLL，或把它复制到程序旁的 tools\\ 目录。已查找：",
+  "settings_oodle": "Oodle（oo2core_9_win64.dll）",
+  "settings_oodle_desc": "读写游戏 Zen/IoStore pak 时必需。绝不随工具分发（专有）：从你的 Stellar Blade 安装目录读取。只有在工具找不到时才需要手动设置。",
+  "settings_oodle_auto": "已自动找到：%1",
+  "settings_oodle_none": "未找到。请在上方选择游戏文件夹，或在此选择 DLL。",
+  "settings_oodle_choose": "选择 DLL...",
+  "settings_oodle_reset": "自动检测",
+  "err_oodle_bad_file": "该文件不是 oo2core_9_win64.dll。"
 }

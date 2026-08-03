@@ -33,6 +33,8 @@ class AppController : public QObject {
     Q_PROPERTY(bool hasGamePath READ hasGamePath NOTIFY gamePathChanged)
     Q_PROPERTY(QString usmapPath READ usmapPath NOTIFY usmapChanged)
     Q_PROPERTY(bool usmapIsCustom READ usmapIsCustom NOTIFY usmapChanged)
+    Q_PROPERTY(QString oodlePath READ oodlePath NOTIFY oodleChanged)
+    Q_PROPERTY(bool oodleIsCustom READ oodleIsCustom NOTIFY oodleChanged)
     Q_PROPERTY(QString detectedGameVersion READ detectedGameVersion NOTIFY gamePathChanged)
     Q_PROPERTY(bool downloadingUsmap READ downloadingUsmap NOTIFY usmapDownloadChanged)
     Q_PROPERTY(bool advancedMode READ advancedMode WRITE setAdvancedMode NOTIFY advancedModeChanged)
@@ -133,6 +135,13 @@ public:
     bool usmapIsCustom() const;
     Q_INVOKABLE void setUsmapPath(const QUrl &fileUrl);
     Q_INVOKABLE void clearUsmapPath();
+    // Oodle (oo2core_9_win64.dll): nunca se distribuye, sale del juego. Este
+    // override es la salida cuando la autodetección falla (instalación fuera de
+    // Steam, juego movido, copia con otro nombre de caja).
+    QString oodlePath() const;        // DLL en uso, o "" si no se encontró
+    bool oodleIsCustom() const;       // elegida a mano por el usuario
+    Q_INVOKABLE bool setOodlePath(const QUrl &fileUrl);   // false si no es el DLL
+    Q_INVOKABLE void clearOodlePath();
     // Auto-descarga del usmap para una versión del juego desde el archivo de la
     // comunidad. Vacío = usar detectedGameVersion. Async: emite usmapDownloadDone.
     QString detectedGameVersion() const;
@@ -178,6 +187,7 @@ signals:
     void baselineChanged();
     void gamePathChanged();
     void usmapChanged();
+    void oodleChanged();
     void usmapDownloadChanged();
     void usmapDownloadDone(bool ok, const QString &message);
     void advancedModeChanged();

@@ -182,6 +182,32 @@ def _is_respawnable(row):
     return False
 
 
+# Campos que delatan un spawn guionado (arena con barrera, gate de mision,
+# encuentro que dispara eventos al morir o al entrar en combate).
+_SCRIPTED_FIELDS = (
+    "EventOnDead", "EventOnBattle", "EventFirstTimeOnBattle", "EventOnSpawning",
+    "ConditionsTrigger", "ConditionTriggerEvent",
+)
+
+
+def _is_scripted(row):
+    """Spawn atado a script/mision: NO se convierte a mini-boss.
+
+    ActorType_BossMonster solo funciona en enemigos que el juego registra como
+    boss (barra de vida, secuencia de entrada). Aplicado a un enemigo de arena
+    guionada queda sin barra, sin target y en estado no-combate: si la barrera
+    solo cae al matarlo, el jugador queda encerrado (reporte de FengYeLy).
+    Tambien se excluyen los spawns con MetaAI o con transito de zona por el
+    enemigo, que son los mismos encuentros dirigidos.
+    """
+    for f in _SCRIPTED_FIELDS:
+        if gv(row, f):
+            return True
+    if gv(row, "MetaAIAlias") not in (None, "None"):
+        return True
+    return bool(gv(row, "bEnableTransitZoneByEnemyActor"))
+
+
 def _is_combat_alias(a):
     if not a or a.startswith("N_") or "Dummy" in a:
         return False
@@ -273,8 +299,9 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
     Esquema 1.31.1: UN clone por arquetipo de combate distinto que aparece en
     spawns no-boss (todas las areas), nombre `<arch>_MB`. Densidad/region/dificultad
     afectan que porcion de spawns se repunta a los clones. difficulty="progressive"
-    hace las zonas tardias mas densas. Spawns respawneables se EXCLUYEN (anti-farm).
-    Devuelve reporte {clones, conv, byArea, skippedRespawn}.
+    hace las zonas tardias mas densas. Spawns respawneables se EXCLUYEN (anti-farm)
+    y los guionados tambien (anti-softlock, ver _is_scripted).
+    Devuelve reporte {clones, conv, byArea, skippedRespawn, skippedScripted}.
     """
     rules = _area_rules(density, region, difficulty, area_densities)
     ctd, esd = combat_ct, event_spawn
@@ -289,6 +316,7 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
     archetypes = []      # orden estable de aparicion
     seen = set()
     skipped_respawn = 0
+    skipped_scripted = 0
     for r in ES:
         z = gv(r, "Zone")
         if not z or "Boss" in str(z):
@@ -306,6 +334,9 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
             archetypes.append(a)
         if _is_respawnable(r):   # NO convertir spawns que reviven (anti-farm)
             skipped_respawn += 1
+            continue
+        if _is_scripted(r):      # NO tocar encuentros guionados (anti-softlock)
+            skipped_scripted += 1
             continue
         spawns.append((a, area, r, els[0]))
 
@@ -371,7 +402,8 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
         extras_rep = _extras.apply_extras(ctd, extras, harder_mult)
 
     return {"clones": len(clones), "conv": conv, "byArea": dict(sorted(by_area.items())),
-            "skippedRespawn": skipped_respawn, "variety": variety_rep, "extras": extras_rep}
+            "skippedRespawn": skipped_respawn, "skippedScripted": skipped_scripted,
+            "variety": variety_rep, "extras": extras_rep}
 
 
 # Fuentes de las 8 tablas fijas del pak mini-boss (no dependen de densidad).

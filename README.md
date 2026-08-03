@@ -15,6 +15,11 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   una vez creado el ZIP.
 - **CNS ID Fixer** escanea mods IoStore, corrige `Container_Id` duplicados con
   backup verificable y reporta conflictos de `Package_Id` sin alterar esos IDs.
+- **Live** modifica el juego mientras corre: campo de visión, velocidad de
+  movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
+  UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
+  él por archivos de texto. No toca partidas guardadas, inventario ni progresión,
+  y se desinstala desde la misma página.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
 Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)

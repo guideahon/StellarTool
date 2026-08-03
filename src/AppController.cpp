@@ -1099,7 +1099,9 @@ bool AppController::setGamePath(const QUrl &dirUrl) {
         return false;
     }
     GamePaths::setGameRoot(root);
+    PakService::resetOodleCache();   // la DLL sale del juego: cambia con la ruta
     emit gamePathChanged();
+    emit oodleChanged();
     return true;
 }
 
@@ -1118,6 +1120,27 @@ void AppController::setUsmapPath(const QUrl &fileUrl) {
 void AppController::clearUsmapPath() {
     UAssetService::setCustomUsmapPath(QString());
     emit usmapChanged();
+}
+
+QString AppController::oodlePath() const { return PakService::oodleFilePath(); }
+
+bool AppController::oodleIsCustom() const { return !PakService::userOodlePath().isEmpty(); }
+
+bool AppController::setOodlePath(const QUrl &fileUrl) {
+    const QString f = fileUrl.isLocalFile() ? fileUrl.toLocalFile() : fileUrl.toString();
+    // Elegir otro DLL no sirve: retoc/cue4parse cargan este nombre exacto.
+    if (QFileInfo(f).fileName().toLower() != QLatin1String("oo2core_9_win64.dll")) {
+        emit errorOccurred(t(QStringLiteral("err_oodle_bad_file")));
+        return false;
+    }
+    PakService::setUserOodlePath(f);
+    emit oodleChanged();
+    return true;
+}
+
+void AppController::clearOodlePath() {
+    PakService::setUserOodlePath(QString());
+    emit oodleChanged();
 }
 
 QString AppController::detectedGameVersion() const {
@@ -1218,6 +1241,11 @@ static void applyBuilderEnv(QProcess &proc, const QString &gameDir = QString()) 
     const QString root = gameDir.isEmpty() ? GamePaths::gameRoot() : gameDir;
     if (!root.isEmpty())
         env.insert(QStringLiteral("STELLARBLADE_DIR"), QDir::toNativeSeparators(root));
+    // El Builder repite la busqueda de Oodle por su cuenta; si la app ya la
+    // resolvio (o el usuario la eligio a mano) se le pasa hecha.
+    const QString oodle = PakService::oodleFilePath();
+    if (!oodle.isEmpty())
+        env.insert(QStringLiteral("STELLAR_OODLE_DIR"), QDir::toNativeSeparators(oodle));
     proc.setProcessEnvironment(env);
 }
 

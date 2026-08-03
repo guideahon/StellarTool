@@ -7,6 +7,8 @@ void runTestBuilderUi(int &failures, int argc, char **argv);
 void runTestCnsConverter(int &failures, int argc, char **argv);
 void runTestCnsIdFixer(int &failures, int argc, char **argv);
 void runTestHeadless(int &failures, int argc, char **argv);
+void runTestOodle(int &failures, int argc, char **argv);
+void runTestLiveService(int &failures, int argc, char **argv);
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
@@ -59,6 +61,20 @@ int main(int argc, char **argv) {
         char headlessLog[] = "test_headless.txt,txt";
         char *args[] = {arg0, argOut, headlessLog};
         runTestHeadless(failures, 3, args);
+    }
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char oodleLog[] = "test_oodle.txt,txt";
+        char *args[] = {arg0, argOut, oodleLog};
+        runTestOodle(failures, 3, args);
+    }
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char liveLog[] = "test_live.txt,txt";
+        char *args[] = {arg0, argOut, liveLog};
+        runTestLiveService(failures, 3, args);
     }
     return failures;
 }

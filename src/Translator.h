@@ -18,6 +18,7 @@ class Translator : public QObject {
     Q_PROPERTY(bool chosen READ chosen NOTIFY changed)  // false = primer arranque
 public:
     explicit Translator(QObject *parent = nullptr);
+    ~Translator() override;
 
     QVariantMap strings() const { return m_current; }
     QString language() const { return m_lang; }
@@ -27,6 +28,11 @@ public:
 
     // Traducción puntual desde C++ (fallback a inglés y luego a la clave).
     QString t(const QString &key) const;
+
+    // Único por proceso: los servicios de core/ generan mensajes de error para
+    // el usuario y no reciben el Translator por parámetro. Puede ser nullptr en
+    // tests.
+    static Translator *instance();
 
 signals:
     void changed();
@@ -42,5 +48,9 @@ private:
     QString m_lang;
     bool m_chosen = false;
 };
+
+// Traduce una clave sin depender de que haya Translator (devuelve la clave si
+// no lo hay). Para core/, que no conoce la UI.
+QString tr_(const QString &key);
 
 } // namespace st

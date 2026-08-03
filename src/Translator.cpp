@@ -22,7 +22,12 @@ static const struct { const char *code; const char *name; const char *flag; } kL
     {"ko",      "한국어",       "🇰🇷"},
 };
 
+// Se registra el último Translator construido: en la app hay uno solo, y core/
+// lo usa para traducir errores sin recibirlo por parámetro.
+static Translator *g_instance = nullptr;
+
 Translator::Translator(QObject *parent) : QObject(parent) {
+    g_instance = this;
     for (const auto &l : kLangs) {
         m_languages << QVariantMap{
             {QStringLiteral("code"), QString::fromLatin1(l.code)},
@@ -41,6 +46,10 @@ Translator::Translator(QObject *parent) : QObject(parent) {
         // Sugerir por locale del SO, sin marcar como elegido (dispara el popup).
         load(guessFromLocale());
     }
+}
+
+Translator::~Translator() {
+    if (g_instance == this) g_instance = nullptr;
 }
 
 QString Translator::guessFromLocale() const {
@@ -81,6 +90,12 @@ void Translator::setLanguage(const QString &code) {
 QString Translator::t(const QString &key) const {
     if (m_current.contains(key)) return m_current.value(key).toString();
     return m_fallback.value(key, key).toString();
+}
+
+Translator *Translator::instance() { return g_instance; }
+
+QString tr_(const QString &key) {
+    return g_instance ? g_instance->t(key) : key;
 }
 
 } // namespace st

@@ -34,3 +34,6 @@ Media/generated/
 Builder/vendor/
 Builder/pyembed/
 Builder/**/__pycache__/
+test_oodle.txt
+test_live.txt
+.llamacode/

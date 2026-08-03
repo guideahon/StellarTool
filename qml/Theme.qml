@@ -1,6 +1,9 @@
 pragma Singleton
 import QtQuick
 
+// Tema visual con 3 modos: dark (default), light y oled (negro perfecto).
+// Todos los colores derivan de App.themeMode persistido en QSettings.
+// OLED reserva #000000 para el fondo y eleva solo controles para contraste.
 QtObject {
     id: theme
     // Fuente única persistida en AppController/QSettings.
