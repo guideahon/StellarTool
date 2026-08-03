@@ -1,0 +1,31 @@
+Version 0.6.5
+
+All about surfacing what actually went wrong, thanks to a user running Stellar
+Tool on Linux through Proton who dug out the real causes.
+
+New: errors from UAssetGUI are now shown to you. UAssetGUI is a WinForms app: it
+never prints anything to the console, not even when it fails, which is why the
+Builder's errors always ended with an empty "salida=". It reports through a
+message box and leaves the text in the clipboard. The Builder now reads the
+clipboard when a table fails and includes that text in the error.
+
+Fixed: the startup check added in 0.6.4 was invoking UAssetGUI with incomplete
+arguments, which made UAssetGUI try to open a file literally named "fromjson"
+and pop up a dialog. It now runs a real conversion of a small bundled table
+instead, which takes under a second and proves the whole chain works: .NET
+runtime, Windows fonts, usmap.
+
+New: on Wine/Proton, Builder errors now include the commands that fix the two
+known blockers, fonts included:
+  protontricks 3489700 micross
+  protontricks 3489700 dotnetdesktop8
+  protontricks 3489700 dotnet8
+(3489700 is the Stellar Blade prefix; use your own appid if you run Stellar Tool
+in a different prefix.) Without the font, UAssetGUI dies while drawing and does
+nothing at all, which is easy to mistake for a Builder bug.
+
+Fixed: "Oodle not found" always claimed Stellar Blade could not be detected,
+even when it had been detected and only the DLL was missing. The two cases now
+read differently and each says what to do.
+
+Everything from 0.6.4 is included.

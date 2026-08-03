@@ -544,22 +544,63 @@ def test_fromjson_retries_once_before_failing(tmp_path, monkeypatch):
     assert len(calls) == 2
 
 
-def test_selftest_flags_a_uassetgui_that_cannot_run(tmp_path, monkeypatch):
-    """Bajo Wine sin .NET el exe muere antes del CLI. Hay que avisar ANTES de
-    extraer baselines y compilar tablas, no despues de varios minutos."""
+def test_selftest_runs_a_real_conversion(tmp_path, monkeypatch):
+    """El chequeo tiene que CONVERTIR algo: invocado con argumentos invalidos,
+    UAssetGUI abre la GUI y no reporta nada por consola ni cuando anda bien."""
     import toolchain
 
     monkeypatch.setattr(toolchain, "tools_dir", lambda: tmp_path)
     (tmp_path / "UAssetGUI.exe").write_text("x", encoding="utf-8")
+    seen = []
 
-    monkeypatch.setattr(toolchain, "_run",
-                        lambda args, *a, **kw: subprocess.CompletedProcess(args, 0, "", ""))
+    def ok_run(args, *a, **kw):
+        seen.append(args)
+        Path(args[3]).write_text("{}", encoding="utf-8")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    monkeypatch.setattr(toolchain, "_run", ok_run)
     assert toolchain.selftest_uassetgui() is None
+    assert seen and seen[0][1] == "tojson"
 
-    monkeypatch.setattr(toolchain, "_run",
-                        lambda args, *a, **kw: subprocess.CompletedProcess(args, 53, "", ""))
+
+def test_selftest_flags_a_uassetgui_that_cannot_run(tmp_path, monkeypatch):
+    """Bajo Wine sin .NET/fuentes el exe muere sin escribir ni decir nada. Hay
+    que avisar ANTES de extraer baselines y compilar tablas."""
+    import toolchain
+
+    monkeypatch.setattr(toolchain, "tools_dir", lambda: tmp_path)
+    (tmp_path / "UAssetGUI.exe").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(toolchain, "_run",   # no escribe la salida
+                        lambda args, *a, **kw: subprocess.CompletedProcess(args, 0, "", ""))
     monkeypatch.setattr(toolchain, "is_wine", lambda: True)
-    assert "winetricks" in toolchain.selftest_uassetgui()
+    monkeypatch.setattr(toolchain, "clipboard_text", lambda *a, **kw: "")
+    problem = toolchain.selftest_uassetgui()
+    assert "protontricks" in problem and "micross" in problem
+
+
+def test_uag_failure_surfaces_the_clipboard(monkeypatch):
+    """UAssetGUI no escribe una linea en la consola: reporta por MessageBox y
+    deja el error en el portapapeles. Es la unica forma de mostrarlo."""
+    import toolchain
+
+    monkeypatch.setattr(toolchain, "clipboard_text",
+                        lambda *a, **kw: "System.Drawing: font 'Microsoft Sans Serif'")
+    monkeypatch.setattr(toolchain, "is_wine", lambda: False)
+    msg = toolchain._uag_failure("fromjson fallo",
+                                 subprocess.CompletedProcess([], 0, "", ""))
+    assert "Microsoft Sans Serif" in msg
+
+
+def test_missing_oodle_msg_separates_the_two_causes(monkeypatch):
+    """Juego detectado sin el DLL no es lo mismo que juego sin detectar: el
+    mensaje unico mandaba a reinstalar el juego a quien no lo necesitaba."""
+    import gamepaths
+    import toolchain
+
+    monkeypatch.setattr(gamepaths, "detect_game", lambda: r"C:\Games\StellarBlade")
+    assert "StellarBlade) y no esta ahi" in toolchain.missing_oodle_msg()
+    monkeypatch.setattr(gamepaths, "detect_game", lambda: None)
+    assert "no se pudo detectar" in toolchain.missing_oodle_msg()
 
 
 def test_oodle_is_found_when_the_dll_case_differs(tmp_path, monkeypatch):
