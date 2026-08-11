@@ -18,11 +18,26 @@
 #include <QStandardPaths>
 #include <QLoggingCategory>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 Q_LOGGING_CATEGORY(lcPak, "st.pak")
 
 namespace st {
 
 PakService::PakService(QObject *parent) : QObject(parent) {}
+
+bool PakService::linkOrCopy(const QString &src, const QString &dst) {
+    if (QFileInfo::exists(dst)) return true;
+#ifdef Q_OS_WIN
+    if (CreateHardLinkW(reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(dst).utf16()),
+                        reinterpret_cast<const wchar_t *>(QDir::toNativeSeparators(src).utf16()),
+                        nullptr))
+        return true;
+#endif
+    return QFile::copy(src, dst);
+}
 
 QString PakService::repakPath() {
     const QString env = QProcessEnvironment::systemEnvironment().value(QStringLiteral("ST_REPAK"));

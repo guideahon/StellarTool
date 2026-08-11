@@ -27,6 +27,10 @@ public:
     static QString oodleFilePath();     // ruta completa a la DLL encontrada ("" si no hay)
     static QString oodleSearchReport(); // dónde se buscó: para mensajes de error
     static void resetOodleCache();
+    // Hardlink src->dst (instantáneo, sin ocupar disco extra; requiere mismo
+    // volumen). Si falla, copia. Evita duplicar el global.ucas del juego (varios
+    // GB) al armar stages para CUE4Parse.
+    static bool linkOrCopy(const QString &src, const QString &dst);
     // Override del usuario: puede ser la DLL o la carpeta que la contiene.
     static QString userOodlePath();
     static void setUserOodlePath(const QString &pathOrFile);

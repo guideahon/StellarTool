@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QMap>
 #include <QSet>
@@ -8,6 +9,7 @@
 
 namespace st {
 
+class Cue4Service;
 class PakService;
 class UAssetService;
 
@@ -41,7 +43,7 @@ public:
     };
 
     explicit CnsConverterService(PakService *pak, UAssetService *uasset,
-                                 QObject *parent = nullptr);
+                                 Cue4Service *cue4 = nullptr, QObject *parent = nullptr);
 
     Result convert(const Request &request);
     QStringList replacementNames(QString *error = nullptr) const;
@@ -85,8 +87,33 @@ private:
                              const QMap<QString, QString> &relocations,
                              QString *error) const;
 
+    // Un replacer suele cambiar la piel pisando las TEXTURAS que lee un material
+    // vanilla (p. ej. MI_P_EVE_09_Skin), no el material. Relocalizadas bajo
+    // /Game/CNSRepacked/<id>/ quedan huérfanas y el outfit se ve con la piel
+    // vanilla. CNS resuelve esto con "Materials" + "Parameters" en el descriptor:
+    // overrides que aplica sólo mientras el outfit está equipado. Estos helpers
+    // reconstruyen esa lista leyendo los slots reales de la malla y los
+    // parámetros de textura de cada material vanilla.
+
+    // Carpeta montable por CUE4Parse con los contenedores vanilla (hardlink) +
+    // el contenedor recién empaquetado. Hay que borrarla al terminar.
+    QString stageWithGame(const QString &utocPath, const QString &workDir) const;
+    // Slots de material de la malla ya relocalizada, en orden (MaterialIndex).
+    // Devuelve "/Game/…/MI_X.MI_X". Vacío si no se puede leer.
+    QStringList meshMaterialSlots(const QString &mountDir, const QString &meshPath,
+                                  const QString &workDir) const;
+    // Para cada slot vanilla, redirige a la copia relocalizada las texturas que
+    // el mod pisaba. Devuelve las entradas "Parameters" y marca como usadas las
+    // rutas que quedaron cubiertas.
+    QJsonArray textureParameterOverrides(const QString &mountDir,
+                                         const QStringList &slotList,
+                                         const QMap<QString, QString> &relocations,
+                                         const QString &workDir,
+                                         QSet<QString> *covered) const;
+
     PakService *m_pak;
     UAssetService *m_uasset;
+    Cue4Service *m_cue4;
     mutable bool m_loaded = false;
     mutable QMap<QString, QSet<QString>> m_assetToRoots;
     mutable QMap<QString, QSet<QString>> m_assetToImports;
