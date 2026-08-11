@@ -21,6 +21,10 @@ from pathlib import Path
 
 MARK = "ss_NoStealth"
 HP_FLOOR = 40000
+# HitDefenseLevel gatea las reacciones "HitLevelResult*" (stun/knockdown/airborne)
+# de SkillResultTable. Las skills del jugador llegan a HitLevel 3; el juego ya usa
+# 5 en los monstruos SuperLarge que nunca se tambalean. 5 = inmune al stagger.
+STAGGER_IMMUNE_LEVEL = 5
 
 # Mapa arch -> reward group (elites por area) derivado de shipped 1.31.1.
 _RG_PATH = Path(__file__).resolve().parent.parent / "base_tables" / "miniboss_reward_groups.json"
@@ -125,6 +129,13 @@ def _buff(r, reward_group, config=None):
     p = prop(r, "ActorType")
     if config.get("bossType", True) and p:
         p["Value"] = "ActorType_BossMonster"
+    # Inmunidad al stagger: sin esto el mini-boss queda stuneado con spam de espada.
+    # No aplica en el path legacy (paridad byte con el shipped 1.31.1).
+    p = prop(r, "HitDefenseLevel")
+    if not legacy and config.get("staggerImmunity", True) and p is not None:
+        if not isinstance(p.get("Value"), (int, float)) or p["Value"] < STAGGER_IMMUNE_LEVEL:
+            p["Value"] = STAGGER_IMMUNE_LEVEL
+            p["IsZero"] = False
     p = prop(r, "SpawnEffectList")
     if config.get("executionImmunity", True) and p is not None:
         if not isinstance(p.get("Value"), list):
@@ -293,7 +304,7 @@ def _apply_variety(esd, ES, ct_names, spawns, converted_ids, named):
 
 def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allRegions",
                difficulty="flat", variety=False, extras=None, harder_mult=2.0,
-               area_densities=None, miniboss_config=None):
+               area_densities=None, miniboss_config=None, overworld_config=None):
     """Muta combat_ct y event_spawn con clones `<arch>_MB` + subset de spawns.
 
     Esquema 1.31.1: UN clone por arquetipo de combate distinto que aparece en
@@ -346,7 +357,10 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
     for a, area, _, _ in spawns:
         arch_area.setdefault(a, area)
     clones = {}
-    for i, a in enumerate(archetypes):
+    # Sin ninguna area con densidad (caso "solo bosses de overworld") no hace
+    # falta clonar los 301 arquetipos: quedarian sin usar en la tabla.
+    any_rule = any(v[0] for v in rules.values())
+    for i, a in enumerate(archetypes if any_rule else []):
         nw = copy.deepcopy(find(CT, a))
         mbn = a + "_MB"
         nw["Name"] = mbn
@@ -395,15 +409,29 @@ def build_core(combat_ct: dict, event_spawn: dict, density="p20", region="allReg
     if variety:
         variety_rep = _apply_variety(esd, ES, ctnames, spawns, converted_ids, named)
 
+    # 4b) BETA - bosses de campo sueltos en el overworld (variantes `_OW`).
+    overworld_rep = {}
+    if overworld_config and overworld_config.get("enabled"):
+        import overworld_bosses
+        cfg = dict(overworld_config)
+        cfg.setdefault("xpRewards", (miniboss_config or {}).get("xpRewards", True))
+        overworld_rep = overworld_bosses.apply(ctd, esd, spawns, converted_ids, cfg)
+
     # 5) BETA - extras de gameplay (Player QoL / harder enemies / tachy).
     extras_rep = {}
     if extras:
         import extras as _extras
         extras_rep = _extras.apply_extras(ctd, extras, harder_mult)
 
+    # Datos explícitos para el manifest: permiten distinguir un anti-farm
+    # aplicado de un build que simplemente no encontró candidatos.
     return {"clones": len(clones), "conv": conv, "byArea": dict(sorted(by_area.items())),
             "skippedRespawn": skipped_respawn, "skippedScripted": skipped_scripted,
-            "variety": variety_rep, "extras": extras_rep}
+            "antiFarm": {"respawnExcluded": skipped_respawn,
+                          "scriptedExcluded": skipped_scripted,
+                          "persistentRewards": bool((miniboss_config or {}).get("persistent", True)),
+                          "executionImmunity": bool((miniboss_config or {}).get("executionImmunity", True))},
+            "variety": variety_rep, "overworldBosses": overworld_rep, "extras": extras_rep}
 
 
 # Fuentes de las 8 tablas fijas del pak mini-boss (no dependen de densidad).
@@ -595,7 +623,7 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
                      extras=None, harder_mult=2.0, toml_dir=None, gear_mult=2.0,
                      tumbler_value=60.0, area_densities=None, miniboss_config=None,
                      just_mult=1.5, air_count=2, combat_transform_ids=None,
-                     world_extra_ids=None, world_values=None):
+                     world_extra_ids=None, world_values=None, overworld_config=None):
     """Compila el pak mini-boss completo (10 tablas) a work_dir. Devuelve dict.
 
     Por defecto usa build_core -> incluye el fix anti-farm (excluye spawns
@@ -611,7 +639,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     pak_name = "StellarSouls-MiniBossNGPlus-Combat" if outfit else "StellarSouls-MiniBossNGPlus-CombatNoOutfit"
 
     # Camino fiel (opt-in): reproduce el pak publico exacto para validacion.
-    if (faithful and not variety and not extras and not toml_dir and density == "p20"
+    if (faithful and not variety and not extras and not toml_dir
+            and not (overworld_config or {}).get("enabled") and density == "p20"
             and region == "allRegions" and difficulty == "flat"):
         pkg = work_dir / "package"
         if pkg.exists():
@@ -637,7 +666,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
     esd = json.loads((_SSMOD / "EventSpawnTable.json").read_text(encoding="utf-8"))
     report = build_core(ctd, esd, density=density, region=region, difficulty=difficulty,
                         variety=variety, extras=extras, harder_mult=harder_mult,
-                        area_densities=area_densities, miniboss_config=miniboss_config)
+                        area_densities=area_densities, miniboss_config=miniboss_config,
+                        overworld_config=overworld_config)
     report["combatTransforms"] = {"CharacterTable": character_combat_report}
 
     import shutil

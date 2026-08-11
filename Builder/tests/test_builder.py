@@ -199,19 +199,166 @@ def test_miniboss_independent_stats_and_region_density():
         {"Name": "ShieldBlock", "Value": 50.0, "IsZero": False},
         {"Name": "PhysicAttackPower", "Value": 100.0, "IsZero": False},
         {"Name": "MeshScale", "Value": 1.0, "IsZero": False},
+        {"Name": "HitDefenseLevel", "Value": 1, "IsZero": False},
     ]}
     mb._buff(row, "ss_ngplus", {
         "health": True, "healthMultiplier": 3, "attack": False,
         "scale": True, "scaleMultiplier": 2, "removeShield": False,
         "rewards": False, "persistent": False, "bossType": False,
-        "executionImmunity": False,
+        "executionImmunity": False, "staggerImmunity": False,
     })
+    assert mb.gv(row, "HitDefenseLevel") == 1
     assert mb.gv(row, "MaxHP") == 60000
     assert mb.gv(row, "MaxShield") == 999
     assert mb.gv(row, "PhysicAttackPower") == 100.0
     assert mb.gv(row, "MeshScale") == 2.0
     rules = mb._area_rules("p20", "allRegions", area_densities={"WLA": 25, "WLB": 0})
     assert rules["WLA"][0] == 4 and rules["WLB"] == (None, None)
+
+
+def test_miniboss_stagger_immunity():
+    import miniboss_builder as mb
+    def row():
+        return {"Name": "X", "Value": [
+            {"Name": "MaxHP", "Value": 20000, "IsZero": False},
+            {"Name": "HitDefenseLevel", "Value": 1, "IsZero": False},
+        ]}
+    # default ON con config presente
+    r = row(); mb._buff(r, "ss_ngplus", {"health": False})
+    assert mb.gv(r, "HitDefenseLevel") == mb.STAGGER_IMMUNE_LEVEL
+    # nunca baja un nivel ya mas alto
+    r = row(); mb.sv(r, "HitDefenseLevel", 9)
+    mb._buff(r, "ss_ngplus", {"health": False})
+    assert mb.gv(r, "HitDefenseLevel") == 9
+    # legacy (config None) intacto: paridad byte con shipped 1.31.1
+    r = row(); mb._buff(r, "ss_ngplus")
+    assert mb.gv(r, "HitDefenseLevel") == 1
+
+
+def test_vanilla_bosses_can_be_made_stagger_immune():
+    import extras
+    def row(name, actor, level):
+        return {"Name": name, "Value": [
+            {"Name": "ActorType", "Value": actor, "IsZero": False},
+            {"Name": "HitDefenseLevel", "Value": level, "IsZero": False},
+        ]}
+    boss = row("M_GorillaB", "ActorType_BossMonster", 1)
+    tough = row("M_Bulk", "ActorType_BossMonster", 9)
+    mob = row("M_Skulling", "ActorType_Monster", 1)
+    clone = row("M_Skulling_MB", "ActorType_BossMonster", 1)
+    ow = row("WLA_M_HedgeBoarBrute_01_OW", "ActorType_BossMonster", 1)
+    doc = {"Exports": [{"Table": {"Data": [boss, tough, mob, clone, ow]}}]}
+    assert extras.apply_extras(doc, ["bossStaggerImmunity"]) == {"bossStaggerImmunity": 1}
+    assert extras._get(boss, "HitDefenseLevel") == extras.BOSS_STAGGER_IMMUNE_LEVEL
+    assert extras._get(tough, "HitDefenseLevel") == 9      # no baja uno mas alto
+    assert extras._get(mob, "HitDefenseLevel") == 1        # enemigos normales intactos
+    # los clones generados responden a su propio toggle, no a este
+    assert extras._get(clone, "HitDefenseLevel") == 1
+    assert extras._get(ow, "HitDefenseLevel") == 1
+
+
+def test_vanilla_boss_stagger_immunity_rides_the_combat_pak():
+    import build_specs
+    targets = build_specs.combo_to_targets({
+        "combatProfile": "full", "outfitSkinSuit": False, "miniBoss": "off",
+        "gameplayExtras": ["bossStaggerImmunity"]})
+    combat = [t for t in targets if t["name"] == "StellarSouls-CombatOnly"][0]
+    assert "extras.bossStaggerImmunity" in combat["transforms"]
+    import table_compiler
+    assert table_compiler.REGISTRY["extras.bossStaggerImmunity"]["table"] == "CharacterTable"
+
+
+def _ow_docs():
+    """CT con un boss de campo + ES con spawns de un area, para el path _OW."""
+    boss = {"Name": "WLA_M_HedgeBoarBrute_01", "Value": [
+        {"Name": "ID", "Value": 60000, "IsZero": False},
+        {"Name": "MaxHP", "Value": 100000, "IsZero": False},
+        {"Name": "MaxShield", "Value": 3625, "IsZero": False},
+        {"Name": "HitDefenseLevel", "Value": 1, "IsZero": False},
+        {"Name": "RewardOverrideSaveType", "Value": "ESBItemOverrideSaveType_None", "IsZero": False},
+        {"Name": "RewardSpawnBucketType", "Value": "ESBItemBucketType_None", "IsZero": False},
+        {"Name": "SpawnEffectList", "Value": [], "IsZero": False},
+    ]}
+    ct = {"NameMap": [], "Exports": [{"Table": {"Data": [boss]}}]}
+    rows, spawns = [], []
+    for i in range(20):
+        el = {"Value": "M_Skulling"}
+        row = {"Name": f"S{i}", "Value": [
+            {"Name": "SpawnPointName", "Value": f"WLA_{i:02d}", "IsZero": False},
+            {"Name": "RewardGroup", "Value": "None", "IsZero": False},
+            {"Name": "CharacterAlias", "Value": [el], "IsZero": False},
+        ]}
+        rows.append(row)
+        spawns.append(("M_Skulling", "WLA", row, el))
+    es = {"NameMap": [], "Exports": [{"Table": {"Data": rows}}]}
+    return ct, es, spawns
+
+
+def test_overworld_bosses_place_half_health_variants():
+    import miniboss_builder as mb
+    import overworld_bosses as ow
+    ct, es, spawns = _ow_docs()
+    rep = ow.apply(ct, es, spawns, set(), {"pct": 10, "healthFactor": 0.5})
+    assert rep["placed"] == 2 and rep["clones"] == 1
+    variant = mb.find(mb.R(ct), "WLA_M_HedgeBoarBrute_01_OW")
+    assert variant is not None
+    # variante, no el boss original: el row de la arena queda intacto
+    assert mb.gv(mb.find(mb.R(ct), "WLA_M_HedgeBoarBrute_01"), "MaxHP") == 100000
+    assert mb.gv(variant, "MaxHP") == 50000
+    assert mb.gv(variant, "ID") == 60000 + ow.ID_OFFSET
+    assert mb.gv(variant, "HitDefenseLevel") == mb.STAGGER_IMMUNE_LEVEL
+    assert mb.gv(variant, "RewardOverrideSaveType") == "ESBItemOverrideSaveType_Save"
+    assert [e["Value"] for e in mb.gv(variant, "SpawnEffectList")] == [mb.MARK]
+    placed = [r for r in mb.R(es)
+              if mb.prop(r, "CharacterAlias")["Value"][0]["Value"].endswith("_OW")]
+    assert len(placed) == 2
+    assert mb.gv(placed[0], "RewardGroup") == mb.AREA_XP_GROUP["WLA"]
+    assert "WLA_M_HedgeBoarBrute_01_OW" in ct["NameMap"]
+    assert "WLA_M_HedgeBoarBrute_01_OW" in es["NameMap"]
+
+
+def test_overworld_bosses_respect_already_converted_and_off_switch():
+    import overworld_bosses as ow
+    ct, es, spawns = _ow_docs()
+    # spawns ya tomados por el mini-boss / variedad no se pisan
+    taken = {id(el) for _, _, _, el in spawns}
+    assert ow.apply(ct, es, spawns, taken, {"pct": 10})["placed"] == 0
+    # pct 0 = no hace nada
+    assert ow.apply(ct, es, spawns, set(), {"pct": 0}) == {}
+
+
+def test_overworld_bosses_use_the_miniboss_pak_path():
+    import build_specs
+    assert build_specs.overworld_enabled({"overworldBosses": {"enabled": True}})
+    assert not build_specs.overworld_enabled({"overworldBosses": {"enabled": False}})
+    assert not build_specs.overworld_enabled({})
+    # sin mini-bosses pero con bosses de overworld igual necesita el pak combinado
+    assert build_specs.combo_to_targets(
+        {"combatProfile": "full", "miniBoss": "off",
+         "overworldBosses": {"enabled": True}}) is None
+
+
+def test_overworld_answers_from_the_cli_questionnaire_become_a_config():
+    import build_custom
+    a = build_custom.normalize({"overworldBosses": True, "overworldBossPct": 7,
+                                "overworldBossHealth": "quarter"})
+    assert a["overworldBosses"] == {"enabled": True, "pct": 7, "healthFactor": 0.25}
+    # la UI ya manda el dict: pasa tal cual
+    ui = {"enabled": True, "pct": 3, "healthFactor": 0.5, "crossArea": True}
+    assert build_custom.normalize({"overworldBosses": ui})["overworldBosses"] == ui
+    assert build_custom.normalize({})["overworldBosses"]["enabled"] is False
+
+
+def test_overworld_boss_pool_only_lists_existing_field_bosses():
+    import overworld_bosses as ow
+    pool = ow.pool()
+    aliases = set(pool["crossPool"])
+    for area, picks in pool["byArea"].items():
+        assert picks, area
+        aliases.update(picks)
+    banned = ("CHAL_", "_Nikke", "_Seq", "NST_", "M_Mann", "M_Scarlet", "Maelstrom")
+    for a in aliases:
+        assert not any(b in a for b in banned), a
 
 
 def test_qol_can_be_selected_property_group_by_property_group():
@@ -840,6 +987,24 @@ def test_respawnable_spawns_excluded():
         if mb.gv(r, "SpawnPointName") in ("WLB_20_E_CharS_055", "WLB_20_E_CharS_054"):
             alias = mb.prop(r, "CharacterAlias")["Value"][0]["Value"]
             assert not alias.endswith("_MB"), alias
+
+
+def test_miniboss_report_exposes_anti_farm_guards():
+    """El manifest debe poder demostrar que se aplicaron las defensas clave."""
+    import json
+    import miniboss_builder as mb
+    src = mb._SSMOD
+    ct = json.loads((src / "combatCT.json").read_text(encoding="utf-8"))
+    es = json.loads((src / "EventSpawnTable.json").read_text(encoding="utf-8"))
+    rep = mb.build_core(ct, es, density="p20", region="allRegions",
+                        miniboss_config={"persistent": True,
+                                         "executionImmunity": True})
+    assert rep["antiFarm"] == {
+        "respawnExcluded": rep["skippedRespawn"],
+        "scriptedExcluded": rep["skippedScripted"],
+        "persistentRewards": True,
+        "executionImmunity": True,
+    }
 
 
 def test_progressive_ramps_late_game():

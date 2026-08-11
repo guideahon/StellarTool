@@ -57,6 +57,8 @@ OUTFIT_MODES = ("off", "helper", "noHelperAlpha")
 # "lastNoCns", no lo usa: pide el helper vanilla (ALPHA) en su lugar.
 CNS_HELPER_MODES = ("last", "randomAny", "randomPeriodic")
 DEFAULT_ALPHA = "alpha6"   # el chain: prueba las tres estrategias y se queda con la que repinta
+# Respuesta del cuestionario -> factor de vida de la variante de boss (`_OW`).
+OVERWORLD_HEALTH = {"quarter": 0.25, "half": 0.5, "threeQuarter": 0.75, "full": 1.0}
 
 
 def normalize(answers: dict) -> dict:
@@ -79,6 +81,14 @@ def normalize(answers: dict) -> dict:
     a["outfitQteRestoreAlpha"] = a["outfitHelperless"]
     a.setdefault("helperMode", "last")
     a.setdefault("miniBoss", "off")
+    # Bosses de overworld: la UI manda el dict armado; el cuestionario CLI manda
+    # las tres respuestas sueltas. Adentro siempre viaja el dict.
+    ow = a.get("overworldBosses")
+    if not isinstance(ow, dict):
+        ow = {"enabled": bool(ow)}
+        ow["pct"] = int(a.get("overworldBossPct", 3) or 0)
+        ow["healthFactor"] = OVERWORLD_HEALTH.get(a.get("overworldBossHealth", "half"), 0.5)
+    a["overworldBosses"] = ow
     # Build ALPHA del helper vanilla (sin CNS). "off" = no incluirlo.
     a.setdefault("vanillaHelperBuild", "off")
     # "Restaurar ultimo outfit (SIN CNS)" se sirve con el helper vanilla: si no
@@ -325,7 +335,10 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     compilation_report = {}
     world_applied = set()   # extras de mundo que ya aplico el pak combinado
     paks_out = list(plan["paks"])
-    mb_on = a.get("miniBoss", "off") not in ("off", False, None)
+    # Los bosses de overworld viven en CharacterTable + EventSpawnTable: salen por
+    # el mismo pak combinado que el mini-boss, aunque no haya mini-bosses.
+    mb_on = (a.get("miniBoss", "off") not in ("off", False, None)
+             or build_specs.overworld_enabled(a))
     targets = build_specs.combo_to_targets(a) if not a.get("forcePreset") else None
     # Los parámetros también se usan en el pak combinado con mini-bosses.
     table_compiler.PARAMS["harder_mult"] = float(a.get("harderEnemiesMult", 2.0))
@@ -372,6 +385,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             toml_dir=a.get("customPatchesDir") or None,
             area_densities=a.get("miniBossRegionDensity"),
             miniboss_config=a.get("miniBossConfig"),
+            overworld_config=a.get("overworldBosses"),
             just_mult=float(a.get("forgivingJustMult", 1.5)),
             air_count=int(a.get("airDodgeCount", 2)),
             combat_transform_ids=build_specs.combat_transforms(a),
@@ -459,6 +473,15 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
                    indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
+
+    # Un build de bosses sin trazabilidad anti-farm es demasiado riesgoso para
+    # instalarlo: el usuario debe poder auditarlo desde el ZIP sin abrir JSONs
+    # internos. Esto también evita declarar éxito si el camino compilado no
+    # produjo el reporte esperado.
+    if mode in ("compiled-miniboss", "compiled-firstrun"):
+        core = compilation_report.get("core", compilation_report)
+        if isinstance(core, dict) and "antiFarm" not in core:
+            raise RuntimeError("El build de mini-boss no produjo reporte anti-farm verificable")
 
     # ZIP.
     digest = hashlib.sha1(json.dumps(a, sort_keys=True).encode()).hexdigest()[:8]
@@ -580,4 +603,15 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # El CLI se consume desde Qt y también desde terminal. Nunca ocultar el
+    # traceback: el mensaje genérico "build_custom failed" no permite saber si
+    # falló Python, una herramienta externa o una tabla concreta.
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:
+        import traceback
+        print(f"BUILD_ERROR {type(exc).__name__}: {exc}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        raise

@@ -59,7 +59,7 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_uasset(new UAssetService(this)),
       m_usmap(new UsmapService(this)),
       m_cue4(new Cue4Service(this)),
-      m_cns(new CnsConverterService(m_pak, m_uasset, this)),
+      m_cns(new CnsConverterService(m_pak, m_uasset, m_cue4, this)),
       m_cnsIdFixer(new CnsIdFixerService(this)),
       m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
@@ -126,52 +126,104 @@ void AppController::convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
                                const QString &modName, const QString &mode,
                                const QString &replacementName,
                                const QString &selection) {
-    if (m_busy) return;
-    CnsConverterService::Request request;
-    request.inputPath = inputUrl.isLocalFile() ? inputUrl.toLocalFile() : inputUrl.toString();
-    request.outputDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile() : outDirUrl.toString();
-    request.modName = modName;
-    request.mode = mode.compare(QStringLiteral("replacer"), Qt::CaseInsensitive) == 0
+    convertCnsBatch({inputUrl}, outDirUrl, modName, mode, replacementName, selection);
+}
+
+void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &outDirUrl,
+                                    const QString &modName, const QString &mode,
+                                    const QString &replacementName,
+                                    const QString &selection) {
+    if (m_busy || inputUrls.isEmpty()) return;
+    const QString outputDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile()
+                                                      : outDirUrl.toString();
+    const auto convertMode = mode.compare(QStringLiteral("replacer"), Qt::CaseInsensitive) == 0
         ? CnsConverterService::Mode::ToReplacer : CnsConverterService::Mode::ToCns;
-    request.replacementName = replacementName;
-    request.selection = selection;
+    QList<CnsConverterService::Request> requests;
+    for (const QUrl &url : inputUrls) {
+        CnsConverterService::Request request;
+        request.inputPath = url.isLocalFile() ? url.toLocalFile() : url.toString();
+        request.outputDir = outputDir;
+        // Con varias entradas cada mod toma el nombre de su propio archivo; un
+        // modName compartido sobrescribiría el mismo ZIP una y otra vez.
+        request.modName = inputUrls.size() == 1 ? modName : QString();
+        request.mode = convertMode;
+        request.replacementName = replacementName;
+        request.selection = selection;
+        requests << request;
+    }
     setBusy(true, QStringLiteral("Preparando conversión CNS…"));
-    std::ignore = QtConcurrent::run([this, request] {
-        const auto result = m_cns->convert(request);
-        QMetaObject::invokeMethod(this, [this, result, request] {
-            setBusy(false, result.ok ? QStringLiteral("Conversión CNS terminada.")
-                                     : QStringLiteral("Falló la conversión CNS."));
-            m_lastCnsResult = result.ok
-                ? QStringLiteral("%1 assets convertidos.\nZIP para Vortex: %2")
-                      .arg(result.assetsWritten).arg(result.zipPath)
-                : result.error;
-            if (result.ok) {
-                QSettings settings;
-                QJsonArray history;
-                const auto stored = QJsonDocument::fromJson(
-                    settings.value(QStringLiteral("cns/history")).toByteArray());
-                if (stored.isArray()) history = stored.array();
-                QJsonObject entry{
+    std::ignore = QtConcurrent::run([this, requests] {
+        QList<CnsConverterService::Result> results;
+        for (int i = 0; i < requests.size(); ++i) {
+            if (requests.size() > 1)
+                QMetaObject::invokeMethod(this, [this, i, total = requests.size()] {
+                    setBusy(true, QStringLiteral("Convirtiendo mod %1 de %2…")
+                                      .arg(i + 1).arg(total));
+                }, Qt::QueuedConnection);
+            // Un mod que falla no cancela el lote: se reporta al final.
+            results << m_cns->convert(requests[i]);
+        }
+        QMetaObject::invokeMethod(this, [this, results, requests] {
+            int okCount = 0;
+            for (const auto &result : results) if (result.ok) ++okCount;
+            const bool allOk = okCount == results.size();
+            setBusy(false, allOk ? QStringLiteral("Conversión CNS terminada.")
+                                 : QStringLiteral("Falló la conversión CNS."));
+
+            QSettings settings;
+            QJsonArray history;
+            const auto stored = QJsonDocument::fromJson(
+                settings.value(QStringLiteral("cns/history")).toByteArray());
+            if (stored.isArray()) history = stored.array();
+            QStringList lines;
+            QStringList errors;
+            QString lastZip;
+            for (int i = 0; i < results.size(); ++i) {
+                const auto &result = results[i];
+                const QString label = QFileInfo(requests[i].inputPath).completeBaseName();
+                if (!result.ok) {
+                    errors << QStringLiteral("%1: %2").arg(label, result.error);
+                    lines << QStringLiteral("✕ %1: %2").arg(label, result.error);
+                    continue;
+                }
+                lastZip = result.zipPath;
+                lines << QStringLiteral("✓ %1 — %2 assets — %3")
+                             .arg(label).arg(result.assetsWritten).arg(result.zipPath);
+                for (const QString &warning : result.warnings)
+                    lines << QStringLiteral("⚠ %1").arg(warning);
+                history.prepend(QJsonObject{
                     {QStringLiteral("name"), QFileInfo(result.zipPath).completeBaseName()},
                     {QStringLiteral("zip"), result.zipPath},
                     {QStringLiteral("timestamp"),
                      QDateTime::currentDateTime().toString(Qt::ISODate)},
                     {QStringLiteral("direction"),
-                     request.mode == CnsConverterService::Mode::ToCns
+                     requests[i].mode == CnsConverterService::Mode::ToCns
                          ? QStringLiteral("Replacer → CNS")
                          : QStringLiteral("CNS → replacer")},
                     {QStringLiteral("assets"), result.assetsWritten}
-                };
-                history.prepend(entry);
+                });
+            }
+            m_lastCnsResult = results.size() == 1
+                ? (results.first().ok
+                       ? QStringLiteral("%1 assets convertidos.\nZIP para Vortex: %2%3")
+                             .arg(results.first().assetsWritten).arg(results.first().zipPath,
+                                  results.first().warnings.isEmpty()
+                                      ? QString()
+                                      : QStringLiteral("\n\n⚠ ")
+                                            + results.first().warnings.join(QStringLiteral("\n⚠ ")))
+                       : results.first().error)
+                : QStringLiteral("%1 de %2 mods convertidos.\n%3")
+                      .arg(okCount).arg(results.size()).arg(lines.join(QLatin1Char('\n')));
+            if (okCount > 0) {
                 while (history.size() > 100) history.removeLast();
                 settings.setValue(QStringLiteral("cns/history"),
                                   QJsonDocument(history).toJson(QJsonDocument::Compact));
                 settings.setValue(QStringLiteral("cns/outputDir"),
-                                  QFileInfo(result.zipPath).absolutePath());
+                                  QFileInfo(lastZip).absolutePath());
                 emit cnsHistoryChanged();
             }
-            if (!result.ok) emit errorOccurred(result.error);
-            emit cnsConversionFinished(result.ok, result.zipPath);
+            if (!errors.isEmpty()) emit errorOccurred(errors.join(QLatin1Char('\n')));
+            emit cnsConversionFinished(allOk, lastZip);
         }, Qt::QueuedConnection);
     });
 }
@@ -1333,17 +1385,37 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
         const QString out = collected + pending
                             + QString::fromUtf8(proc.readAllStandardOutput());
         const QString err = QString::fromUtf8(proc.readAllStandardError());
+        const bool timedOut = proc.state() != QProcess::NotRunning;
+        const QString diagnostic = QStringLiteral("builder_%1.log")
+                                       .arg(QDateTime::currentDateTime().toString(QStringLiteral("yyyyMMdd_HHmmss")));
+        const QString logPath = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                              + QStringLiteral("/logs/") + diagnostic;
+        QDir().mkpath(QFileInfo(logPath).absolutePath());
+        {
+            QFile lf(logPath);
+            if (lf.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                lf.write("STDOUT:\n"); lf.write(out.toUtf8());
+                lf.write("\nSTDERR:\n"); lf.write(err.toUtf8());
+                lf.write(QByteArray::number(proc.exitCode()));
+                lf.write(timedOut ? "\nTIMEOUT\n" : "\n");
+            }
+        }
         QString zip;
         for (const QString &line : out.split(QLatin1Char('\n')))
             if (line.startsWith(QStringLiteral("OK -> "))) zip = line.mid(6).trimmed();
         const bool ok = proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0 && !zip.isEmpty();
-        QMetaObject::invokeMethod(this, [this, ok, zip, err, cancelled] {
+        QMetaObject::invokeMethod(this, [this, ok, zip, err, cancelled, timedOut, logPath] {
             emit cancellableChanged();
             // Cancelar no es un error: el build muere a proposito y el usuario
             // ya sabe por que, asi que no se abre el dialogo de error.
             if (cancelled) { setStatus(t(QStringLiteral("builder_cancelled"))); emit buildCancelled(); }
             else if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
-            else emit errorOccurred(err.isEmpty() ? QStringLiteral("build_custom failed") : err);
+            else {
+                QString detail = err.trimmed();
+                if (detail.isEmpty()) detail = QStringLiteral("El proceso no produjo stderr.");
+                const QString prefix = timedOut ? QStringLiteral("El build excedió el tiempo límite.\n") : QString();
+                emit errorOccurred(prefix + detail + QStringLiteral("\n\nLog: ") + logPath);
+            }
             setBusy(false);
         }, Qt::QueuedConnection);
     });
