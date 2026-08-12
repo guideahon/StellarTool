@@ -175,6 +175,22 @@ Item {
             wrapMode: Text.Wrap
             Layout.fillWidth: true
         }
+        Rectangle {
+            Layout.fillWidth: true
+            visible: !App.oodlePath
+            implicitHeight: oodleMissingText.implicitHeight + 20
+            radius: Theme.radius
+            color: Theme.panel
+            border.color: Theme.warn
+            Label {
+                id: oodleMissingText
+                anchors.fill: parent
+                anchors.margins: 10
+                text: I18n.s.settings_oodle_none + "\n" + I18n.s.settings_oodle_desc
+                color: Theme.warn
+                wrapMode: Text.Wrap
+            }
+        }
         RowLayout {
             Layout.fillWidth: true
             spacing: 8
@@ -197,14 +213,14 @@ Item {
                 }
             }
             Button {
+                text: App.oodleIsCustom ? I18n.s.settings_oodle_reset : I18n.s.settings_oodle_choose
+                enabled: !App.busy
+                onClicked: App.oodleIsCustom ? App.clearOodlePath() : App.refreshOodle()
+            }
+            Button {
                 text: I18n.s.settings_oodle_choose
                 enabled: !App.busy
                 onClicked: oodleDialog.open()
-            }
-            Button {
-                text: I18n.s.settings_oodle_reset
-                enabled: !App.busy && App.oodleIsCustom
-                onClicked: App.clearOodlePath()
             }
         }
 

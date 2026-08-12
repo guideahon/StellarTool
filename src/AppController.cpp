@@ -1229,6 +1229,14 @@ void AppController::clearOodlePath() {
     emit oodleChanged();
 }
 
+void AppController::refreshOodle() {
+    // No cambiar la preferencia manual: el usuario puede volver a la detección
+    // automática con el botón correspondiente. Esto solo invalida el resultado
+    // cacheado, útil después de reparar/verificar los archivos del juego.
+    PakService::resetOodleCache();
+    emit oodleChanged();
+}
+
 QString AppController::detectedGameVersion() const {
     return UsmapService::detectGameVersion();
 }

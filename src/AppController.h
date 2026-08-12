@@ -142,6 +142,7 @@ public:
     bool oodleIsCustom() const;       // elegida a mano por el usuario
     Q_INVOKABLE bool setOodlePath(const QUrl &fileUrl);   // false si no es el DLL
     Q_INVOKABLE void clearOodlePath();
+    Q_INVOKABLE void refreshOodle();                     // vuelve a buscar en el juego
     // Auto-descarga del usmap para una versión del juego desde el archivo de la
     // comunidad. Vacío = usar detectedGameVersion. Async: emite usmapDownloadDone.
     QString detectedGameVersion() const;
