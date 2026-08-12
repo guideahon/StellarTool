@@ -1,4 +1,4 @@
-STELLAR TOOL - TABLE MOD MERGER FOR STELLAR BLADE
+STELLAR TOOL - STELLAR BLADE MOD TOOLKIT
 
 Stellar Tool solves the classic problem: two mods edit the same table file (SkillTable, CharacterTable, EffectTable...), the game only loads one, and you silently lose half of what you installed.
 

@@ -1,4 +1,4 @@
-[size=5]Stellar Tool — Table mod merger for Stellar Blade[/size]
+[size=5]Stellar Tool — Stellar Blade mod toolkit[/size]
 
 [b]Two mods edit the same table, the game loads only one, and you silently lose half of what you installed.[/b] Stellar Tool reads the DataTables inside your mods, shows every change, lets you resolve conflicts, and builds one verified merged container.
 

@@ -1,4 +1,4 @@
-# Stellar Tool — Table mod merger for Stellar Blade
+# Stellar Tool — Stellar Blade mod toolkit
 
 ## Description
 
