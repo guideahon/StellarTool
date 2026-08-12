@@ -1,1 +1,1 @@
-Merge Stellar Blade table mods without losing anything, AND build your own Stellar Souls mod from a questionnaire. See every value a mod changes, resolve conflicts, export one verified pak + mod-manager zip. GUI and CLI. Open source.
+Stellar Blade mod toolkit: merge and build mods, convert replacer/CNS outfits, fix IoStore IDs, tune gameplay live, manage ReShade, and automate via GUI or CLI. Verified outputs, installable zips, projects, and presets.
