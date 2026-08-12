@@ -1013,6 +1013,37 @@ void AppController::merge(const QUrl &outDirUrl) {
     std::ignore = QtConcurrent::run([this, outDir] {
         const QString error = runMerge(outDir);
         QMetaObject::invokeMethod(this, [this, error, outDir] {
+            // Conservar contexto suficiente para diagnosticar fallos de merge.
+            // No se incluyen JSON completos ni assets del juego en este log.
+            QString mergeLogPath;
+            const QString logDir = QStandardPaths::writableLocation(
+                                       QStandardPaths::AppLocalDataLocation)
+                                 + QStringLiteral("/logs");
+            QDir().mkpath(logDir);
+            mergeLogPath = logDir + QStringLiteral("/merge_%1.log")
+                                     .arg(QDateTime::currentDateTime()
+                                              .toString(QStringLiteral("yyyyMMdd_HHmmss")));
+            QFile mergeLog(mergeLogPath);
+            if (mergeLog.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                QTextStream log(&mergeLog);
+                log << "Stellar Tool merge diagnostic\n"
+                    << "Timestamp: " << QDateTime::currentDateTime().toString(Qt::ISODate) << "\n"
+                    << "Output directory: " << outDir << "\n"
+                    << "Analyzed mods:\n";
+                for (const ModPackage &mod : m_mods)
+                    log << "  - " << mod.name << " | " << mod.sourcePath << "\n";
+                log << "Selected changes: " << m_items.size() << "\n"
+                    << "Failed tables: " << m_lastFailedTables.join(", ") << "\n"
+                    << "Dropped tables: " << m_lastDroppedTables.join(", ") << "\n"
+                    << "Result: " << (error.isEmpty() ? "success" : "failure") << "\n"
+                    << "Error: " << (error.isEmpty() ? "(none)" : error) << "\n";
+                const QString reportPath = outDir + QStringLiteral("/merge_report.txt");
+                QFile report(reportPath);
+                if (report.open(QIODevice::ReadOnly))
+                    log << "\nMerge report:\n" << QString::fromUtf8(report.readAll()) << "\n";
+            } else {
+                mergeLogPath.clear();
+            }
             if (error.isEmpty()) {
                 m_lastMergeOk = true;
                 m_lastMergeResult = (m_exportZip ? t(QStringLiteral("merge_ok_zip"))
@@ -1034,7 +1065,10 @@ void AppController::merge(const QUrl &outDirUrl) {
             } else {
                 m_lastMergeOk = false;
                 m_lastMergeResult = t(QStringLiteral("merge_err")).arg(error);
-                emit errorOccurred(error);
+                const QString diagnostic = mergeLogPath.isEmpty()
+                    ? error
+                    : error + QStringLiteral("\n\nDiagnóstico: ") + mergeLogPath;
+                emit errorOccurred(diagnostic);
             }
             emit mergeFinished();
             setBusy(false);

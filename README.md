@@ -75,6 +75,13 @@ Los binarios externos no se versionan; `setup.bat` los baja de sus releases ofic
 
 Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
 
+### Diagnóstico de errores
+
+Si falla un Builder o un merge, la herramienta conserva un log en
+`%LOCALAPPDATA%/StellarTool/logs/` y muestra su ruta en el mensaje de error.
+Los diagnósticos de merge incluyen los mods analizados y las tablas aplicadas,
+excluidas o descartadas, sin copiar JSON completos ni assets del juego.
+
 ### Stellar Souls Builder
 
 La página **Build Stellar Souls** compila un Stellar Souls personalizado por cambio:
