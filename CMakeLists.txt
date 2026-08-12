@@ -21,6 +21,7 @@ set(CORE_SOURCES
     src/core/CnsIdFixerService.cpp
     src/core/GamePaths.cpp
     src/core/LiveService.cpp
+    src/core/ReShadePresetService.cpp
     src/core/UsmapService.cpp
     src/core/BaselineManager.cpp
     src/core/ModImporter.cpp
@@ -44,6 +45,7 @@ set(CORE_HEADERS
     src/core/CnsIdFixerService.h
     src/core/GamePaths.h
     src/core/LiveService.h
+    src/core/ReShadePresetService.h
     src/core/UsmapService.h
     src/core/BaselineManager.h
     src/core/ModImporter.h
@@ -121,6 +123,7 @@ if (BUILD_TESTS)
         tests/TestHeadless.cpp
         tests/TestOodle.cpp
         tests/TestLiveService.cpp
+        tests/TestReShadePresetService.cpp
         src/core/UpdateService.cpp
         src/core/UpdateService.h
         ${CORE_SOURCES}

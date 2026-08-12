@@ -20,6 +20,10 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
   él por archivos de texto. No toca partidas guardadas, inventario ni progresión,
   y se desinstala desde la misma página.
+- **ReShade** detecta la configuración del juego, guarda/restaura presets `.ini`,
+  permite importar/exportar y renombrar/eliminar presets, y crea un backup de
+  `ReShade.ini` antes de cambiar el preset activo. Advierte si faltan shaders
+  referenciados; no distribuye shaders.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
 Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)

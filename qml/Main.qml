@@ -69,6 +69,7 @@ ApplicationWindow {
                                { key: "nav_cns", icon: "👗", page: 7 },
                                { label: "CNS ID Fixer", icon: "🆔", page: 8 },
                                { label: "Live", icon: "🎮", page: 9 },
+                               { label: "ReShade", icon: "🎨", page: 10 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                            : [
@@ -77,6 +78,7 @@ ApplicationWindow {
                                { key: "nav_cns", icon: "👗", page: 7 },
                                { label: "CNS ID Fixer", icon: "🆔", page: 8 },
                                { label: "Live", icon: "🎮", page: 9 },
+                               { label: "ReShade", icon: "🎨", page: 10 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                     delegate: Rectangle {
@@ -258,6 +260,7 @@ ApplicationWindow {
             CnsConverterPage {}
             CnsIdFixerPage {}
             LivePage { onOpenSettings: win.currentPage = 5 }
+            ReShadePage {}
         }
     }
 

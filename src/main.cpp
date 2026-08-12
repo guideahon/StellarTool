@@ -3,6 +3,7 @@
 #include "Translator.h"
 #include "core/GamePaths.h"
 #include "core/LiveService.h"
+#include "core/ReShadePresetService.h"
 #include "core/UpdateService.h"
 
 #include <QGuiApplication>
@@ -134,6 +135,9 @@ int main(int argc, char *argv[]) {
     st::AppController controller(&translator);
     st::UpdateService updater;
     st::LiveService live;
+    st::ReShadePresetService reshade;
+    QObject::connect(&controller, &st::AppController::gamePathChanged,
+                     &reshade, &st::ReShadePresetService::refresh);
     // El .bat de reemplazo ya está corriendo: hay que soltar el exe viejo.
     QObject::connect(&updater, &st::UpdateService::quitRequested, &app, &QGuiApplication::quit);
 
@@ -151,6 +155,7 @@ int main(int argc, char *argv[]) {
     engine.rootContext()->setContextProperty(QStringLiteral("I18n"), &translator);
     engine.rootContext()->setContextProperty(QStringLiteral("Updater"), &updater);
     engine.rootContext()->setContextProperty(QStringLiteral("Live"), &live);
+    engine.rootContext()->setContextProperty(QStringLiteral("ReShade"), &reshade);
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;
