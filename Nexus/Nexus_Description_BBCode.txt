@@ -44,6 +44,41 @@ When merging Zen mods, numeric changes such as HP, damage, shields, and multipli
 [*]Your source mods are never modified; only the chosen output folder is written.
 [/list]
 
+[b]More than a table merger[/b]
+
+[b]Stellar Souls Builder[/b]
+
+Build a custom Stellar Souls mod from a questionnaire instead of choosing between fixed prebuilt variants. Combat, outfit, and combined profiles can be configured independently, with visible incompatibility warnings and presets for Full, First Run, and NG+.
+
+[list]
+[*]Adjust Beta/Burst and drone damage, Eve attacks, dash attacks, enemy damage/vulnerability, perfect dodge, Tachy duration, gauge economy, Blaster Cell, and SkinSuit-on-break outfit behavior.
+[*]Configure mini-bosses by region with separate density, health, attack, shield, persistence, drops, XP, Boss type, and execution immunity.
+[*]Adjust world and progression: shop prices, enemy/chest drops, SP experience, EVE upgrade materials, and fishing.
+[*]Use synchronized sliders and numeric fields, with [i]Vanilla[/i] controls to disable individual changes.
+[*]Save, reuse, export, and import complete configurations as [code].stpreset[/code] files.
+[*]Compile and optionally install the selected paks and matching outfit helper, or export a Vortex-ready zip.
+[/list]
+
+The Builder includes an embedded Python runtime. The merger itself does not require Python.
+
+[b]CNS Converter[/b]
+
+Convert outfits between replacer and CNS format without modifying the source mod. Accepts [code].zip[/code], [code].pak[/code], [code].utoc[/code], or folder input, generates a Vortex-ready zip, and keeps a persistent conversion history.
+
+[b]CNS ID Fixer[/b]
+
+Scan IoStore mods recursively for duplicate [code]Container_Id[/code] values, repair them with a verifiable backup, and report [code]Package_Id[/code] conflicts without changing those package IDs.
+
+[b]Live and ReShade tools[/b]
+
+The Live page can install and remove Stellar Tool's UE4SS Lua bridge and adjust field of view, movement speed, and jump strength while the game is running. It does not touch saves, inventory, or progression; UE4SS must be installed separately.
+
+The ReShade page manages [code].ini[/code] presets, backs up [code]ReShade.ini[/code] before switching, and warns about missing referenced shaders. It does not distribute shaders.
+
+[b]Projects, automation, and updates[/b]
+
+Save merge workspaces as [code].stproj[/code] projects. The headless CLI supports analysis, merging, baselines, CNS conversion, Builder compilation, ID fixing, installation status, detection, and uninstall operations. Stellar Tool also includes ten interface languages, light/dark/OLED themes, diagnostic logs, and automatic GitHub Release updates.
+
 [b]Install[/b]
 
 [list=1]
@@ -60,6 +95,7 @@ A vanilla baseline is optional but recommended. It lets you see vanilla → modd
 
 [list]
 [*]Windows 10/11. The tool never modifies game files.
+[*]Builder installation is explicit and only changes paks/helpers installed by Stellar Tool; third-party mods are left alone.
 [*]The merged pak conflicts by definition with the source mods used to create it. Disable those source mods.
 [*]Open source under the MIT license: [url=https://github.com/guideahon/StellarTool]github.com/guideahon/StellarTool[/url].
 [/list]

@@ -35,6 +35,31 @@ MAIN FEATURES
 - Use the headless CLI for scripts and automation.
 - Your source mods are never modified; only the chosen output folder is written.
 
+MORE THAN A TABLE MERGER
+
+STELLAR SOULS BUILDER
+Build a custom Stellar Souls mod from a questionnaire instead of choosing between fixed prebuilt variants. Configure combat, outfit, and combined profiles independently, with visible incompatibility warnings and Full, First Run, and NG+ presets.
+- Adjust Beta/Burst and drone damage, Eve attacks, dash attacks, enemy damage/vulnerability, perfect dodge, Tachy duration, gauge economy, Blaster Cell, and SkinSuit-on-break behavior.
+- Configure mini-bosses by region with separate density, health, attack, shield, persistence, drops, XP, Boss type, and execution immunity.
+- Adjust shop prices, enemy/chest drops, SP experience, EVE upgrade materials, and fishing.
+- Use synchronized sliders and numeric fields, with Vanilla controls to disable individual changes.
+- Save, reuse, export, and import complete configurations as .stpreset files.
+- Compile and optionally install the selected paks and matching outfit helper, or export a Vortex-ready zip.
+The Builder includes an embedded Python runtime. The merger itself does not require Python.
+
+CNS CONVERTER
+Convert outfits between replacer and CNS format without modifying the source mod. Accepts .zip, .pak, .utoc, or folder input, generates a Vortex-ready zip, and keeps a persistent conversion history.
+
+CNS ID FIXER
+Scan IoStore mods recursively for duplicate Container_Id values, repair them with a verifiable backup, and report Package_Id conflicts without changing those package IDs.
+
+LIVE AND RESHADE TOOLS
+Live can install and remove Stellar Tool's UE4SS Lua bridge and adjust field of view, movement speed, and jump strength while the game is running. It does not touch saves, inventory, or progression; UE4SS must be installed separately.
+ReShade management stores, imports, exports, renames, and deletes .ini presets, backs up ReShade.ini before switching, and warns about missing referenced shaders. It does not distribute shaders.
+
+PROJECTS, AUTOMATION, AND UPDATES
+Save merge workspaces as .stproj projects. The headless CLI supports analysis, merging, baselines, CNS conversion, Builder compilation, ID fixing, installation status, detection, and uninstall operations. Stellar Tool also includes ten interface languages, light/dark/OLED themes, diagnostic logs, and automatic GitHub Release updates.
+
 INSTALL
 1. Download and extract Stellar Tool anywhere. It is self-contained and has no installer.
 2. Run StellarTool.exe and confirm your Stellar Blade folder in Settings.
