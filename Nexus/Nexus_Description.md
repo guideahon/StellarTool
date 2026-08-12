@@ -13,6 +13,12 @@ SkillTable · M_DroidTurret_Laser · AttackDamageRate: 1.5 → 4.5 (+200%)
 
 Select the changes you want. When two mods touch the same value with different numbers, the tool flags a conflict and lets you choose the winner side by side. It then rebuilds the selected tables and packs everything into one verified container.
 
+## Build and install Stellar Souls
+
+Stellar Souls is available directly through Stellar Tool's **Build Stellar Souls** page. There is no separate Stellar Souls mod download to manage: open the Builder, choose the changes you want, compile your configuration, and optionally install the generated paks and helper from the same app.
+
+The Builder lets you create a personalized Stellar Souls setup with combat damage, Beta/Burst economy, drone behavior, Eve attacks, dash attacks, enemy damage and vulnerability, perfect dodge, Tachy duration, Blaster Cell behavior, SkinSuit-on-break outfit behavior, mini-bosses, world progression, and other independent extras. It includes visible compatibility warnings, Full/First Run/NG+ presets, configurable mini-boss settings, reusable presets, and export/import through `.stpreset` files.
+
 ## Two ways to use it
 
 - **Simple:** drop in your mods, click **Merge everything**, and let the tool resolve conflicts by order (the first mod wins).
@@ -60,7 +66,7 @@ When merging Zen mods, numeric changes such as HP, damage, shields, and multipli
 
 ### Stellar Souls Builder
 
-Build a custom Stellar Souls mod from a questionnaire instead of choosing between fixed prebuilt variants. Combat, outfit, and combined profiles can be configured independently, with visible incompatibility warnings and presets for Full, First Run, and NG+.
+Build and install a custom Stellar Souls setup from a questionnaire instead of downloading and managing a separate fixed mod. Combat, outfit, and combined profiles can be configured independently, with visible incompatibility warnings and presets for Full, First Run, and NG+.
 
 The Builder includes adjustable Beta/Burst and drone damage, Eve attack damage, dash attacks, enemy damage and vulnerability, perfect dodge, Tachy duration, gauge economy, Blaster Cell behavior, SkinSuit-on-break outfit behavior, mini-bosses, and independent gameplay extras.
 

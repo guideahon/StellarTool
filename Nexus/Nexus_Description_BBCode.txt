@@ -2,6 +2,12 @@
 
 [b]Two mods edit the same table, the game loads only one, and you silently lose half of what you installed.[/b] Stellar Tool reads the DataTables inside your mods, shows every change, lets you resolve conflicts, and builds one verified merged container.
 
+[b]Build and install Stellar Souls[/b]
+
+Stellar Souls is available directly through Stellar Tool's [b]Build Stellar Souls[/b] page. There is no separate Stellar Souls mod download to manage: open the Builder, choose the changes you want, compile your configuration, and optionally install the generated paks and helper from the same app.
+
+The Builder creates personalized setups with combat damage, Beta/Burst economy, drone behavior, Eve attacks, dash attacks, enemy damage and vulnerability, perfect dodge, Tachy duration, Blaster Cell behavior, SkinSuit-on-break outfit behavior, mini-bosses, world progression, and other independent extras. It includes compatibility warnings, Full/First Run/NG+ presets, configurable mini-boss settings, reusable presets, and [code].stpreset[/code] export/import.
+
 [b]Two ways to use it[/b]
 
 [list]

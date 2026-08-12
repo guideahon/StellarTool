@@ -1,1 +1,1 @@
-Stellar Blade mod toolkit: merge and build mods, convert replacer/CNS outfits, fix IoStore IDs, tune gameplay live, manage ReShade, and automate via GUI or CLI. Verified outputs, installable zips, projects, and presets.
+Stellar Blade mod toolkit: merge mods, build and install custom Stellar Souls setups, convert replacer/CNS outfits, fix IoStore IDs, tune gameplay live, manage ReShade, and automate via GUI or CLI.

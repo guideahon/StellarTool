@@ -9,6 +9,11 @@ SkillTable · M_DroidTurret_Laser · AttackDamageRate: 1.5 -> 4.5 (+200%)
 
 Select the changes you want. When two mods touch the same value with different numbers, the tool flags a conflict and lets you choose the winner side by side. It then rebuilds the selected tables and packs everything into one verified container.
 
+BUILD AND INSTALL STELLAR SOULS
+Stellar Souls is available directly through Stellar Tool's Build Stellar Souls page. There is no separate Stellar Souls mod download to manage: open the Builder, choose the changes you want, compile your configuration, and optionally install the generated paks and helper from the same app.
+
+The Builder creates personalized setups with combat damage, Beta/Burst economy, drone behavior, Eve attacks, dash attacks, enemy damage and vulnerability, perfect dodge, Tachy duration, Blaster Cell behavior, SkinSuit-on-break outfit behavior, mini-bosses, world progression, and other independent extras. It includes compatibility warnings, Full/First Run/NG+ presets, configurable mini-boss settings, reusable presets, and .stpreset export/import.
+
 TWO WAYS TO USE IT
 - Simple: drop in your mods, click Merge everything, and let the tool resolve conflicts by order (the first mod wins).
 - Advanced: use the full workbench with mod priority, per-change checkboxes, side-by-side conflict resolution, manual value editing, bulk numeric edits, and savable projects.
