@@ -1,51 +1,60 @@
-Stellar Tool is a mod merger for Stellar Blade, built to solve the classic problem: two mods edit the same table file (SkillTable, CharacterTable, EffectTable...), the game only loads one of them, and you silently lose half of what you installed.
+STELLAR TOOL - TABLE MOD MERGER FOR STELLAR BLADE
 
-Instead of merging blind, Stellar Tool decodes the DataTables inside each mod and shows you every single change as a readable line:
+Stellar Tool solves the classic problem: two mods edit the same table file (SkillTable, CharacterTable, EffectTable...), the game only loads one, and you silently lose half of what you installed.
+
+Instead of merging blind, Stellar Tool decodes the DataTables inside each mod and shows every change as a readable line:
 
 EffectTable · Item_HP_RPotion · CalculationValue: 60 -> 30 (-50%)
 SkillTable · M_DroidTurret_Laser · AttackDamageRate: 1.5 -> 4.5 (+200%)
 
-You check the changes you want, and when two mods touch the same value with different numbers, the tool flags it as a conflict and lets you pick the winner side by side. Then it rebuilds the tables and packs everything into a single verified container.
+Select the changes you want. When two mods touch the same value with different numbers, the tool flags a conflict and lets you choose the winner side by side. It then rebuilds the selected tables and packs everything into one verified container.
+
+TWO WAYS TO USE IT
+- Simple: drop in your mods, click Merge everything, and let the tool resolve conflicts by order (the first mod wins).
+- Advanced: use the full workbench with mod priority, per-change checkboxes, side-by-side conflict resolution, manual value editing, bulk numeric edits, and savable projects.
+
+READS ZEN/IOSTORE MODS
+Most Stellar Blade mods use Zen/IoStore containers (.ucas/.utoc). Stellar Tool reads them with CUE4Parse. Point it at your Stellar Blade folder once from Settings; Steam is detected automatically. Legacy .pak, .zip, and loose .uasset folders are supported too.
+
+When merging Zen mods, numeric changes such as HP, damage, shields, and multipliers are written back and round-trip verified. Non-numeric changes such as text, enums, arrays, and object references are shown in the diff but currently skipped during writing because they do not reliably round-trip into a Zen container yet. The tool reports exactly how many changes were applied and skipped.
 
 MAIN FEATURES
-- Load any number of mods: legacy .pak, zips, loose .uasset folders, and Zen/IoStore mods (the usual Nexus format, .ucas/.utoc) via CUE4Parse.
-- Per-change checkboxes: every modified row/property is one line you can keep or drop. Whole tables toggle at once.
-- Real before/after values against a vanilla baseline, with percentages.
-- Conflict detection at value level, resolved side by side or "prefer this mod for everything".
-- Edit the final value by hand, or bulk-edit many numeric values at once (xN, +, -, clamp...) filtered by a row-name regex.
-- Export selected changes as readable TOML patches, or import a .toml patch back as changes.
-- Duplicate changes across mods are auto-collapsed.
-- Output is the game's native Zen/IoStore container, verified after packing, plus an optional installable .zip and a merge_report.txt.
-- Two modes: Simple (drop mods, one click) and Advanced (full merge-mod workbench). 10 languages.
-- Your source mods are never modified.
-
-BUILD MOD (make your own Stellar Souls mod)
-Beyond merging, a "Build mod" tab compiles a custom Stellar Souls mod + CNS helper from a short questionnaire - the exact pak you want, byte-for-byte matching the released files, with an install guide in your language.
-- Combat / Outfit / Combat+Outfit, Full or First Run.
-- Mini-bosses + NG+ gear drops: all regions or Great Desert, adjustable density, progressive difficulty, and an anti-farm fix. (BETA)
-- Gameplay extras (BETA): Player QoL, HP Drain, longer Tachy, harder enemies x2-x6, no fall damage, no water/sand death, less Tachy drain, stronger gear x2, Beta/Burst on perfect parry/dodge (no skill tree), wider perfect-timing window, double air dodge, enemy variety.
-- Custom TOML patches: drop your own <Table>.toml row/property patches on top. (BETA)
-- Auto-detects the game and, with your approval, installs mod + helper (and can uninstall exactly what it installed). History of builds you can reuse as templates or re-export.
-- Ships embedded Python (nothing to install); reads Oodle from your own game to pack. Needs Stellar Blade installed for this tab.
-
-READING ZEN/IOSTORE MODS
-Most Stellar Blade mods ship as Zen/IoStore containers. Stellar Tool reads them with CUE4Parse - point it at your Stellar Blade folder once (Settings; it auto-detects Steam). Numbers, text, enums, arrays, object fields and whole rows are written back and verified. New rows are reconstructed safely, scalar arrays work even when vanilla starts empty, and row removals are supported with a guard against suspicious mass loss. If a game update makes the bundled mappings stale, Settings -> Mappings can download the matching .usmap for your game version, or load your own. If something fails, the real reason is recovered and written to a diagnostic log in %LOCALAPPDATA%\StellarTool\logs\ - attach the newest one when reporting an issue.
+- Load any number of legacy .pak files, .zip archives, loose .uasset folders, or Zen/IoStore mods (.ucas/.utoc).
+- See real vanilla -> modded values with percentages, per row and property.
+- Select individual changes or toggle complete tables.
+- Edit final numeric values by hand or apply bulk operations (xN, +, -, clamp, set...) filtered by row-name regex.
+- Detect and resolve value-level conflicts side by side.
+- Handle non-table assets such as meshes and textures as whole-file replacements.
+- Export selected changes as readable TOML patches, or import a literal TOML patch back as changes.
+- Output the game's native Zen/IoStore container: zzz_StellarTool_Merged_P.
+- Round-trip verify every written table after packing.
+- Generate an optional installable .zip (Paks\ plus readme) for Vortex or any mod manager.
+- Include merge_report.txt with applied changes, skipped changes, and conflict resolutions.
+- Save mod lists, selections, and resolutions as .stproj projects.
+- Build a vanilla baseline from your own game copy in one click.
+- Use the headless CLI for scripts and automation.
+- Your source mods are never modified; only the chosen output folder is written.
 
 INSTALL
-1. Download and extract anywhere. Run StellarTool.exe.
-2. Drag your mods in, review, and Merge everything.
-3. Copy the generated files to StellarBlade\SB\Content\Paks\~mods, or install the generated zip with your mod manager.
-4. Disable/remove the source mods you merged (the tool offers a one-click button for this).
+1. Download and extract Stellar Tool anywhere. It is self-contained and has no installer.
+2. Run StellarTool.exe and confirm your Stellar Blade folder in Settings.
+3. Drop in your mods, press Analyze, review the changes and conflicts, then merge.
+4. Copy the generated files to StellarBlade\SB\Content\Paks\~mods, or install the generated .zip with your mod manager.
+5. Disable or remove the source mods you merged so they do not override the merged pak.
+
+A vanilla baseline is optional but recommended. It lets you see vanilla -> modded values instead of only raw mod values.
 
 REQUIREMENTS AND CONFLICTS
-- Windows 10/11. No game file is ever touched.
-- The merged pak conflicts, by definition, with the mods you merged into it - disable them.
-- Open source (MIT): https://github.com/guideahon/StellarTool
+- Windows 10/11. The tool never modifies game files.
+- The merged pak conflicts by definition with the source mods used to create it. Disable those source mods.
+- Open source under the MIT license: https://github.com/guideahon/StellarTool
+
+WHAT'S BUNDLED
+The download includes StellarTool.exe and the open-source community CLI tools it drives, unmodified: repak and retoc (trumank), UAssetGUI/UAssetAPI (atenfyr), and cue4parse (CUE4Parse CLI). Everything is auditable from the repository.
 
 SHOUT OUTS
-- trumank, for repak and retoc.
-- atenfyr, for UAssetGUI / UAssetAPI.
-- FabianFG and the FModel team, for CUE4Parse (reads Zen mods).
-- jpabscale, for automod - its declarative TOML patches, regex row selection and versioned mappings inspired the TOML patch support, bulk edit and the .usmap downloader.
-- TheNaeem, for the Unreal Mappings Archive that the in-app .usmap downloader pulls from.
-- The Stellar Blade modding community for the mappings (.usmap) groundwork, and FengYeLy and yadilloH for testing.
+- trumank — repak and retoc.
+- atenfyr — UAssetGUI/UAssetAPI.
+- FabianFG and the FModel team — CUE4Parse.
+- The Stellar Blade modding community — the mappings (.usmap) groundwork.
+- Raxdiam, whose description of gameplay mods as “we're all modifying the same file and clashing” inspired this tool.
