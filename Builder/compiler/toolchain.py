@@ -204,9 +204,9 @@ def _short_workdir() -> Path:
     "桌面\\...\\"). Es indistinguible del fallo por FName faltante.
     """
     import tempfile
-    d = Path(tempfile.gettempdir()) / "stellartool_uag"
-    d.mkdir(parents=True, exist_ok=True)
-    return d
+    # Un directorio por intento evita que una corrida anterior (o dos builds
+    # de procesos distintos) deje un .uasset que parezca un resultado válido.
+    return Path(tempfile.mkdtemp(prefix="st_uag_"))
 
 
 def _is_awkward(p: Path) -> bool:
@@ -225,26 +225,29 @@ def fromjson(json_path: Path, out_uasset: Path) -> Path:
         cp = _uag_fromjson(json_path, out_uasset)
         if out_uasset.exists() and out_uasset.stat().st_size > 0:
             return out_uasset
-    # Ultimo intento en una ruta corta/ASCII: si la salida esta vacia el fallo
-    # puede ser de la ruta y no del contenido de la tabla.
-    if _is_awkward(json_path) or _is_awkward(out_uasset):
-        tmp = _short_workdir()
-        tmp_json = tmp / "in.json"
-        tmp_out = tmp / out_uasset.name
-        try:
-            shutil.copy2(json_path, tmp_json)
-            cp2 = _uag_fromjson(tmp_json, tmp_out)
-            if tmp_out.exists() and tmp_out.stat().st_size > 0:
-                shutil.copy2(tmp_out, out_uasset)
-                uexp = tmp_out.with_suffix(".uexp")
-                if uexp.exists():
-                    shutil.copy2(uexp, out_uasset.with_suffix(".uexp"))
-                return out_uasset
-            cp = cp2
-        except OSError:
-            pass
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+    # Ultimo intento SIEMPRE en una ruta corta/ASCII. La detección por longitud
+    # no alcanza: Windows puede rechazar rutas aparentemente cortas por el
+    # directorio padre, el codepage o una combinación de caracteres. Este
+    # fallback también separa un problema de ruta de uno real del JSON.
+    tmp = _short_workdir()
+    tmp_json = tmp / "in.json"
+    tmp_out = tmp / out_uasset.name
+    try:
+        shutil.copy2(json_path, tmp_json)
+        cp2 = _uag_fromjson(tmp_json, tmp_out)
+        if tmp_out.exists() and tmp_out.stat().st_size > 0:
+            shutil.copy2(tmp_out, out_uasset)
+            # UAssetGUI puede emitir sidecars además de .uexp; copiar los
+            # archivos generados con el mismo stem conserva el round-trip.
+            for sidecar in tmp.glob(f"{tmp_out.stem}.*"):
+                if sidecar != tmp_out:
+                    shutil.copy2(sidecar, out_uasset.with_suffix(sidecar.suffix))
+            return out_uasset
+        cp = cp2
+    except OSError:
+        pass
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
     raise RuntimeError(_uag_failure(f"fromjson no escribio {out_uasset.name}", cp))
 
 
