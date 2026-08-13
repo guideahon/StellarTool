@@ -13,7 +13,7 @@ Item {
     function localPath(url) {
         return decodeURIComponent(url.toString().replace(/^file:\/\//, "").replace(/^\//, ""))
     }
-    function inputTitle() { return operation === 1 ? "Elegir JSON" : "Elegir partida (.sav)" }
+    function inputTitle() { return operation === 1 ? I18n.s.save_choose_json : I18n.s.save_choose_sav }
 
     ScrollView {
         anchors.fill: parent
@@ -23,10 +23,10 @@ Item {
             spacing: 14
             anchors.margins: 18
 
-            Label { text: "Convertidor de partidas"; color: Theme.text; font.pixelSize: 22; font.bold: true }
+            Label { text: I18n.s.save_title; color: Theme.text; font.pixelSize: 22; font.bold: true }
             Label {
                 Layout.fillWidth: true
-                text: "Convierte partidas de Stellar Blade y mods a JSON para inspeccionarlas o editarlas, y vuelve a generarlas. Incluye una reparación para partidas CNS dañadas."
+                text: I18n.s.save_desc
                 color: Theme.textDim; wrapMode: Text.Wrap
             }
 
@@ -35,39 +35,39 @@ Item {
                 radius: Theme.radius; color: Theme.panel; border.color: Theme.border
                 ColumnLayout {
                     id: form; anchors.fill: parent; anchors.margins: 14; spacing: 10
-                    Label { text: "Operación"; color: Theme.text; font.bold: true }
+                    Label { text: I18n.s.operation; color: Theme.text; font.bold: true }
                     ComboBox {
                         id: operationBox; Layout.fillWidth: true
-                        model: ["Partida → JSON", "JSON → partida", "Reparar partida CNS"]
+                        model: [I18n.s.save_to_json, I18n.s.save_from_json, I18n.s.save_fix]
                         onCurrentIndexChanged: page.operation = currentIndex
                     }
-                    Label { text: "Entrada"; color: Theme.text; font.bold: true }
+                    Label { text: I18n.s.input; color: Theme.text; font.bold: true }
                     RowLayout {
                         Layout.fillWidth: true
                         TextField { Layout.fillWidth: true; text: page.inputPath; readOnly: true; color: Theme.text; placeholderText: page.inputTitle() }
-                        Button { text: "Elegir…"; onClicked: inputDialog.open() }
+                        Button { text: I18n.s.choose; onClicked: inputDialog.open() }
                     }
                     RowLayout {
                         visible: page.operation !== 2; Layout.fillWidth: true
-                        Label { text: "Salida"; color: Theme.text; font.bold: true }
+                        Label { text: I18n.s.output; color: Theme.text; font.bold: true }
                         TextField { Layout.fillWidth: true; text: page.outputPath; readOnly: true; color: Theme.text; placeholderText: page.operation === 0 ? "archivo.json" : "archivo.sav" }
-                        Button { text: "Elegir…"; onClicked: outputDialog.open() }
+                        Button { text: I18n.s.choose; onClicked: outputDialog.open() }
                     }
                     RowLayout {
                         visible: page.operation === 0; Layout.fillWidth: true
-                        Label { text: "Indentación JSON"; color: Theme.text }
+                        Label { text: I18n.s.save_indent; color: Theme.text }
                         SpinBox { id: indentBox; from: 0; to: 8; value: 2; editable: true }
                     }
                     Label {
                         Layout.fillWidth: true
                         text: page.operation === 2
-                            ? "La reparación elimina AutoLoadCNS y CamPosition. Se crea un backup automático en la carpeta Backup junto a la partida antes de sobrescribirla."
-                            : "Al generar una partida sobre un archivo existente, se crea un backup automático en la carpeta Backup. Verificá siempre el resultado dentro del juego."
+                            ? I18n.s.save_fix_hint
+                            : I18n.s.save_write_hint
                         color: Theme.textDim; wrapMode: Text.Wrap
                     }
                     Button {
                         Layout.alignment: Qt.AlignRight; highlighted: true
-                        text: page.operation === 0 ? "Convertir a JSON" : page.operation === 1 ? "Generar partida" : "Reparar CNS"
+                        text: page.operation === 0 ? I18n.s.save_convert : page.operation === 1 ? I18n.s.save_generate : I18n.s.save_repair
                         enabled: !App.busy && page.inputPath.length > 0 && (page.operation === 2 || page.outputPath.length > 0)
                         onClicked: {
                             if (page.operation === 0) App.convertSaveToJson(page.fileUrl(page.inputPath), page.fileUrl(page.outputPath), indentBox.value)
@@ -82,7 +82,7 @@ Item {
                 Layout.fillWidth: true; implicitHeight: credit.implicitHeight + 28
                 radius: Theme.radius; color: Theme.panel; border.color: Theme.border
                 Label { id: credit; anchors.fill: parent; anchors.margins: 14; color: Theme.textDim; wrapMode: Text.Wrap
-                    text: "Crédito: conversor original creado por lotress.\nNexus Mods: https://www.nexusmods.com/stellarblade/users/12188623\nRepositorio: https://github.com/lotress/CNSSaveConverter" }
+                    text: I18n.s.save_credit }
             }
             Label { visible: App.saveConverterResult.length > 0; Layout.fillWidth: true; text: App.saveConverterResult; color: Theme.textDim; wrapMode: Text.Wrap }
             Item { Layout.fillHeight: true }
@@ -91,5 +91,5 @@ Item {
 
     function fileUrl(path) { return "file:///" + path.replace(/\\/g, "/") }
     FileDialog { id: inputDialog; title: page.inputTitle(); fileMode: FileDialog.OpenFile; onAccepted: page.inputPath = page.localPath(selectedFile) }
-    FileDialog { id: outputDialog; title: "Elegir archivo de salida"; fileMode: FileDialog.SaveFile; onAccepted: page.outputPath = page.localPath(selectedFile) }
+    FileDialog { id: outputDialog; title: I18n.s.choose_output_file; fileMode: FileDialog.SaveFile; onAccepted: page.outputPath = page.localPath(selectedFile) }
 }

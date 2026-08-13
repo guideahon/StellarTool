@@ -33,14 +33,14 @@ Item {
             anchors.margins: 18
 
             Label {
-                text: "CNS Converter"
+                text: I18n.s.cns_title
                 color: Theme.text
                 font.pixelSize: 22
                 font.bold: true
             }
             Label {
                 Layout.fillWidth: true
-                text: "Convierte outfits replacer a Custom Nanosuit System y outfits CNS a un reemplazo vanilla. Los mods de origen nunca se modifican."
+                text: I18n.s.cns_desc
                 color: Theme.textDim
                 wrapMode: Text.Wrap
             }
@@ -58,28 +58,28 @@ Item {
                     anchors.margins: 14
                     spacing: 10
 
-                    Label { text: "Dirección"; color: Theme.text; font.bold: true }
+                    Label { text: I18n.s.direction; color: Theme.text; font.bold: true }
                     FieldCombo {
                         id: mode
                         Layout.fillWidth: true
-                        model: ["Replacer → CNS", "CNS → replacer"]
+                        model: [I18n.s.cns_to_cns, I18n.s.cns_to_replacer]
                     }
 
-                    Label { text: "Mods de entrada (.zip, .utoc, .pak o carpeta)"; color: Theme.text; font.bold: true }
+                    Label { text: I18n.s.cns_input_mods; color: Theme.text; font.bold: true }
                     RowLayout {
                         Layout.fillWidth: true
                         TextField {
                             Layout.fillWidth: true
                             text: page.inputPaths.length > 1
-                                  ? page.inputPaths.length + " mods seleccionados"
+                                  ? page.inputPaths.length + " " + I18n.s.selected_mods
                                   : page.inputPath
                             readOnly: page.inputPaths.length > 1
-                            placeholderText: "Elegí uno o varios mods..."
+                            placeholderText: I18n.s.cns_input_placeholder
                             color: Theme.text
                             onTextEdited: page.inputPaths = text.length > 0 ? [text] : []
                         }
-                        Button { text: "Archivos…"; onClicked: inputFile.open() }
-                        Button { text: "Carpeta…"; onClicked: inputFolder.open() }
+                        Button { text: I18n.s.files; onClicked: inputFile.open() }
+                        Button { text: I18n.s.folder; onClicked: inputFolder.open() }
                     }
                     Label {
                         visible: page.inputPaths.length > 1
@@ -93,7 +93,7 @@ Item {
 
                     Label {
                         visible: page.inputPaths.length <= 1
-                        text: "Nombre visible"
+                        text: I18n.s.visible_name
                         color: Theme.text
                         font.bold: true
                     }
@@ -101,20 +101,20 @@ Item {
                         id: modName
                         visible: page.inputPaths.length <= 1
                         Layout.fillWidth: true
-                        placeholderText: "Se deriva del nombre del archivo si queda vacío"
+                        placeholderText: I18n.s.visible_name_placeholder
                         color: Theme.text
                     }
                     Label {
                         visible: page.inputPaths.length > 1
                         Layout.fillWidth: true
-                        text: "Con varios mods, cada uno usa el nombre de su archivo."
+                        text: I18n.s.multiple_mods_hint
                         color: Theme.textDim
                         wrapMode: Text.Wrap
                     }
 
                     Label {
                         visible: page.toReplacer
-                        text: "Outfit vanilla que reemplaza"
+                        text: I18n.s.replacement_outfit
                         color: Theme.text
                         font.bold: true
                     }
@@ -127,7 +127,7 @@ Item {
 
                     Label {
                         visible: page.toReplacer
-                        text: "Variante CNS (opcional: nombre o número)"
+                        text: I18n.s.cns_variant
                         color: Theme.text
                         font.bold: true
                     }
@@ -135,11 +135,11 @@ Item {
                         id: selection
                         visible: page.toReplacer
                         Layout.fillWidth: true
-                        placeholderText: "Vacío = primera variante"
+                        placeholderText: I18n.s.cns_variant_placeholder
                         color: Theme.text
                     }
 
-                    Label { text: "Carpeta de salida"; color: Theme.text; font.bold: true }
+                    Label { text: I18n.s.output_folder; color: Theme.text; font.bold: true }
                     RowLayout {
                         Layout.fillWidth: true
                         TextField {
@@ -148,16 +148,16 @@ Item {
                             color: Theme.text
                             onTextEdited: page.outputPath = text
                         }
-                        Button { text: "Elegir…"; onClicked: outputFolder.open() }
+                        Button { text: I18n.s.choose; onClicked: outputFolder.open() }
                         Button {
-                            text: "Abrir carpeta"
+                            text: I18n.s.open_folder
                             onClicked: App.openCnsOutputDir()
                         }
                     }
 
                     Button {
                         Layout.alignment: Qt.AlignRight
-                        text: (page.toReplacer ? "Convertir a replacer" : "Convertir a CNS")
+                        text: (page.toReplacer ? I18n.s.convert_to_replacer : I18n.s.convert_to_cns)
                               + (page.inputPaths.length > 1
                                  ? " (" + page.inputPaths.length + ")" : "")
                         highlighted: true
@@ -188,14 +188,14 @@ Item {
             RowLayout {
                 Layout.fillWidth: true
                 Label {
-                    text: "Historial de CNS creados"
+                    text: I18n.s.cns_history
                     color: Theme.text
                     font.pixelSize: 18
                     font.bold: true
                     Layout.fillWidth: true
                 }
                 Button {
-                    text: "Abrir carpeta"
+                    text: I18n.s.open_folder
                     onClicked: App.openCnsOutputDir()
                 }
             }
@@ -203,7 +203,7 @@ Item {
             Label {
                 visible: page.historyItems.length === 0
                 Layout.fillWidth: true
-                text: "Todavía no hay conversiones CNS guardadas."
+                text: I18n.s.cns_empty
                 color: Theme.textDim
             }
 
@@ -246,7 +246,7 @@ Item {
                             }
                         }
                         Button {
-                            text: "Abrir carpeta"
+                            text: I18n.s.open_folder
                             onClicked: App.openDir(
                                 (modelData.zip || "").replace(/[\\\\/][^\\\\/]+$/, ""))
                         }
@@ -259,7 +259,7 @@ Item {
 
     FileDialog {
         id: inputFile
-        title: "Elegir mods"
+        title: I18n.s.choose_mods
         fileMode: FileDialog.OpenFiles
         nameFilters: ["Mods (*.zip *.pak *.utoc)", "Todos los archivos (*)"]
         onAccepted: page.inputPaths = selectedFiles.map(function (f) {
@@ -268,13 +268,13 @@ Item {
     }
     FolderDialog {
         id: inputFolder
-        title: "Elegir carpeta del mod"
+        title: I18n.s.choose_mod_folder
         onAccepted: page.inputPaths = [decodeURIComponent(
                         selectedFolder.toString().replace("file:///", ""))]
     }
     FolderDialog {
         id: outputFolder
-        title: "Elegir carpeta de salida"
+        title: I18n.s.choose_output_folder
         onAccepted: page.outputPath = decodeURIComponent(
                         selectedFolder.toString().replace("file:///", ""))
     }

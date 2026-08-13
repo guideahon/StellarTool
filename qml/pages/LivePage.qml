@@ -12,6 +12,14 @@ Item {
 
     readonly property bool usable: Live.installed && Live.bridgeAlive
 
+    function bridgeState() {
+        if (!App.hasGamePath) return I18n.s.live_state_no_game
+        if (!Live.ue4ssPresent) return I18n.s.live_state_no_ue4ss
+        if (!Live.installed) return I18n.s.live_state_not_installed
+        return Live.bridgeAlive ? (Live.ready ? I18n.s.live_state_connected : I18n.s.live_state_waiting_save)
+                                : I18n.s.live_state_game_closed
+    }
+
     ScrollView {
         anchors.fill: parent
         contentWidth: availableWidth
@@ -22,15 +30,14 @@ Item {
             anchors.margins: 18
 
             Label {
-                text: "Live"
+                text: I18n.s.live_title
                 color: Theme.text
                 font.pixelSize: 22
                 font.bold: true
             }
             Label {
                 Layout.fillWidth: true
-                text: "Modificá el juego mientras corre: campo de visión, velocidad de movimiento y fuerza de salto. "
-                    + "Requiere UE4SS instalado. El bridge no toca partidas guardadas, inventario ni progresión."
+                text: I18n.s.live_desc
                 color: Theme.textDim
                 wrapMode: Text.Wrap
             }
@@ -53,7 +60,7 @@ Item {
                         Layout.fillWidth: true
                         spacing: 10
                         Label {
-                            text: "Estado del bridge"
+                            text: I18n.s.live_bridge_status
                             color: Theme.text
                             font.bold: true
                             Layout.fillWidth: true
@@ -68,11 +75,7 @@ Item {
                             Label {
                                 id: stateLabel
                                 anchors.centerIn: parent
-                                text: !App.hasGamePath ? "sin juego"
-                                    : !Live.ue4ssPresent ? "sin UE4SS"
-                                    : !Live.installed ? "no instalado"
-                                    : Live.bridgeAlive ? (Live.ready ? "conectado" : "esperando partida")
-                                    : "juego cerrado"
+                                text: page.bridgeState()
                                 color: page.usable ? Theme.ok
                                      : (Live.installed ? Theme.warn : Theme.textDim)
                                 font.pixelSize: 12
@@ -83,30 +86,28 @@ Item {
                     Label {
                         visible: !App.hasGamePath
                         Layout.fillWidth: true
-                        text: "Configurá la ruta de Stellar Blade en Ajustes para poder instalar el bridge."
+                        text: I18n.s.live_no_game_hint
                         color: Theme.warn
                         wrapMode: Text.Wrap
                     }
                     Label {
                         visible: App.hasGamePath && !Live.ue4ssPresent
                         Layout.fillWidth: true
-                        text: "No se encontró UE4SS en SB\\Binaries\\Win64\\ue4ss. Instalalo por separado: "
-                            + "Stellar Tool no lo distribuye."
+                        text: I18n.s.live_no_ue4ss_hint
                         color: Theme.warn
                         wrapMode: Text.Wrap
                     }
                     Label {
                         visible: Live.installed && !Live.bridgeAlive
                         Layout.fillWidth: true
-                        text: "Bridge instalado. Abrí el juego para conectarte; si ya estaba abierto, reinicialo "
-                            + "para que UE4SS cargue el mod."
+                        text: I18n.s.live_installed_hint
                         color: Theme.textDim
                         wrapMode: Text.Wrap
                     }
                     Label {
                         visible: Live.bridgeAlive && !Live.ready
                         Layout.fillWidth: true
-                        text: "Conectado, esperando que cargue una partida."
+                        text: I18n.s.live_waiting_hint
                         color: Theme.textDim
                         wrapMode: Text.Wrap
                     }
@@ -123,23 +124,23 @@ Item {
                         }
                         Item { Layout.fillWidth: !Live.installed }
                         Button {
-                            text: "Ajustes"
+                            text: I18n.s.settings
                             visible: !App.hasGamePath
                             onClicked: page.openSettings()
                         }
                         Button {
-                            text: "Abrir carpeta"
+                            text: I18n.s.open_folder
                             visible: Live.installed
                             onClicked: Live.openBridgeDir()
                         }
                         Button {
-                            text: Live.installed ? "Reinstalar bridge" : "Instalar bridge"
+                            text: Live.installed ? I18n.s.live_reinstall : I18n.s.live_install
                             highlighted: !Live.installed
                             enabled: App.hasGamePath && Live.ue4ssPresent
                             onClicked: Live.install()
                         }
                         Button {
-                            text: "Desinstalar"
+                            text: I18n.s.uninstall
                             visible: Live.installed
                             onClicked: uninstallDialog.open()
                         }
@@ -171,7 +172,7 @@ Item {
                             Layout.fillWidth: true
                             CheckBox {
                                 id: fovToggle
-                                text: "Campo de visión (FOV)"
+                                text: I18n.s.live_fov
                                 checked: Live.fovEnabled
                                 onToggled: Live.fovEnabled = checked
                             }
@@ -192,16 +193,15 @@ Item {
                         Label {
                             Layout.fillWidth: true
                             visible: fovToggle.checked && Live.fov > 100
-                            text: "Arriba de 100° el juego puede mostrar escenario sin terminar o culleado: "
-                                + "es un rango experimental."
+                            text: I18n.s.live_fov_warning
                             color: Theme.warn
                             wrapMode: Text.Wrap
                             font.pixelSize: 12
                         }
                         Label {
                             visible: Live.fovProperty.length > 0
-                            text: "Property: " + Live.fovProperty
-                                + (Live.fovBase > 0 ? "  ·  base " + Live.fovBase.toFixed(0) + "°" : "")
+                            text: I18n.s.live_property + ": " + Live.fovProperty
+                                + (Live.fovBase > 0 ? "  ·  " + I18n.s.live_base + " " + Live.fovBase.toFixed(0) + "°" : "")
                             color: Theme.textDim
                             font.pixelSize: 11
                         }
@@ -215,7 +215,7 @@ Item {
                         spacing: 6
                         RowLayout {
                             Layout.fillWidth: true
-                            Label { text: "Velocidad de movimiento"; color: Theme.text; Layout.fillWidth: true }
+                            Label { text: I18n.s.live_speed; color: Theme.text; Layout.fillWidth: true }
                             Label { text: "×" + Live.speed.toFixed(2); color: Theme.text; font.bold: true }
                         }
                         Slider {
@@ -226,7 +226,7 @@ Item {
                         }
                         Label {
                             visible: Live.speedBase > 0
-                            text: "Base del juego: " + Live.speedBase.toFixed(0)
+                            text: I18n.s.live_game_base + ": " + Live.speedBase.toFixed(0)
                                 + "  →  " + (Live.speedBase * Live.speed).toFixed(0)
                             color: Theme.textDim
                             font.pixelSize: 11
@@ -239,7 +239,7 @@ Item {
                         spacing: 6
                         RowLayout {
                             Layout.fillWidth: true
-                            Label { text: "Fuerza de salto"; color: Theme.text; Layout.fillWidth: true }
+                            Label { text: I18n.s.live_jump; color: Theme.text; Layout.fillWidth: true }
                             Label { text: "×" + Live.jump.toFixed(2); color: Theme.text; font.bold: true }
                         }
                         Slider {
@@ -250,7 +250,7 @@ Item {
                         }
                         Label {
                             visible: Live.jumpBase > 0
-                            text: "Base del juego: " + Live.jumpBase.toFixed(0)
+                            text: I18n.s.live_game_base + ": " + Live.jumpBase.toFixed(0)
                                 + "  →  " + (Live.jumpBase * Live.jump).toFixed(0)
                             color: Theme.textDim
                             font.pixelSize: 11
@@ -259,8 +259,7 @@ Item {
 
                     Label {
                         Layout.fillWidth: true
-                        text: "Multiplicadores altos pueden mostrar clipping de animación o pop-in de streaming: "
-                            + "el juego no está pensado para esos valores."
+                        text: I18n.s.live_multiplier_warning
                         color: Theme.textDim
                         wrapMode: Text.Wrap
                         font.pixelSize: 12
@@ -269,7 +268,7 @@ Item {
                     RowLayout {
                         Layout.alignment: Qt.AlignRight
                         Button {
-                            text: "Restaurar valores del juego"
+                            text: I18n.s.live_reset
                             onClicked: Live.resetAll()
                         }
                     }
@@ -279,7 +278,7 @@ Item {
             Label {
                 visible: Live.statusMessage.length > 0
                 Layout.fillWidth: true
-                text: "Bridge: " + Live.statusMessage
+                text: I18n.s.live_bridge + ": " + Live.statusMessage
                 color: Theme.textDim
                 font.family: "Consolas"
                 font.pixelSize: 11
@@ -294,7 +293,7 @@ Item {
         id: uninstallDialog
         anchors.centerIn: parent
         modal: true
-        title: "Desinstalar bridge"
+        title: I18n.s.live_uninstall_title
         standardButtons: Dialog.Yes | Dialog.Cancel
         background: Rectangle {
             color: Theme.panel
@@ -302,8 +301,7 @@ Item {
             radius: Theme.radius
         }
         contentItem: Label {
-            text: "Se borra la carpeta StellarToolLive de los mods de UE4SS. No se toca ningún otro mod. "
-                + "Los valores vuelven a los del juego al reiniciarlo. ¿Continuar?"
+            text: I18n.s.live_uninstall_confirm
             color: Theme.text
             wrapMode: Text.Wrap
         }

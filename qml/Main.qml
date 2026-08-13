@@ -67,20 +67,20 @@ ApplicationWindow {
                                { key: "nav_merge", icon: "🔀", page: 4 },
                                { key: "nav_builder", icon: "🛠️", page: 6 },
                                { key: "nav_cns", icon: "👗", page: 7 },
-                               { label: "CNS ID Fixer", icon: "🆔", page: 8 },
-                               { label: "Live", icon: "🎮", page: 9 },
-                               { label: "ReShade", icon: "🎨", page: 10 },
-                               { label: "Partidas", icon: "💾", page: 11 },
+                               { key: "nav_cns_fixer", icon: "🆔", page: 8 },
+                               { key: "nav_live", icon: "🎮", page: 9 },
+                               { key: "nav_reshade", icon: "🎨", page: 10 },
+                               { key: "nav_saves", icon: "💾", page: 11 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                            : [
                                { key: "nav_easy", icon: "⚡", page: 0 },
                                { key: "nav_builder", icon: "🛠️", page: 6 },
                                { key: "nav_cns", icon: "👗", page: 7 },
-                               { label: "CNS ID Fixer", icon: "🆔", page: 8 },
-                               { label: "Live", icon: "🎮", page: 9 },
-                               { label: "ReShade", icon: "🎨", page: 10 },
-                               { label: "Partidas", icon: "💾", page: 11 },
+                               { key: "nav_cns_fixer", icon: "🆔", page: 8 },
+                               { key: "nav_live", icon: "🎮", page: 9 },
+                               { key: "nav_reshade", icon: "🎨", page: 10 },
+                               { key: "nav_saves", icon: "💾", page: 11 },
                                { key: "nav_settings", icon: "⚙️", page: 5 },
                              ]
                     delegate: Rectangle {
