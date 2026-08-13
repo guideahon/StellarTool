@@ -312,7 +312,12 @@ Salida por stdout; exit code 0 = OK. `validate()` es testeable sin levantar la a
 
 10 idiomas soportados (`i18n/*.json`): es, en, fr, it, de, ja, ko, pt_BR, ru, zh_Hans.
 `Translator` carga el idioma activo y lo expone a toda la app (UI + headless + Builder).
-Las claves de traducción se propagan a los 10 idiomas por script; se recomienda revisar a ojo al menos es/en.
+La UI debe consumir las claves mediante `I18n.s`/`Translator`: los literales visibles
+hardcodeados no cumplen el contrato, y cambiar el idioma debe actualizar los bindings
+sin reiniciar. Las claves nuevas se agregan primero a `i18n/en.json` y se propagan a
+los otros idiomas; mientras falte una traducción se usa el fallback inglés.
+La migración histórica de pantallas todavía está pendiente en algunas páginas, por
+lo que no se debe interpretar la existencia de `i18n/*.json` como cobertura completa.
 
 ---
 

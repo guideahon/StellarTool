@@ -33,6 +33,15 @@ Herramienta Qt6/QML (Windows) para analizar y mergear mods de Stellar Blade (.pa
 - QML: páginas en `qml/pages`, componentes reutilizables en `qml/components`. Lógica en C++; QML solo presentación y bindings. Nada de lógica de merge/diff en JS.
 - Estados vacíos, progreso y errores siempre visibles: toda operación larga (unpack, tojson batch, merge) corre async con progreso cancelable; la UI nunca se congela.
 - Textos de UI en español neutro.
+- La app es multiidioma: todo texto visible al usuario (títulos, botones, etiquetas,
+  ayudas, placeholders, diálogos, estados, errores y mensajes de progreso) debe salir
+  de `I18n.s`/`Translator`, nunca de literales hardcodeados en QML o C++. Al cambiar
+  el idioma, los textos deben actualizarse sin reiniciar la app. Los identificadores
+  técnicos, nombres de archivos, rutas y valores de configuración no se traducen.
+- Toda clave nueva debe agregarse a `i18n/en.json` y propagarse a los otros idiomas;
+  si una traducción aún no está disponible, el fallback controlado es inglés, no un
+  literal incrustado en la UI. Al migrar una pantalla, cubrir también sus diálogos,
+  estados vacíos, errores y textos generados dinámicamente.
 
 ## Contrato headless
 
