@@ -648,6 +648,102 @@
       "pt_BR": "Pesca mais facil (stamina 50%, tempo x2)",
       "ru": "Рыбалка проще (выносливость 50%, время x2)",
       "zh_Hans": "更简单的钓鱼（耐力 50%，时间 x2）"
+    },
+    "builder.q.overworldBosses": {
+      "es": "Bosses sueltos en el overworld (BETA)",
+      "en": "Roaming bosses in the overworld (BETA)",
+      "fr": "Boss libres dans le monde ouvert (BETA)",
+      "it": "Boss liberi nell'open world (BETA)",
+      "de": "Frei umherziehende Bosse in der Oberwelt (BETA)",
+      "ja": "オープンワールドに徘徊ボス（BETA）",
+      "ko": "오픈월드에 배회하는 보스 (BETA)",
+      "pt_BR": "Bosses soltos no mundo aberto (BETA)",
+      "ru": "Боссы в открытом мире (BETA)",
+      "zh_Hans": "开放世界游荡Boss（BETA）"
+    },
+    "builder.q.overworldBossPct": {
+      "es": "Densidad de bosses de overworld (%)",
+      "en": "Overworld boss density (%)",
+      "fr": "Densite des boss du monde ouvert (%)",
+      "it": "Densita dei boss nell'open world (%)",
+      "de": "Dichte der Oberwelt-Bosse (%)",
+      "ja": "オープンワールドボスの密度（%）",
+      "ko": "오픈월드 보스 밀도 (%)",
+      "pt_BR": "Densidade de bosses no mundo aberto (%)",
+      "ru": "Плотность боссов в открытом мире (%)",
+      "zh_Hans": "开放世界Boss密度（%）"
+    },
+    "builder.q.overworldBossHealth": {
+      "es": "Vida de la variante de boss",
+      "en": "Boss variant health",
+      "fr": "Vie de la variante du boss",
+      "it": "Salute della variante del boss",
+      "de": "Lebenspunkte der Boss-Variante",
+      "ja": "ボス変種の体力",
+      "ko": "보스 변형의 체력",
+      "pt_BR": "Vida da variante do boss",
+      "ru": "Здоровье варианта босса",
+      "zh_Hans": "Boss变体生命值"
+    },
+    "builder.q.overworldBossHealth.quarter": {
+      "es": "25%",
+      "en": "25%",
+      "fr": "25%",
+      "it": "25%",
+      "de": "25%",
+      "ja": "25%",
+      "ko": "25%",
+      "pt_BR": "25%",
+      "ru": "25%",
+      "zh_Hans": "25%"
+    },
+    "builder.q.overworldBossHealth.half": {
+      "es": "50%",
+      "en": "50%",
+      "fr": "50%",
+      "it": "50%",
+      "de": "50%",
+      "ja": "50%",
+      "ko": "50%",
+      "pt_BR": "50%",
+      "ru": "50%",
+      "zh_Hans": "50%"
+    },
+    "builder.q.overworldBossHealth.threeQuarter": {
+      "es": "75%",
+      "en": "75%",
+      "fr": "75%",
+      "it": "75%",
+      "de": "75%",
+      "ja": "75%",
+      "ko": "75%",
+      "pt_BR": "75%",
+      "ru": "75%",
+      "zh_Hans": "75%"
+    },
+    "builder.q.overworldBossHealth.full": {
+      "es": "100%",
+      "en": "100%",
+      "fr": "100%",
+      "it": "100%",
+      "de": "100%",
+      "ja": "100%",
+      "ko": "100%",
+      "pt_BR": "100%",
+      "ru": "100%",
+      "zh_Hans": "100%"
+    },
+    "builder.ex.bossStagger": {
+      "es": "Bosses vanilla inmunes al stagger",
+      "en": "Vanilla bosses immune to stagger",
+      "fr": "Boss vanilla immunises contre l'etourdissement",
+      "it": "Boss vanilla immuni allo stagger",
+      "de": "Vanilla-Bosse immun gegen Taumeln",
+      "ja": "バニラボスをスタッガー無効に",
+      "ko": "바닐라 보스 경직 면역",
+      "pt_BR": "Bosses vanilla imunes a stagger",
+      "ru": "Ванильные боссы невосприимчивы к стаггеру",
+      "zh_Hans": "原版Boss免疫硬直"
     }
   }
 }

@@ -283,6 +283,10 @@
           "i18nKey": "builder.ex.harder"
         },
         {
+          "value": "bossStaggerImmunity",
+          "i18nKey": "builder.ex.bossStagger"
+        },
+        {
           "value": "autoGaugeRecovery",
           "i18nKey": "builder.ex.gauge"
         },
@@ -308,6 +312,53 @@
         ]
       },
       "comment": "BETA - repunta % de spawns a pool curado (features/variety_pool.json): elites + cross-area + raven, sobre coords existentes."
+    },
+    {
+      "id": "overworldBosses",
+      "type": "bool",
+      "i18nKey": "builder.q.overworldBosses",
+      "default": false,
+      "comment": "BETA - clona bosses de campo a variantes `<alias>_OW` con vida recortada y las pone sobre spawns existentes (features/overworld_boss_pool.json). Sale en el pak combinado del mini-boss."
+    },
+    {
+      "id": "overworldBossPct",
+      "type": "int",
+      "i18nKey": "builder.q.overworldBossPct",
+      "default": 3,
+      "showIf": {
+        "overworldBosses": [
+          true
+        ]
+      }
+    },
+    {
+      "id": "overworldBossHealth",
+      "type": "single",
+      "i18nKey": "builder.q.overworldBossHealth",
+      "default": "half",
+      "showIf": {
+        "overworldBosses": [
+          true
+        ]
+      },
+      "options": [
+        {
+          "value": "quarter",
+          "i18nKey": "builder.q.overworldBossHealth.quarter"
+        },
+        {
+          "value": "half",
+          "i18nKey": "builder.q.overworldBossHealth.half"
+        },
+        {
+          "value": "threeQuarter",
+          "i18nKey": "builder.q.overworldBossHealth.threeQuarter"
+        },
+        {
+          "value": "full",
+          "i18nKey": "builder.q.overworldBossHealth.full"
+        }
+      ]
     },
     {
       "id": "gaugeTweaks",

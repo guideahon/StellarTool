@@ -369,6 +369,7 @@ _reg_extra("extras.attackSpeed", "CharacterTable", "full", "attack_speed", "extr
 _reg_extra("extras.longerTachy", "CharacterTable", "full", "longer_tachy", "extras")
 _reg_extra("extras.hpDrain", "CharacterTable", "full", "hp_drain", "extras")
 _reg_extra("extras.harderEnemies", "CharacterTable", "full", "harder_enemies", "extras")
+_reg_extra("extras.bossStaggerImmunity", "CharacterTable", "full", "boss_stagger_immunity", "extras")
 _reg_extra("extras.baseAttributes", "CharacterTable", "full", "base_attributes", "extras")
 _reg_extra("extras.attributeShieldRegen", "CharacterTable", "full", "attribute_shield_regen", "extras")
 _reg_extra("extras.highGaugeCapacity", "CharacterTable", "full", "high_gauge_capacity", "extras")

@@ -7,7 +7,10 @@ import "../components"
 
 Item {
     id: page
-    property string inputPath: ""
+    // inputPaths: una entrada = comportamiento de siempre; varias = un mod
+    // exportado por cada una. inputPath es la primera, para el campo de texto.
+    property var inputPaths: []
+    property string inputPath: inputPaths.length > 0 ? inputPaths[0] : ""
     property string outputPath: App.defaultBuildOutDir()
     property bool toReplacer: mode.currentIndex === 1
     property var historyItems: []
@@ -62,26 +65,51 @@ Item {
                         model: ["Replacer → CNS", "CNS → replacer"]
                     }
 
-                    Label { text: "Mod de entrada (.zip, .utoc, .pak o carpeta)"; color: Theme.text; font.bold: true }
+                    Label { text: "Mods de entrada (.zip, .utoc, .pak o carpeta)"; color: Theme.text; font.bold: true }
                     RowLayout {
                         Layout.fillWidth: true
                         TextField {
                             Layout.fillWidth: true
-                            text: page.inputPath
-                            placeholderText: "Elegí el mod..."
+                            text: page.inputPaths.length > 1
+                                  ? page.inputPaths.length + " mods seleccionados"
+                                  : page.inputPath
+                            readOnly: page.inputPaths.length > 1
+                            placeholderText: "Elegí uno o varios mods..."
                             color: Theme.text
-                            onTextEdited: page.inputPath = text
+                            onTextEdited: page.inputPaths = text.length > 0 ? [text] : []
                         }
-                        Button { text: "Archivo…"; onClicked: inputFile.open() }
+                        Button { text: "Archivos…"; onClicked: inputFile.open() }
                         Button { text: "Carpeta…"; onClicked: inputFolder.open() }
                     }
+                    Label {
+                        visible: page.inputPaths.length > 1
+                        Layout.fillWidth: true
+                        text: page.inputPaths.map(function (p) {
+                            return "• " + p.replace(/^.*[\\\/]/, "")
+                        }).join("\n")
+                        color: Theme.textDim
+                        wrapMode: Text.Wrap
+                    }
 
-                    Label { text: "Nombre visible"; color: Theme.text; font.bold: true }
+                    Label {
+                        visible: page.inputPaths.length <= 1
+                        text: "Nombre visible"
+                        color: Theme.text
+                        font.bold: true
+                    }
                     TextField {
                         id: modName
+                        visible: page.inputPaths.length <= 1
                         Layout.fillWidth: true
                         placeholderText: "Se deriva del nombre del archivo si queda vacío"
                         color: Theme.text
+                    }
+                    Label {
+                        visible: page.inputPaths.length > 1
+                        Layout.fillWidth: true
+                        text: "Con varios mods, cada uno usa el nombre de su archivo."
+                        color: Theme.textDim
+                        wrapMode: Text.Wrap
                     }
 
                     Label {
@@ -129,13 +157,17 @@ Item {
 
                     Button {
                         Layout.alignment: Qt.AlignRight
-                        text: page.toReplacer ? "Convertir a replacer" : "Convertir a CNS"
+                        text: (page.toReplacer ? "Convertir a replacer" : "Convertir a CNS")
+                              + (page.inputPaths.length > 1
+                                 ? " (" + page.inputPaths.length + ")" : "")
                         highlighted: true
-                        enabled: !App.busy && page.inputPath.length > 0
+                        enabled: !App.busy && page.inputPaths.length > 0
                                  && page.outputPath.length > 0
                                  && (!page.toReplacer || replacement.currentText.length > 0)
-                        onClicked: App.convertCns(
-                            Qt.resolvedUrl("file:///" + page.inputPath.replace(/\\/g, "/")),
+                        onClicked: App.convertCnsBatch(
+                            page.inputPaths.map(function (p) {
+                                return Qt.resolvedUrl("file:///" + p.replace(/\\/g, "/"))
+                            }),
                             Qt.resolvedUrl("file:///" + page.outputPath.replace(/\\/g, "/")),
                             modName.text,
                             page.toReplacer ? "replacer" : "cns",
@@ -227,16 +259,18 @@ Item {
 
     FileDialog {
         id: inputFile
-        title: "Elegir mod"
+        title: "Elegir mods"
+        fileMode: FileDialog.OpenFiles
         nameFilters: ["Mods (*.zip *.pak *.utoc)", "Todos los archivos (*)"]
-        onAccepted: page.inputPath = decodeURIComponent(
-                        selectedFile.toString().replace("file:///", ""))
+        onAccepted: page.inputPaths = selectedFiles.map(function (f) {
+            return decodeURIComponent(f.toString().replace("file:///", ""))
+        })
     }
     FolderDialog {
         id: inputFolder
         title: "Elegir carpeta del mod"
-        onAccepted: page.inputPath = decodeURIComponent(
-                        selectedFolder.toString().replace("file:///", ""))
+        onAccepted: page.inputPaths = [decodeURIComponent(
+                        selectedFolder.toString().replace("file:///", ""))]
     }
     FolderDialog {
         id: outputFolder

@@ -68,8 +68,17 @@ Viven en `Builder/base_tables/` (JSON UAssetAPI extraídos con retoc). Necesaria
 - **Perfil de combate**: ninguno / Full / First Run (half-strength).
 - **Outfit SkinSuit on break**: sí/no (define si hace falta helper).
 - **Mini-Boss + NG+**: off / Great Desert / todas las regiones (+ densidad).
+- **Bosses de overworld** (BETA, `compiler/overworld_bosses.py`): clona bosses de
+  campo a variantes `<alias>_OW` con la vida recortada (25/50/75/100%) y las pone
+  sobre spawns existentes. Pool curado en `features/overworld_boss_pool.json`
+  (sin story bosses del Nest, Mann/Scarlet, Maelstrom, Nikke ni `CHAL_*`). Sale
+  en el mismo pak combinado que el mini-boss, aunque no haya mini-bosses.
 - **Sub-tweaks combat**: gauge Beta, burst, tachy, blaster cell, turret stagger,
   perfect dodge sin lock-on, tumbler heal, execution immunity. (defaults sanos.)
+- **Bosses vanilla inmunes al stagger** (extra `bossStaggerImmunity`): sube
+  `HitDefenseLevel` a 5 en los `ActorType_BossMonster` de la tabla (77 filas), lo
+  que apaga las reacciones `HitLevelResult*`. Los clones `_MB`/`_OW` quedan afuera:
+  tienen su propio toggle.
 - **Base Attribute Enhancement granular**: propiedades de Player en
   `CharacterTable`, recuperación/scan/GunGorgon en `EffectTable` y cooldowns de
   dash/scan en `SkillTable`. `droneScanBoost` se expande a dos transforms

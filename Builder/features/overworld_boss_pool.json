@@ -1,0 +1,33 @@
+{
+ "comment": "BETA - Bosses en el overworld. Clona bosses de campo a variantes `<alias>_OW` con vida reducida y las repunta sobre spawns EXISTENTES (coords validas, no respawneables, no guionados). NO agrega placements ni toca umaps. Excluidos a proposito: story bosses del Nest (Elder/Raven/ExoSuit), Mann/Scarlet, Maelstrom (SuperLarge flotante), variantes Nikke, CHAL_* (boss rush) y los _Seq. Editable sin recompilar.",
+ "byArea": {
+  "WLA": ["WLA_M_GorillaBBrokenHead_01", "WLA_M_GrubShooterEliteB_01", "WLA_M_HedgeBoarBrute_01"],
+  "ATL": ["DED_M_Opener_01", "WLA_M_HedgeBoarBrute_01"],
+  "ME": ["UME_M_Sawshark_01", "UME_M_SkullJuggernaut_01", "UME_M_Tachy_01"],
+  "WLB": ["WLB_M_SawsharkWasteland_01", "WLB_M_OpenerWasteland_01", "WLB_M_Behemoth_01"],
+  "AYL": ["UME_M_SkullJuggernaut_01", "SE_M_WeaponMasterA_01", "WLAN_M_SkullJuggernaut_01"],
+  "DED40": ["DEDA_M_GrubShooterElite_01", "DED_M_GorillaB_01"],
+  "DEDA": ["DEDA_M_GrubShooterElite_01", "SE_M_WeaponMasterA_01"],
+  "SE": ["SE_M_WeaponMasterA_01", "SE_M_WeaponMasterB_01", "SE_M_Marionette_01", "SE_M_Crawler_01"]
+ },
+ "crossPool": [
+  "DED_M_GorillaB_01",
+  "DED_M_GrubShooterElite_01",
+  "DED_M_Opener_01",
+  "UME_M_Sawshark_01",
+  "UME_M_SkullJuggernaut_01",
+  "UME_M_Tachy_01",
+  "SE_M_WeaponMasterA_01",
+  "SE_M_WeaponMasterB_01",
+  "SE_M_Marionette_01",
+  "SE_M_Crawler_01",
+  "WLA_M_GorillaBBrokenHead_01",
+  "WLA_M_GrubShooterEliteB_01",
+  "WLA_M_HedgeBoarBrute_01",
+  "WLB_M_SawsharkWasteland_01",
+  "WLB_M_OpenerWasteland_01",
+  "WLB_M_Behemoth_01",
+  "WLAN_M_SkullJuggernaut_01",
+  "DEDA_M_GrubShooterElite_01"
+ ]
+}

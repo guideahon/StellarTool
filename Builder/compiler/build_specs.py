@@ -67,7 +67,7 @@ COMBAT_FEATURE_TRANSFORMS = {
 _CT_EXTRAS = {
     "playerQol", "ammoStacks", "consumableStacks", "shieldRegen", "attackSpeed",
     "longerTachy", "hpDrain", "harderEnemies",
-    "baseAttributes", "attributeShieldRegen", "highGaugeCapacity",
+    "baseAttributes", "attributeShieldRegen", "highGaugeCapacity", "bossStaggerImmunity",
     "passiveHpRegen", "fishingPower", "ammo100x",
 }
 _ET_EXTRAS = {
@@ -139,11 +139,18 @@ def world_target(a: dict, exclude_tables=()):
     return {"name": WORLD_PAK, "transforms": transforms} if transforms else None
 
 
+def overworld_enabled(a: dict) -> bool:
+    """Bosses de campo sueltos en el overworld (variantes `_OW`, ver
+    overworld_bosses). Necesitan el pak combinado del mini-boss."""
+    return bool((a.get("overworldBosses") or {}).get("enabled"))
+
+
 def combo_to_targets(a: dict):
     """a = respuestas normalizadas. Devuelve [ {name, transforms} ] o None."""
     combat = a.get("combatProfile", "full")
     outfit = a.get("outfitSkinSuit", True)
-    mb_on = a.get("miniBoss", "off") not in ("off", False, None)
+    mb_on = (a.get("miniBoss", "off") not in ("off", False, None)
+             or overworld_enabled(a))
 
     # Mini-boss / First Run se compilan en build_custom.
     if mb_on or combat == "firstRun":

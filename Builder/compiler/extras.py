@@ -199,6 +199,34 @@ def harder_enemies(ct_doc, mult=2.0) -> int:
     return n
 
 
+# HitDefenseLevel gatea las reacciones `HitLevelResult*` de SkillResultTable
+# (HitStun/KnockDown/Airborne). Las skills del jugador llegan a HitLevel 3; el
+# juego ya usa 5 en los SuperLarge que nunca se tambalean.
+BOSS_STAGGER_IMMUNE_LEVEL = 5
+
+
+def boss_stagger_immunity(ct_doc, level=BOSS_STAGGER_IMMUNE_LEVEL) -> int:
+    """Bosses vanilla inmunes al stagger: sin esto el spam de espada los stunea.
+
+    Toca sólo `ActorType_BossMonster` (los clones `_MB`/`_OW` traen su propio
+    toggle). Nunca baja un nivel ya más alto.
+    """
+    level = int(level)
+    n = 0
+    for r in _rows(ct_doc):
+        name = r.get("Name", "")
+        if name.endswith("_MB") or name.endswith("_OW"):
+            continue   # clones generados: tienen su propio toggle
+        if _get(r, "ActorType") != "ActorType_BossMonster":
+            continue
+        v = _get(r, "HitDefenseLevel")
+        if isinstance(v, int) and v >= level:
+            continue
+        if _set(r, "HitDefenseLevel", level):
+            n += 1
+    return n
+
+
 # Registro para wiring por nombre desde las respuestas del cuestionario.
 def apply_extras(ct_doc, extras: list, harder_mult=2.0) -> dict:
     rep = {}
@@ -228,6 +256,8 @@ def apply_extras(ct_doc, extras: list, harder_mult=2.0) -> dict:
         rep["longerTachy"] = longer_tachy(ct_doc)
     if "hpDrain" in extras:
         rep["hpDrain"] = hp_drain(ct_doc)
+    if "bossStaggerImmunity" in extras:
+        rep["bossStaggerImmunity"] = boss_stagger_immunity(ct_doc)
     if "harderEnemies" in extras:
         rep["harderEnemies"] = harder_enemies(ct_doc, harder_mult)
     return rep

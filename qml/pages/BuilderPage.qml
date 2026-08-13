@@ -155,6 +155,16 @@ Item {
         mbPersistent.checked = mb.persistent === undefined ? true : mb.persistent
         mbBossType.checked = mb.bossType === undefined ? true : mb.bossType
         mbExecution.checked = mb.executionImmunity === undefined ? true : mb.executionImmunity
+        mbStagger.checked = mb.staggerImmunity === undefined ? true : mb.staggerImmunity
+        var ow = a.overworldBosses || {}
+        owBosses.checked = ow.enabled === true
+        owPct.value = Number(ow.pct || 3)
+        owCross.checked = ow.crossArea === true
+        owStagger.checked = ow.staggerImmunity === undefined ? true : ow.staggerImmunity
+        var owHp = Number(ow.healthFactor || 0.5)
+        owHp25.checked = owHp === 0.25; owHp75.checked = owHp === 0.75
+        owHp100.checked = owHp === 1
+        owHp50.checked = !owHp25.checked && !owHp75.checked && !owHp100.checked
         var hpMult = Number(mb.healthMultiplier || 4.5)
         mbHp15.checked = hpMult === 1.5; mbHp3.checked = hpMult === 3
         mbHp45.checked = !mbHp15.checked && !mbHp3.checked
@@ -185,6 +195,7 @@ Item {
         exFishing.checked = ex.indexOf("fishingPower") >= 0
         exTachy.checked = ex.indexOf("longerTachy") >= 0
         exDrain.checked = ex.indexOf("hpDrain") >= 0
+        exBossStagger.checked = ex.indexOf("bossStaggerImmunity") >= 0
         exFall.checked = ex.indexOf("noFallDamage") >= 0
         exWater.checked = ex.indexOf("noEnvDeath") >= 0 || ex.indexOf("noWaterDeath") >= 0
         exSand.checked = ex.indexOf("noEnvDeath") >= 0 || ex.indexOf("noSandDeath") >= 0
@@ -324,6 +335,7 @@ Item {
             mbHealthRow.selected=true; mbAttackRow.selected=true; mbScaleRow.selected=true
             mbShield.checked=true; mbRewards.checked=true; mbXp.checked=true
             mbPersistent.checked=true; mbBossType.checked=true; mbExecution.checked=true
+            mbStagger.checked=true
         }
     }
     function hardcoreValue() { return !exHarder.checked ? "off" : (harderInsane.checked ? "insane" : "main") }
@@ -963,6 +975,7 @@ Item {
                             CheckBox { id: mbPersistent; checked:true; text: I18n.s.builder_mb_persistent || "Persist death state" }
                             CheckBox { id: mbBossType; checked:true; text: I18n.s.builder_mb_boss_type || "Treat as Boss type" }
                             CheckBox { id: mbExecution; checked:true; text: I18n.s.builder_mb_execution || "Instant-execution immunity" }
+                            CheckBox { id: mbStagger; checked:true; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
                             Text {
                                 Layout.fillWidth: true; wrapMode: Text.Wrap
                                 text: "ⓘ " + (I18n.s.builder_beta_note || "Mejoras mini-boss (anti-farm + dificultad) — BETA, validá in-game.")
@@ -980,6 +993,45 @@ Item {
                                            color: Theme.warnText; font.pixelSize: 10; font.bold: true }
                                 }
                             }
+                        }
+
+                        // Bosses de overworld: independientes de las densidades de
+                        // mini-boss (pero salen en el mismo pak combinado).
+                        ColumnLayout {
+                            Layout.fillWidth: true; spacing: 6
+                            RowLayout {
+                                spacing: 6; Layout.topMargin: 8
+                                FieldLabel { text: I18n.s.builder_ow_title || "Bosses en el overworld"; font.bold: true }
+                                Rectangle { radius: 4; color: Theme.warn; implicitWidth: owbeta.width+12; implicitHeight: 18
+                                    Text { id: owbeta; anchors.centerIn: parent; text: "BETA"; color: Theme.warnText; font.pixelSize: 10; font.bold: true } }
+                            }
+                            CheckBox { id: owBosses; text: I18n.s.builder_ow_enable
+                                       || "Poner bosses sueltos en el mundo abierto" }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.Wrap
+                                text: "ⓘ " + (I18n.s.builder_ow_hint
+                                      || "Variantes propias de los bosses de campo (no toca los encuentros originales). Usa spawns existentes: no agrega placements.")
+                                color: Theme.textDim; font.pixelSize: 11
+                            }
+                            RowLayout {
+                                spacing: 10; visible: owBosses.checked
+                                FieldLabel { text: I18n.s.builder_ow_density || "Densidad" }
+                                SpinBox { id: owPct; from: 1; to: 25; value: 3 }
+                                FieldLabel { text: "%" }
+                            }
+                            RowLayout {
+                                spacing: 10; visible: owBosses.checked
+                                FieldLabel { text: I18n.s.builder_ow_health || "Vida de la variante" }
+                                ButtonGroup { id: owHpGroup }
+                                RadioButton { id: owHp25; text:"25%"; ButtonGroup.group:owHpGroup }
+                                RadioButton { id: owHp50; text:"50%"; checked:true; ButtonGroup.group:owHpGroup }
+                                RadioButton { id: owHp75; text:"75%"; ButtonGroup.group:owHpGroup }
+                                RadioButton { id: owHp100; text:"100%"; ButtonGroup.group:owHpGroup }
+                            }
+                            CheckBox { id: owCross; visible: owBosses.checked
+                                       text: I18n.s.builder_ow_cross || "Cualquier boss en cualquier región" }
+                            CheckBox { id: owStagger; checked:true; visible: owBosses.checked
+                                       text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
                         }
 
                         // Extras y patches TOML: NO dependen de mini-boss.
@@ -1172,6 +1224,11 @@ Item {
                             RowLayout { spacing: 10
                                 CheckBox { id: exDrain }
                                 Text { text: I18n.s.builder_ex_drain || "HP Drain (curás al pegar)"
+                                       color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
+                            RowLayout { spacing: 10
+                                CheckBox { id: exBossStagger }
+                                Text { text: I18n.s.builder_ex_boss_stagger
+                                             || "Bosses vanilla inmunes al stagger"
                                        color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true } }
                             RowLayout { spacing: 10
                                 CheckBox { id: exFall }
@@ -1615,7 +1672,16 @@ Item {
                                 scaleMultiplier: mbScale12.checked ? 1.2 : (mbScale16.checked ? 1.6 : 2),
                                 removeShield: mbShield.checked, rewards: mbRewards.checked,
                                 xpRewards: mbXp.checked, persistent: mbPersistent.checked,
-                                bossType: mbBossType.checked, executionImmunity: mbExecution.checked
+                                bossType: mbBossType.checked, executionImmunity: mbExecution.checked,
+                                staggerImmunity: mbStagger.checked
+                            },
+                            overworldBosses: {
+                                enabled: owBosses.checked,
+                                pct: owPct.value,
+                                healthFactor: owHp25.checked ? 0.25
+                                    : (owHp75.checked ? 0.75 : (owHp100.checked ? 1 : 0.5)),
+                                crossArea: owCross.checked,
+                                staggerImmunity: owStagger.checked
                             },
                             enemyVariety: variety.checked,
                             gameplayExtras: [
@@ -1631,6 +1697,7 @@ Item {
                                 exAttackSpeed.checked ? "attackSpeed" : "",
                                 exTachy.checked ? "longerTachy" : "",
                                 exDrain.checked ? "hpDrain" : "",
+                                exBossStagger.checked ? "bossStaggerImmunity" : "",
                                 exFall.checked ? "noFallDamage" : "",
                                 exWater.checked ? "noWaterDeath" : "",
                                 exSand.checked ? "noSandDeath" : "",
