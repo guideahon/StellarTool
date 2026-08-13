@@ -213,7 +213,7 @@ Item {
                 }
             }
             Button {
-                text: App.oodleIsCustom ? I18n.s.settings_oodle_reset : I18n.s.settings_oodle_choose
+                text: I18n.s.settings_oodle_reset
                 enabled: !App.busy
                 onClicked: App.oodleIsCustom ? App.clearOodlePath() : App.refreshOodle()
             }
