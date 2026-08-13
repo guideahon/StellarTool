@@ -23,6 +23,11 @@ class AppController;
 //   StellarTool --headless uninstall [--paks] [--helper]
 //   StellarTool --headless fixids    --mod <dir> [--apply]
 //   StellarTool --headless presets
+//   StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]
+//   StellarTool --headless save-from-json --input <json> --out <sav>
+//   StellarTool --headless fix-save       --input <sav>
+//   StellarTool --headless reshade        --action <list|save|restore|rename|delete|import|export>
+//   StellarTool --headless live           --action <status|install|uninstall|reset|set>
 //
 // Salida por stdout; exit code 0 = OK.
 class HeadlessRunner : public QObject {
@@ -46,6 +51,16 @@ public:
         bool uninstallPaks = false;
         bool uninstallHelper = false;
         bool applyFixes = false;
+        QString input;
+        QString action;
+        QString oldName;
+        QString newName;
+        int indent = 2;
+        double fov = -1;
+        double speed = -1;
+        double jump = -1;
+        bool fovEnabled = false;
+        bool fovEnabledSet = false;
     };
 
     explicit HeadlessRunner(AppController *controller, QObject *parent = nullptr);
@@ -78,6 +93,9 @@ public:
     int runUninstall(const Options &options);
     int runFixIds(const Options &options);
     int runPresets();
+    int runSave(const QString &command, const Options &options);
+    int runReShade(const Options &options);
+    int runLive(const Options &options);
 
 private:
     bool waitIdle();   // procesa el event loop hasta que controller no esté busy

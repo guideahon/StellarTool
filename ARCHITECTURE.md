@@ -276,6 +276,13 @@ CMake + Qt 6.4+ (Core, Quick, Concurrent, Widgets, Multimedia, Network), C++17, 
 
 ## 9. Modo headless (CLI)
 
+El contrato completo para agentes y automatizaciones, incluida la matriz por
+sección, precondiciones, efectos y códigos de salida, está en
+[docs/HEADLESS.md](docs/HEADLESS.md). La regla de arquitectura es que cada
+operación que modifica datos o el juego tenga un camino CLI equivalente; solo
+acciones de presentación (diálogos, abrir carpetas, tema e idioma visual) quedan
+fuera del headless.
+
 `HeadlessRunner` expone toda la funcionalidad de la app por línea de comandos:
 
 ```
@@ -290,6 +297,11 @@ StellarTool --headless detect
 StellarTool --headless uninstall [--paks] [--helper]
 StellarTool --headless fixids    --mod <dir> [--apply]
 StellarTool --headless presets
+StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]
+StellarTool --headless save-from-json --input <json> --out <sav>
+StellarTool --headless fix-save       --input <sav>
+StellarTool --headless reshade       --action <list|save|restore|rename|delete|import|export>
+StellarTool --headless live          --action <status|install|uninstall|reset|set>
 ```
 
 Salida por stdout; exit code 0 = OK. `validate()` es testeable sin levantar la app entera.

@@ -20,6 +20,8 @@ private slots:
     void buildNeedsAnswersAndOut();
     void uninstallNeedsATarget();
     void fixidsNeedsADirectory();
+    void saveCommandsNeedTheirArguments();
+    void serviceCommandsNeedTheirArguments();
     void commandsWithoutArgumentsValidate();
     void answersAcceptInlineJsonFileAndPreset();
 };
@@ -45,7 +47,9 @@ void TestHeadless::everyCommandIsListed() {
         QStringLiteral("analyze"), QStringLiteral("merge"),   QStringLiteral("cns"),
         QStringLiteral("replacer"), QStringLiteral("build"),  QStringLiteral("baseline"),
         QStringLiteral("status"),  QStringLiteral("detect"),  QStringLiteral("uninstall"),
-        QStringLiteral("fixids"),  QStringLiteral("presets")};
+        QStringLiteral("fixids"),  QStringLiteral("presets"), QStringLiteral("save-to-json"),
+        QStringLiteral("save-from-json"), QStringLiteral("fix-save"), QStringLiteral("reshade"),
+        QStringLiteral("live")};
     for (const QString &name : expected) {
         QVERIFY2(commands.contains(name),
                  qPrintable(QStringLiteral("falta el comando %1").arg(name)));
@@ -119,6 +123,41 @@ void TestHeadless::fixidsNeedsADirectory() {
     QVERIFY(!validationError(QStringLiteral("fixids"), {}).isEmpty());
     QVERIFY(validationError(QStringLiteral("fixids"),
                             withMods({QStringLiteral("C:/mods/outfit")})).isEmpty());
+}
+
+void TestHeadless::saveCommandsNeedTheirArguments() {
+    st::HeadlessRunner::Options o;
+    QVERIFY(!validationError(QStringLiteral("save-to-json"), o).isEmpty());
+    o.input = QStringLiteral("DekCNS.sav");
+    QVERIFY(!validationError(QStringLiteral("save-to-json"), o).isEmpty());
+    o.outDir = QStringLiteral("DekCNS.json");
+    QVERIFY(validationError(QStringLiteral("save-to-json"), o).isEmpty());
+    o.input = QStringLiteral("DekCNS.json");
+    QVERIFY(validationError(QStringLiteral("save-from-json"), o).isEmpty());
+    o.outDir.clear();
+    QVERIFY(!validationError(QStringLiteral("save-from-json"), o).isEmpty());
+    o.input = QStringLiteral("DekCNS.sav");
+    QVERIFY(validationError(QStringLiteral("fix-save"), o).isEmpty());
+}
+
+void TestHeadless::serviceCommandsNeedTheirArguments() {
+    st::HeadlessRunner::Options o;
+    QVERIFY(!validationError(QStringLiteral("reshade"), o).isEmpty());
+    o.action = QStringLiteral("list");
+    QVERIFY(validationError(QStringLiteral("reshade"), o).isEmpty());
+    o.action = QStringLiteral("restore");
+    QVERIFY(!validationError(QStringLiteral("reshade"), o).isEmpty());
+    o.name = QStringLiteral("Preset");
+    QVERIFY(validationError(QStringLiteral("reshade"), o).isEmpty());
+
+    o = {};
+    QVERIFY(!validationError(QStringLiteral("live"), o).isEmpty());
+    o.action = QStringLiteral("status");
+    QVERIFY(validationError(QStringLiteral("live"), o).isEmpty());
+    o.action = QStringLiteral("set");
+    QVERIFY(!validationError(QStringLiteral("live"), o).isEmpty());
+    o.speed = 1.25;
+    QVERIFY(validationError(QStringLiteral("live"), o).isEmpty());
 }
 
 void TestHeadless::commandsWithoutArgumentsValidate() {

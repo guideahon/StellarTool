@@ -202,6 +202,12 @@ La guía incluida en el ZIP usa automáticamente el idioma actual de la aplicaci
 
 ## Modo headless (CLI)
 
+La referencia completa para agentes de IA, automatizaciones, cobertura por
+sección, precondiciones, efectos y códigos de salida está en
+[docs/HEADLESS.md](docs/HEADLESS.md). Todas las operaciones que modifican datos
+o el juego tienen comando headless; diálogos, temas, idioma visual y abrir
+carpetas son acciones exclusivamente de interfaz.
+
 ```bat
 StellarTool --headless analyze --mod "<pak/zip/carpeta>" --mod "<otro>" [--baseline <dir>]
 StellarTool --headless merge   --mod "<mod prioritario>" --mod "<otro>" --out <dir> ^
@@ -210,6 +216,11 @@ StellarTool --headless cns --game "<StellarBlade>" --mod "<outfit.zip>" --out <d
                             [--name "Nombre visible"]
 StellarTool --headless replacer --game "<StellarBlade>" --mod "<outfit CNS>" --out <dir> ^
                                  --replace "Black Pearl" [--select "2"]
+StellarTool --headless save-to-json --input "<DekCNS.sav>" --out "<DekCNS.json>" [--indent 2]
+StellarTool --headless save-from-json --input "<DekCNS.json>" --out "<DekCNS_fixed.sav>"
+StellarTool --headless fix-save --input "<DekCNS.sav>"
+StellarTool --headless reshade --action list [--game "<StellarBlade>"]
+StellarTool --headless live --action status [--game "<StellarBlade>"]
 ```
 
 - `analyze` lista todos los cambios y marca conflictos; `merge` además genera el pak

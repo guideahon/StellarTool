@@ -6,6 +6,10 @@ Instrucciones para agentes que trabajen en este repo.
 Herramienta Qt6/QML (Windows) para analizar y mergear mods de Stellar Blade (.pak UE4.26 con DataTables .uasset). Leer [ARCHITECTURE.md](ARCHITECTURE.md) antes de tocar el core; [PLAN.md](PLAN.md) define fases y alcance. Proyecto hermano de referencia para convenciones Qt/QML: `C:\Users\cristian\Documents\LlamaCode` (no copiar código a ciegas; sí patrones: AppController como fachada QObject, modelos C++ expuestos a QML, tema en ThemeProvider).
 
 ## Reglas de trabajo
+- Toda sección nueva o existente debe conservar un camino headless. Antes de
+  agregar una operación a QML, agregar o verificar su comando equivalente en
+  `HeadlessRunner` y documentarlo en [docs/HEADLESS.md](docs/HEADLESS.md), que
+  es el contrato para agentes de IA y automatizaciones.
 - No leer todo el proyecto por defecto: buscar con `rg`, abrir solo lo relevante, respetar límites de módulo (`src/core/*Service`, `src/core/*Engine`, `qml/pages`, `qml/components`).
 - Todo bug arreglado incluye test de regresión cuando sea viable. Toda feature nueva cubre camino feliz + bordes principales.
 - Compilar para validar: `build.bat Release NOPAUSE` (nunca sin NOPAUSE, el `pause` bloquea automatización). Verificar que se actualizó `build/Release/StellarTool.exe`.
@@ -29,3 +33,9 @@ Herramienta Qt6/QML (Windows) para analizar y mergear mods de Stellar Blade (.pa
 - QML: páginas en `qml/pages`, componentes reutilizables en `qml/components`. Lógica en C++; QML solo presentación y bindings. Nada de lógica de merge/diff en JS.
 - Estados vacíos, progreso y errores siempre visibles: toda operación larga (unpack, tojson batch, merge) corre async con progreso cancelable; la UI nunca se congela.
 - Textos de UI en español neutro.
+
+## Contrato headless
+
+La matriz de cobertura y ejemplos de CLI están en [docs/HEADLESS.md](docs/HEADLESS.md).
+No asumir que una acción existe por verla en QML: verificar `HeadlessRunner::knownCommands()`
+y la ayuda de `StellarTool.exe --headless --help`.

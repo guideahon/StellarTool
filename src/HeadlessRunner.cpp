@@ -1,5 +1,8 @@
 #include "HeadlessRunner.h"
 #include "AppController.h"
+#include "core/LiveService.h"
+#include "core/ReShadePresetService.h"
+#include "core/SaveConverterService.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -27,7 +30,9 @@ QStringList HeadlessRunner::knownCommands() {
             QStringLiteral("build"),    QStringLiteral("baseline"),
             QStringLiteral("status"),   QStringLiteral("detect"),
             QStringLiteral("uninstall"), QStringLiteral("fixids"),
-            QStringLiteral("presets")};
+            QStringLiteral("presets"), QStringLiteral("save-to-json"),
+            QStringLiteral("save-from-json"), QStringLiteral("fix-save"),
+            QStringLiteral("reshade"), QStringLiteral("live")};
 }
 
 bool HeadlessRunner::isKnownCommand(const QString &command) {
@@ -63,6 +68,24 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
             return fail(QStringLiteral("uninstall necesita --paks y/o --helper"));
     } else if (command == QLatin1String("fixids")) {
         if (o.mods.isEmpty()) return fail(QStringLiteral("fixids necesita --mod <dir>"));
+    } else if (command == QLatin1String("save-to-json") || command == QLatin1String("save-from-json")) {
+        if (o.input.isEmpty() || o.outDir.isEmpty())
+            return fail(QStringLiteral("%1 necesita --input <archivo> y --out <archivo>").arg(command));
+    } else if (command == QLatin1String("fix-save")) {
+        if (o.input.isEmpty()) return fail(QStringLiteral("fix-save necesita --input <archivo.sav>"));
+    } else if (command == QLatin1String("reshade")) {
+        if (o.action.isEmpty()) return fail(QStringLiteral("reshade necesita --action <operacion>"));
+        if (o.action == QLatin1String("save") || o.action == QLatin1String("restore")
+            || o.action == QLatin1String("delete") || o.action == QLatin1String("export"))
+            if (o.name.isEmpty()) return fail(QStringLiteral("reshade %1 necesita --name <nombre>").arg(o.action));
+        if (o.action == QLatin1String("rename") && (o.oldName.isEmpty() || o.newName.isEmpty()))
+            return fail(QStringLiteral("reshade rename necesita --old-name y --new-name"));
+        if ((o.action == QLatin1String("import") || o.action == QLatin1String("export")) && o.input.isEmpty())
+            return fail(QStringLiteral("reshade %1 necesita --input <archivo.ini>").arg(o.action));
+    } else if (command == QLatin1String("live")) {
+        if (o.action.isEmpty()) return fail(QStringLiteral("live necesita --action <status|install|uninstall|reset|set>"));
+        if (o.action == QLatin1String("set") && o.fov < 0 && o.speed < 0 && o.jump < 0 && !o.fovEnabledSet)
+            return fail(QStringLiteral("live set necesita --fov, --speed, --jump o --fov-enabled/--no-fov"));
     }
     return true;
 }
@@ -80,6 +103,10 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
     if (command == QLatin1String("uninstall")) return runUninstall(o);
     if (command == QLatin1String("fixids")) return runFixIds(o);
     if (command == QLatin1String("presets")) return runPresets();
+    if (command == QLatin1String("save-to-json") || command == QLatin1String("save-from-json")
+        || command == QLatin1String("fix-save")) return runSave(command, o);
+    if (command == QLatin1String("reshade")) return runReShade(o);
+    if (command == QLatin1String("live")) return runLive(o);
     if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
         return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection);
     return run(command, o.mods, o.outDir, o.baselineDir, o.preferMod, o.rebuildBaseline);
@@ -338,6 +365,90 @@ int HeadlessRunner::runFixIds(const Options &o) {
 
 int HeadlessRunner::runPresets() {
     out(m_controller->builderPresets());
+    return 0;
+}
+
+int HeadlessRunner::runSave(const QString &command, const Options &o) {
+    SaveConverterService converter;
+    SaveConverterService::Result result;
+    if (command == QLatin1String("save-to-json"))
+        result = converter.toJson(o.input, o.outDir, o.indent);
+    else if (command == QLatin1String("save-from-json"))
+        result = converter.fromJson(o.input, o.outDir);
+    else
+        result = converter.fix(o.input);
+    out(result.ok ? QStringLiteral("[OK] ") + result.message
+                  : QStringLiteral("[ERROR] ") + result.message);
+    return result.ok ? 0 : 5;
+}
+
+int HeadlessRunner::runReShade(const Options &o) {
+    ReShadePresetService reshade;
+    reshade.refresh();
+    bool ok = false;
+    if (o.action == QLatin1String("list")) {
+        out(reshade.presetsJson());
+        return 0;
+    }
+    if (o.action == QLatin1String("save")) ok = reshade.saveCurrentPreset(o.name);
+    else if (o.action == QLatin1String("restore")) ok = reshade.restorePreset(o.name);
+    else if (o.action == QLatin1String("rename")) ok = reshade.renamePreset(o.oldName, o.newName);
+    else if (o.action == QLatin1String("delete")) ok = reshade.deletePreset(o.name);
+    else if (o.action == QLatin1String("import")) ok = reshade.importPreset(QUrl::fromLocalFile(o.input));
+    else if (o.action == QLatin1String("export")) ok = reshade.exportPreset(o.name, QUrl::fromLocalFile(o.input));
+    else {
+        out(QStringLiteral("[ERROR] Acción ReShade desconocida: %1").arg(o.action));
+        return 2;
+    }
+    out(ok ? QStringLiteral("[OK] ReShade: %1").arg(o.action)
+           : QStringLiteral("[ERROR] ReShade no pudo ejecutar: %1").arg(o.action));
+    if (ok) out(reshade.presetsJson());
+    return ok ? 0 : 5;
+}
+
+int HeadlessRunner::runLive(const Options &o) {
+    LiveService live;
+    QObject::connect(&live, &LiveService::errorOccurred, this,
+                     [](const QString &message) { out(QStringLiteral("[ERROR] ") + message); });
+    live.refresh();
+    if (o.action == QLatin1String("install")) {
+        const bool ok = live.install();
+        out(ok ? QStringLiteral("[OK] Bridge Live instalado.")
+               : QStringLiteral("[ERROR] No se pudo instalar el bridge Live."));
+        return ok ? 0 : 5;
+    }
+    if (o.action == QLatin1String("uninstall")) {
+        const bool ok = live.uninstall();
+        out(ok ? QStringLiteral("[OK] Bridge Live desinstalado.")
+               : QStringLiteral("[ERROR] No se pudo desinstalar el bridge Live."));
+        return ok ? 0 : 5;
+    }
+    if (o.action == QLatin1String("reset")) {
+        live.resetAll();
+        out(QStringLiteral("[OK] Valores Live restablecidos."));
+        return 0;
+    }
+    if (o.action == QLatin1String("set")) {
+        if (o.fov >= 0) live.setFov(o.fov);
+        if (o.speed >= 0) live.setSpeed(o.speed);
+        if (o.jump >= 0) live.setJump(o.jump);
+        if (o.fovEnabledSet) live.setFovEnabled(o.fovEnabled);
+    } else if (o.action != QLatin1String("status")) {
+        out(QStringLiteral("[ERROR] Acción Live desconocida: %1").arg(o.action));
+        return 2;
+    }
+    QJsonObject status{
+        {QStringLiteral("installed"), live.installed()},
+        {QStringLiteral("ue4ssPresent"), live.ue4ssPresent()},
+        {QStringLiteral("bridgeAlive"), live.bridgeAlive()},
+        {QStringLiteral("ready"), live.ready()},
+        {QStringLiteral("fovEnabled"), live.fovEnabled()},
+        {QStringLiteral("fov"), live.fov()},
+        {QStringLiteral("speed"), live.speed()},
+        {QStringLiteral("jump"), live.jump()},
+        {QStringLiteral("message"), live.statusMessage()}
+    };
+    out(QString::fromUtf8(QJsonDocument(status).toJson(QJsonDocument::Compact)));
     return 0;
 }
 

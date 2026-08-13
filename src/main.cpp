@@ -65,7 +65,12 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless detect\n"
             "  StellarTool --headless uninstall [--paks] [--helper]\n"
             "  StellarTool --headless fixids    --mod <dir> [--apply]\n"
-            "  StellarTool --headless presets"));
+            "  StellarTool --headless presets\n"
+            "  StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]\n"
+            "  StellarTool --headless save-from-json --input <json> --out <sav>\n"
+            "  StellarTool --headless fix-save       --input <sav>\n"
+            "  StellarTool --headless reshade --action <list|save|restore|rename|delete|import|export>\n"
+            "  StellarTool --headless live    --action <status|install|uninstall|reset|set>"));
         parser.addHelpOption();
         parser.addVersionOption();
         parser.addOption({QStringLiteral("headless"), QStringLiteral("Modo sin UI")});
@@ -86,6 +91,16 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("paks"), QStringLiteral("uninstall: quitar los paks que instaló la tool")});
         parser.addOption({QStringLiteral("helper"), QStringLiteral("uninstall: quitar el helper que instaló la tool")});
         parser.addOption({QStringLiteral("apply"), QStringLiteral("fixids: escribir los cambios (por defecto solo reporta)")});
+        parser.addOption({QStringLiteral("input"), QStringLiteral("Archivo de entrada para partidas/ReShade"), QStringLiteral("archivo")});
+        parser.addOption({QStringLiteral("action"), QStringLiteral("Operación de ReShade o Live"), QStringLiteral("operacion")});
+        parser.addOption({QStringLiteral("old-name"), QStringLiteral("Nombre anterior de preset ReShade"), QStringLiteral("nombre")});
+        parser.addOption({QStringLiteral("new-name"), QStringLiteral("Nombre nuevo de preset ReShade"), QStringLiteral("nombre")});
+        parser.addOption({QStringLiteral("indent"), QStringLiteral("Indentación JSON para save-to-json"), QStringLiteral("n"), QStringLiteral("2")});
+        parser.addOption({QStringLiteral("fov"), QStringLiteral("FOV Live (40-170)"), QStringLiteral("valor")});
+        parser.addOption({QStringLiteral("speed"), QStringLiteral("Multiplicador de velocidad Live (0.1-10)"), QStringLiteral("valor")});
+        parser.addOption({QStringLiteral("jump"), QStringLiteral("Multiplicador de salto Live (0.1-10)"), QStringLiteral("valor")});
+        parser.addOption({QStringLiteral("fov-enabled"), QStringLiteral("Activar FOV Live")});
+        parser.addOption({QStringLiteral("no-fov"), QStringLiteral("Desactivar FOV Live")});
         parser.process(app);
 
         const QStringList pos = parser.positionalArguments();
@@ -107,6 +122,20 @@ int main(int argc, char *argv[]) {
         options.uninstallPaks = parser.isSet(QStringLiteral("paks"));
         options.uninstallHelper = parser.isSet(QStringLiteral("helper"));
         options.applyFixes = parser.isSet(QStringLiteral("apply"));
+        options.input = parser.value(QStringLiteral("input"));
+        options.action = parser.value(QStringLiteral("action"));
+        options.oldName = parser.value(QStringLiteral("old-name"));
+        options.newName = parser.value(QStringLiteral("new-name"));
+        options.indent = parser.value(QStringLiteral("indent")).toInt();
+        bool numberOk = false;
+        options.fov = parser.value(QStringLiteral("fov")).toDouble(&numberOk);
+        if (!numberOk) options.fov = -1;
+        options.speed = parser.value(QStringLiteral("speed")).toDouble(&numberOk);
+        if (!numberOk) options.speed = -1;
+        options.jump = parser.value(QStringLiteral("jump")).toDouble(&numberOk);
+        if (!numberOk) options.jump = -1;
+        options.fovEnabledSet = parser.isSet(QStringLiteral("fov-enabled")) || parser.isSet(QStringLiteral("no-fov"));
+        options.fovEnabled = parser.isSet(QStringLiteral("fov-enabled"));
 
         // Validar antes de construir el controller: un comando mal escrito no
         // tiene por que arrancar servicios ni tocar el juego.
