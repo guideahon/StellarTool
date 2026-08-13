@@ -13,6 +13,7 @@
 #include <QQmlContext>
 #include <QQmlError>
 #include <QIcon>
+#include <QWindow>
 #include <QStandardPaths>
 #include <QDir>
 #include <QFile>
@@ -20,6 +21,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <dwmapi.h>
 #include <cstdio>
 // El exe es WIN32 (sin consola); en headless nos re-adjuntamos a la consola
 // del padre para que stdout/stderr lleguen a la terminal que lo invocó.
@@ -33,6 +35,32 @@ static void attachParentConsole() {
         freopen_s(&f, "CONOUT$", "w", stdout);
         freopen_s(&f, "CONOUT$", "w", stderr);
     }
+}
+
+// La barra superior es la decoración nativa de Windows, por fuera de QML.
+// Sin esto el canvas puede estar en Dark/OLED mientras el caption permanece
+// claro. DWMWA_USE_IMMERSIVE_DARK_MODE está disponible en Windows 10/11;
+// algunos builds antiguos exponen el mismo atributo con el índice 19.
+static void applyWindowChrome(QWindow *window, const QString &mode) {
+    if (!window) return;
+    const HWND hwnd = reinterpret_cast<HWND>(window->winId());
+    const BOOL dark = mode != QLatin1String("light");
+    constexpr DWORD kUseImmersiveDarkMode = 20;
+    constexpr DWORD kUseImmersiveDarkModeLegacy = 19;
+    constexpr DWORD kCaptionColor = 35;
+    constexpr DWORD kTextColor = 36;
+
+    HRESULT result = DwmSetWindowAttribute(hwnd, kUseImmersiveDarkMode,
+                                           &dark, sizeof(dark));
+    if (FAILED(result)) {
+        DwmSetWindowAttribute(hwnd, kUseImmersiveDarkModeLegacy,
+                              &dark, sizeof(dark));
+    }
+
+    const COLORREF caption = dark ? RGB(0, 0, 0) : RGB(243, 245, 248);
+    const COLORREF text = dark ? RGB(241, 244, 248) : RGB(23, 27, 34);
+    DwmSetWindowAttribute(hwnd, kCaptionColor, &caption, sizeof(caption));
+    DwmSetWindowAttribute(hwnd, kTextColor, &text, sizeof(text));
 }
 #else
 static void attachParentConsole() {}
@@ -188,6 +216,15 @@ int main(int argc, char *argv[]) {
     engine.load(QUrl(QStringLiteral("qrc:/qml/Main.qml")));
     if (engine.rootObjects().isEmpty())
         return 1;
+#ifdef Q_OS_WIN
+    if (auto *window = qobject_cast<QWindow *>(engine.rootObjects().constFirst())) {
+        applyWindowChrome(window, controller.themeMode());
+        QObject::connect(&controller, &st::AppController::themeModeChanged,
+                         window, [window, &controller] {
+                             applyWindowChrome(window, controller.themeMode());
+                         });
+    }
+#endif
     // Chequeo silencioso de actualización al arrancar (desactivable en Settings).
     if (updater.checkOnStartup())
         QMetaObject::invokeMethod(&updater, [&updater] { updater.checkForUpdates(true); },

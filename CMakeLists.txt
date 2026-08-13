@@ -109,6 +109,9 @@ qt_add_resources(StellarTool "audio"
 
 target_include_directories(StellarTool PRIVATE src)
 target_link_libraries(StellarTool PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Multimedia Qt6::Network)
+if (WIN32)
+    target_link_libraries(StellarTool PRIVATE dwmapi)
+endif()
 target_compile_definitions(StellarTool PRIVATE STELLAR_TOOL_VERSION="${PROJECT_VERSION}")
 set_target_properties(StellarTool PROPERTIES WIN32_EXECUTABLE TRUE)
 
