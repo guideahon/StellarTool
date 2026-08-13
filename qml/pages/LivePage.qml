@@ -320,7 +320,7 @@ Item {
         property string errorText: ""
         anchors.centerIn: parent
         modal: true
-        title: "Live"
+        title: I18n.s.live_title
         standardButtons: Dialog.Ok
         background: Rectangle {
             color: Theme.panel
