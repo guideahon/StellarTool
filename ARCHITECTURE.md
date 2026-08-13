@@ -115,6 +115,7 @@ Claves de diseño:
 | `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta conflictos de `Package_Id`. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
 | `ReShadePresetService` | detecta `SB/Binaries/Win64/ReShade.ini`, mantiene la biblioteca de presets en `%LOCALAPPDATA%/StellarTool/reshade/`, importa/exporta y restaura copias administradas en el juego con backup previo. Comprueba de forma best-effort los shaders referenciados. |
+| `SaveConverterService` | fachada async para el conversor de partidas de lotress: `.sav` ↔ JSON y reparación CNS, ejecutado con el Python embebido del paquete Builder. |
 | `UsmapService` | descarga mappings versionados desde el archivo de la comunidad, lee enums del usmap, detecta versión del juego. |
 | `GamePaths` | autodetección de instalación Steam, normalización de ruta, gestión de stages temporales para CUE4Parse. |
 | `TomlPatch` | parser/serializador mínimo de patches TOML estilo automod (import/export de cambios). |
@@ -138,6 +139,7 @@ Páginas (`qml/pages`):
 8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados.
 9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
 10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
+11. **SaveConverterPage** — conversor y reparador de partidas, con backup automático y crédito a lotress.
 
 Componentes reutilizables en `qml/components` (FlatButton, FieldCombo, BulkTransformDialog, EditValueDialog, LanguageDialog, ThemedScrollBar, UpdateDialog). `Theme.qml` define las paletas Claro, Oscuro y OLED; `AppController.themeMode` persiste la selección en `QSettings` y la expone globalmente a QML.
 

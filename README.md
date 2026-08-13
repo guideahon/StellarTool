@@ -24,6 +24,11 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   permite importar/exportar y renombrar/eliminar presets, y crea un backup de
   `ReShade.ini` antes de cambiar el preset activo. Advierte si faltan shaders
   referenciados; no distribuye shaders.
+- **Partidas** integra el conversor de partidas de Stellar Blade de
+  [lotress](https://www.nexusmods.com/stellarblade/users/12188623): exporta
+  `.sav` a JSON, vuelve de JSON a `.sav` y ofrece la reparación CNS que elimina
+  `AutoLoadCNS` y `CamPosition`. Al sobrescribir una partida se conserva el
+  backup automático en `Backup/`. Fuente: [CNSSaveConverter](https://github.com/lotress/CNSSaveConverter).
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
 Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)

@@ -18,6 +18,7 @@ class UsmapService;
 class Cue4Service;
 class CnsConverterService;
 class CnsIdFixerService;
+class SaveConverterService;
 class ModImporter;
 class BaselineManager;
 class ProjectStore;
@@ -54,6 +55,7 @@ class AppController : public QObject {
     Q_PROPERTY(QString lastCnsResult READ lastCnsResult NOTIFY cnsConversionFinished)
     Q_PROPERTY(QString cnsHistoryJson READ cnsHistory NOTIFY cnsHistoryChanged)
     Q_PROPERTY(QString cnsIdFixerReport READ cnsIdFixerReport NOTIFY cnsIdFixerFinished)
+    Q_PROPERTY(QString saveConverterResult READ saveConverterResult NOTIFY saveConverterFinished)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
     ~AppController() override;
@@ -187,6 +189,10 @@ public:
     Q_INVOKABLE void openCnsOutputDir();
     Q_INVOKABLE void runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes);
     QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
+    Q_INVOKABLE void convertSaveToJson(const QUrl &inputUrl, const QUrl &outputUrl, int indent = 2);
+    Q_INVOKABLE void convertJsonToSave(const QUrl &inputUrl, const QUrl &outputUrl);
+    Q_INVOKABLE void fixSave(const QUrl &inputUrl);
+    QString saveConverterResult() const { return m_saveConverterResult; }
 
 signals:
     void busyChanged();
@@ -209,6 +215,7 @@ signals:
     void cnsConversionFinished(bool ok, const QString &outputPath);
     void cnsHistoryChanged();
     void cnsIdFixerFinished(bool ok);
+    void saveConverterFinished(bool ok, const QString &outputPath);
     void errorOccurred(const QString &message);
 
 private:
@@ -247,6 +254,7 @@ private:
     Cue4Service *m_cue4;
     CnsConverterService *m_cns;
     CnsIdFixerService *m_cnsIdFixer;
+    SaveConverterService *m_saveConverter;
     ModImporter *m_importer;
     BaselineManager *m_baseline;
     ProjectStore *m_store;
@@ -269,6 +277,7 @@ private:
     QString m_lastMergeResult;
     QString m_lastCnsResult;
     QString m_cnsIdFixerReport;
+    QString m_saveConverterResult;
     QHash<QString, QStringList> m_usmapEnums;
     bool m_usmapEnumsLoaded = false;
     // pid del build en curso (0 = ninguno) y si el usuario lo canceló: los lee

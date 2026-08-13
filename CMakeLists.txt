@@ -19,6 +19,7 @@ set(CORE_SOURCES
     src/core/Cue4Service.cpp
     src/core/CnsConverterService.cpp
     src/core/CnsIdFixerService.cpp
+    src/core/SaveConverterService.cpp
     src/core/GamePaths.cpp
     src/core/LiveService.cpp
     src/core/ReShadePresetService.cpp
@@ -43,6 +44,7 @@ set(CORE_HEADERS
     src/core/Cue4Service.h
     src/core/CnsConverterService.h
     src/core/CnsIdFixerService.h
+    src/core/SaveConverterService.h
     src/core/GamePaths.h
     src/core/LiveService.h
     src/core/ReShadePresetService.h

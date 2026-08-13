@@ -5,6 +5,7 @@
 #include "core/Cue4Service.h"
 #include "core/CnsConverterService.h"
 #include "core/CnsIdFixerService.h"
+#include "core/SaveConverterService.h"
 #include "core/GamePaths.h"
 #include "core/UsmapService.h"
 #include "core/ModImporter.h"
@@ -61,6 +62,7 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_cue4(new Cue4Service(this)),
       m_cns(new CnsConverterService(m_pak, m_uasset, m_cue4, this)),
       m_cnsIdFixer(new CnsIdFixerService(this)),
+      m_saveConverter(new SaveConverterService(this)),
       m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
       m_store(new ProjectStore(this)) {
@@ -1227,6 +1229,56 @@ bool AppController::setOodlePath(const QUrl &fileUrl) {
 void AppController::clearOodlePath() {
     PakService::setUserOodlePath(QString());
     emit oodleChanged();
+}
+
+void AppController::convertSaveToJson(const QUrl &inputUrl, const QUrl &outputUrl, int indent) {
+    if (m_busy) return;
+    const QString input = inputUrl.toLocalFile();
+    const QString output = outputUrl.toLocalFile();
+    setBusy(true, QStringLiteral("Convirtiendo partida a JSON…"));
+    std::ignore = QtConcurrent::run([this, input, output, indent] {
+        const auto result = m_saveConverter->toJson(input, output, indent);
+        QMetaObject::invokeMethod(this, [this, result] {
+            m_saveConverterResult = result.ok ? result.message : result.message;
+            if (!result.ok) emit errorOccurred(result.message);
+            setBusy(false, result.ok ? QStringLiteral("Partida convertida a JSON.")
+                                     : QStringLiteral("Falló la conversión de la partida."));
+            emit saveConverterFinished(result.ok, result.outputPath);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::convertJsonToSave(const QUrl &inputUrl, const QUrl &outputUrl) {
+    if (m_busy) return;
+    const QString input = inputUrl.toLocalFile();
+    const QString output = outputUrl.toLocalFile();
+    setBusy(true, QStringLiteral("Convirtiendo JSON a partida…"));
+    std::ignore = QtConcurrent::run([this, input, output] {
+        const auto result = m_saveConverter->fromJson(input, output);
+        QMetaObject::invokeMethod(this, [this, result] {
+            m_saveConverterResult = result.message;
+            if (!result.ok) emit errorOccurred(result.message);
+            setBusy(false, result.ok ? QStringLiteral("Partida restaurada desde JSON.")
+                                     : QStringLiteral("Falló la conversión de la partida."));
+            emit saveConverterFinished(result.ok, result.outputPath);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::fixSave(const QUrl &inputUrl) {
+    if (m_busy) return;
+    const QString input = inputUrl.toLocalFile();
+    setBusy(true, QStringLiteral("Reparando partida CNS…"));
+    std::ignore = QtConcurrent::run([this, input] {
+        const auto result = m_saveConverter->fix(input);
+        QMetaObject::invokeMethod(this, [this, result, input] {
+            m_saveConverterResult = result.message;
+            if (!result.ok) emit errorOccurred(result.message);
+            setBusy(false, result.ok ? QStringLiteral("Reparación CNS terminada.")
+                                     : QStringLiteral("Falló la reparación CNS."));
+            emit saveConverterFinished(result.ok, input);
+        }, Qt::QueuedConnection);
+    });
 }
 
 void AppController::refreshOodle() {
