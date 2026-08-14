@@ -855,6 +855,19 @@ def test_builder_template_restores_every_granular_answer_group():
     assert "root.applyHistoryTemplate(modelData.id)" in qml
 
 
+def test_miniboss_attributes_use_sliders_and_keep_checkbox_toggles():
+    qml = (Path(__file__).resolve().parents[2] / "qml" / "pages" / "BuilderPage.qml").read_text(
+        encoding="utf-8")
+    traits = qml.split("builder_miniboss_traits", 1)[1].split("// Bosses de overworld", 1)[0]
+    assert "id: mbHealthValue" in traits
+    assert "id: mbAttackValue" in traits
+    assert "id: mbScaleValue" in traits
+    assert "NumericEditor" in traits
+    assert "id: mbShield" in traits and "id: mbXp" in traits
+    assert "RadioButton { id: mbHp" not in traits
+    assert "RadioButton { id: mbAtk" not in traits
+
+
 def test_base_attribute_preset_resolves_overlapping_options():
     qml = (Path(__file__).resolve().parents[2] / "qml" / "pages" / "BuilderPage.qml").read_text(
         encoding="utf-8")

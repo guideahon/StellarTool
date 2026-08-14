@@ -146,9 +146,9 @@ Item {
                 && a.miniBoss !== undefined && a.miniBoss !== "off" && a.miniBoss !== false)
             setMiniBossPreset(true)
         var mb = a.miniBossConfig || {}
-        mbHealthRow.selected = mb.health === undefined ? true : mb.health
-        mbAttackRow.selected = mb.attack === undefined ? true : mb.attack
-        mbScaleRow.selected = mb.scale === undefined ? true : mb.scale
+        mbHealth.checked = mb.health === undefined ? true : mb.health
+        mbAttack.checked = mb.attack === undefined ? true : mb.attack
+        mbScale.checked = mb.scale === undefined ? true : mb.scale
         mbShield.checked = mb.removeShield === undefined ? true : mb.removeShield
         mbRewards.checked = mb.rewards === undefined ? true : mb.rewards
         mbXp.checked = mb.xpRewards === undefined ? true : mb.xpRewards
@@ -165,15 +165,9 @@ Item {
         owHp25.checked = owHp === 0.25; owHp75.checked = owHp === 0.75
         owHp100.checked = owHp === 1
         owHp50.checked = !owHp25.checked && !owHp75.checked && !owHp100.checked
-        var hpMult = Number(mb.healthMultiplier || 4.5)
-        mbHp15.checked = hpMult === 1.5; mbHp3.checked = hpMult === 3
-        mbHp45.checked = !mbHp15.checked && !mbHp3.checked
-        var attackMult = Number(mb.attackMultiplier || 1.6)
-        mbAtk13.checked = attackMult === 1.3; mbAtk16.checked = attackMult === 1.6
-        mbAtk2.checked = attackMult === 2; mbAtk3.checked = attackMult === 3
-        var scaleMult = Number(mb.scaleMultiplier || 1.6)
-        mbScale12.checked = scaleMult === 1.2; mbScale16.checked = scaleMult === 1.6
-        mbScale2.checked = scaleMult === 2
+        mbHealthValue.scaledValue = Math.round(Number(mb.healthMultiplier || 4.5) * 100)
+        mbAttackValue.scaledValue = Math.round(Number(mb.attackMultiplier || 1.6) * 100)
+        mbScaleValue.scaledValue = Math.round(Number(mb.scaleMultiplier || 1.6) * 100)
         variety.checked = a.enemyVariety === true
         var ex = a.gameplayExtras || []
         var xv = a.gameplayExtraValues || {}
@@ -356,7 +350,7 @@ Item {
         if (on) {
             wlaRow.density=5; atlRow.density=5; meRow.density=10; wlbRow.density=10
             aylRow.density=10; ded40Row.density=15; dedaRow.density=15; seRow.density=15
-            mbHealthRow.selected=true; mbAttackRow.selected=true; mbScaleRow.selected=true
+            mbHealth.checked=true; mbAttack.checked=true; mbScale.checked=true
             mbShield.checked=true; mbRewards.checked=true; mbXp.checked=true
             mbPersistent.checked=true; mbBossType.checked=true; mbExecution.checked=true
             mbStagger.checked=true
@@ -977,22 +971,12 @@ Item {
                             Layout.fillWidth: true; spacing: 6
                             visible: root.anyMiniBossRegion()
                             FieldLabel { text: I18n.s.builder_miniboss_traits || "Mini-boss attributes"; font.bold: true }
-                            ChangeRow { id: mbHealthRow; label: I18n.s.builder_mb_health || "Increase health"
-                                CheckBox { id: mbHealth; checked:mbHealthRow.selected; visible:false }
-                                ButtonGroup { id: mbHpGroup } RadioButton { id: mbHp15; text:"x1,5"; ButtonGroup.group:mbHpGroup }
-                                RadioButton { id: mbHp3; text:"x3"; ButtonGroup.group:mbHpGroup }
-                                RadioButton { id: mbHp45; text:"x4,5"; checked:true; ButtonGroup.group:mbHpGroup } }
-                            ChangeRow { id: mbAttackRow; label: I18n.s.builder_mb_attack || "Increase attack"
-                                CheckBox { id: mbAttack; checked:mbAttackRow.selected; visible:false }
-                                ButtonGroup { id: mbAtkGroup } RadioButton { id: mbAtk13; text:"x1,3"; ButtonGroup.group:mbAtkGroup }
-                                RadioButton { id: mbAtk16; text:"x1,6"; checked:true; ButtonGroup.group:mbAtkGroup }
-                                RadioButton { id: mbAtk2; text:"x2"; ButtonGroup.group:mbAtkGroup }
-                                RadioButton { id: mbAtk3; text:"x3"; ButtonGroup.group:mbAtkGroup } }
-                            ChangeRow { id: mbScaleRow; label: I18n.s.builder_mb_scale || "Increase size"
-                                CheckBox { id: mbScale; checked:mbScaleRow.selected; visible:false }
-                                ButtonGroup { id: mbScaleGroup } RadioButton { id: mbScale12; text:"x1,2"; ButtonGroup.group:mbScaleGroup }
-                                RadioButton { id: mbScale16; text:"x1,6"; checked:true; ButtonGroup.group:mbScaleGroup }
-                                RadioButton { id: mbScale2; text:"x2"; ButtonGroup.group:mbScaleGroup } }
+                            CheckBox { id: mbHealth; checked:true; text: I18n.s.builder_mb_health || "Increase health" }
+                            NumericEditor { id: mbHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "miniBossConfig.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 450; visible: mbHealth.checked; factor: 100 }
+                            CheckBox { id: mbAttack; checked:true; text: I18n.s.builder_mb_attack || "Increase attack" }
+                            NumericEditor { id: mbAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "miniBossConfig.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 160; visible: mbAttack.checked; factor: 100 }
+                            CheckBox { id: mbScale; checked:true; text: I18n.s.builder_mb_scale || "Increase size" }
+                            NumericEditor { id: mbScaleValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "miniBossConfig.scaleMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 160; visible: mbScale.checked; factor: 100 }
                             CheckBox { id: mbShield; checked:true; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
                             CheckBox { id: mbRewards; checked:true; text: I18n.s.builder_mb_rewards || "Add NG+ rewards and drops" }
                             CheckBox { id: mbXp; checked:true; text: I18n.s.builder_mb_xp || "Increase XP" }
@@ -1722,12 +1706,12 @@ Item {
                             miniBoss: mb,
                             miniBossRegionDensity: miniBossDensities(),
                             miniBossConfig: {
-                                health: mbHealthRow.selected,
-                                healthMultiplier: mbHp15.checked ? 1.5 : (mbHp3.checked ? 3 : 4.5),
-                                attack: mbAttackRow.selected,
-                                attackMultiplier: mbAtk13.checked ? 1.3 : (mbAtk16.checked ? 1.6 : (mbAtk2.checked ? 2 : 3)),
-                                scale: mbScaleRow.selected,
-                                scaleMultiplier: mbScale12.checked ? 1.2 : (mbScale16.checked ? 1.6 : 2),
+                                health: mbHealth.checked,
+                                healthMultiplier: mbHealthValue.realValue,
+                                attack: mbAttack.checked,
+                                attackMultiplier: mbAttackValue.realValue,
+                                scale: mbScale.checked,
+                                scaleMultiplier: mbScaleValue.realValue,
                                 removeShield: mbShield.checked, rewards: mbRewards.checked,
                                 xpRewards: mbXp.checked, persistent: mbPersistent.checked,
                                 bossType: mbBossType.checked, executionImmunity: mbExecution.checked,
