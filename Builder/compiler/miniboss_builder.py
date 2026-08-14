@@ -717,6 +717,17 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
             doc, et_sel, gear_mult, tumbler_value))
 
     et_report = _edit_uasset(work_dir, "EffectTable", et_mutators)
+    # Ajustes de XP/drops de bosses y enemigos normales: RewardGroupTable es
+    # una de las tablas fijas del pak mini-boss, así que se edita en el mismo
+    # round-trip y no se genera un pak paralelo que pueda pisarla.
+    reward_mutators = []
+    import enemy_tweaks
+    for boss, key in ((True, "harder_bosses"), (False, "harder_enemies")):
+        config = table_compiler.PARAMS.get(key) or {}
+        if config.get("enabled") and (config.get("xp") or config.get("drops")):
+            reward_mutators.append(lambda doc, b=boss, c=dict(config):
+                                   {"enemyRewards": enemy_tweaks.apply_rewards(doc, b, c)})
+    reward_report = _edit_uasset(work_dir, "RewardGroupTable", reward_mutators) if reward_mutators else {}
     # Orden fijo: CharacterTable, EventSpawnTable y despues las fijas.
     uassets.extend(written[:2])
     uassets.extend(work_dir / f"{name}.uasset" for name in _STATIC_TABLES)
@@ -725,6 +736,8 @@ def compile_miniboss(work_dir, density="p20", region="allRegions", verify_result
         report["effectExtras"] = eff
     if skx:
         report["skillExtras"] = skx
+    if reward_report:
+        report["enemyRewards"] = reward_report
     # Mundo: solo las tablas que este pak ya trae (RewardGroupTable); el resto va
     # en el pak StellarSouls-World que compila build_custom.
     wx = _apply_world_extras_pass(work_dir, world_extra_ids, world_values)

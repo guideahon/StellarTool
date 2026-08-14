@@ -35,7 +35,7 @@ def _is_boss(row):
 
 
 def _selected(row, boss):
-    return _is_boss(row) == boss and _get(row, "Name") != "Player"
+    return _is_boss(row) == boss and row.get("Name") != "Player"
 
 
 def apply_character(doc, boss, config):
@@ -62,6 +62,36 @@ def apply_character(doc, boss, config):
         if config.get("removeShield"):
             n += _set(row, "MaxShield", 0)
             n += _set(row, "ShieldBlock", 0.0)
+        if config.get("shieldRegen"):
+            mult = float(config.get("shieldRegenMultiplier", 1.0))
+            for field in ("ShieldRegenPerSecond", "ShieldRegenPerSecondWhenBattle"):
+                v = _get(row, field)
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                    n += _set(row, field, v * mult)
+        if config.get("shieldDamageReduction"):
+            v = _get(row, "BaseDamageReductionByShield")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                n += _set(row, "BaseDamageReductionByShield",
+                          min(0.99, v * float(config.get("shieldDamageReductionMultiplier", 1.0))))
+        if config.get("stamina"):
+            v = _get(row, "MaxStamina")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                value = v * float(config.get("staminaMultiplier", 1.0))
+                n += _set(row, "MaxStamina", int(round(value)) if isinstance(v, int) else value)
+        if config.get("staminaRegen"):
+            v = _get(row, "StaminaRegenPerSecond")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                n += _set(row, "StaminaRegenPerSecond",
+                          v * float(config.get("staminaRegenMultiplier", 1.0)))
+        if config.get("attackSpeed"):
+            v = _get(row, "AttackSpeed")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                n += _set(row, "AttackSpeed", v * float(config.get("attackSpeedMultiplier", 1.0)))
+        if config.get("moveSpeed"):
+            v = _get(row, "MoveSpeed")
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                value = v * float(config.get("moveSpeedMultiplier", 1.0))
+                n += _set(row, "MoveSpeed", int(round(value)) if isinstance(v, int) else value)
         if config.get("staggerImmunity"):
             v = _get(row, "HitDefenseLevel")
             if isinstance(v, (int, float)) and v < 5:
@@ -96,27 +126,64 @@ def apply_skills(doc, boss, config):
     return n
 
 
-def apply_xp(doc, boss, config):
-    """Escala campos XP/EXP existentes en RewardGroupTable.
+def _reward_aliases(boss):
+    """Obtiene grupos de recompensa vinculados a la clase desde CharacterTable."""
+    try:
+        import table_compiler
+        characters = table_compiler.load_table("CharacterTable", "vanilla")
+    except (FileNotFoundError, KeyError):
+        return set()
+    aliases = set()
+    for row in _rows(characters):
+        if _selected(row, boss):
+            for field in ("RewardGroupAlias", "RewardGroup"):
+                value = _get(row, field)
+                if isinstance(value, str) and value not in ("None", ""):
+                    aliases.add(value)
+    return aliases
 
-    La tabla de recompensas no siempre trae una propiedad de experiencia en
-    todas las versiones; en ese caso devuelve cero y el manifest lo deja claro.
+
+def _belongs_to_alias(row, aliases):
+    if not aliases:
+        return False
+    if str(row.get("Name", "")) in aliases:
+        return True
+    for p in row.get("Value", []):
+        value = p.get("Value")
+        if isinstance(value, str) and value in aliases:
+            return True
+    return False
+
+
+def apply_rewards(doc, boss, config):
+    """Escala XP y drops sólo de grupos vinculados a los arquetipos elegidos.
+
+    Si una versión del juego no expone el vínculo, no aplica un cambio global
+    silencioso: devuelve un reporte de grupos no encontrados.
     """
-    if not (config or {}).get("xp"):
-        return 0
-    mult = float(config.get("xpMultiplier", 1.0))
-    n = 0
+    config = config or {}
+    aliases = _reward_aliases(boss)
+    report = {"changed": 0, "matchedGroups": 0, "aliases": sorted(aliases)}
+    if not aliases:
+        return report
     for row in _rows(doc):
-        # No hay un vínculo universal reward->actor; sólo se escriben campos
-        # explícitamente identificados como experiencia, nunca cantidades de loot.
+        if not _belongs_to_alias(row, aliases):
+            continue
+        report["matchedGroups"] += 1
         for p in row.get("Value", []):
             name = str(p.get("Name", ""))
-            if not any(token in name.casefold() for token in ("xp", "exp", "experience")):
-                continue
             v = p.get("Value")
-            if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
-                value = v * mult
-                p["Value"] = int(round(value)) if isinstance(v, int) else value
-                p["IsZero"] = False
-                n += 1
-    return n
+            if config.get("xp") and any(token in name.casefold() for token in ("xp", "exp", "experience")):
+                value = v * float(config.get("xpMultiplier", 1.0)) if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else v
+            elif config.get("drops") and name in ("DropRate", "ItemMinCount", "ItemMaxCount") and isinstance(v, int) and v > 0:
+                value = v * float(config.get("dropMultiplier", 1.0))
+            else:
+                continue
+            p["Value"] = int(round(value)) if isinstance(v, int) else value
+            p["IsZero"] = False
+            report["changed"] += 1
+    return report
+
+
+# Compatibilidad con el nombre anterior usado por transforms ya publicadas.
+apply_xp = apply_rewards

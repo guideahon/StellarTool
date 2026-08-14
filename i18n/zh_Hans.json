@@ -231,5 +231,17 @@
   "builder_enemy_health_multiplier": "生命倍率",
   "builder_enemy_attack_multiplier": "攻击倍率",
   "builder_enemy_size_multiplier": "体型倍率",
-  "builder_enemy_xp_multiplier": "XP 倍率"
+  "builder_enemy_xp_multiplier": "XP 倍率",
+  "builder_challenge_profiles": "挑战配置",
+  "builder_profile_glass": "玻璃大炮",
+  "builder_profile_attrition": "消耗战",
+  "builder_profile_endurance": "耐久战",
+  "builder_shield_regen": "提高护盾恢复",
+  "builder_shield_reduction": "提高护盾减伤",
+  "builder_stamina": "提高耐力",
+  "builder_stamina_regen": "提高耐力恢复",
+  "builder_attack_speed": "提高攻击速度",
+  "builder_move_speed": "提高移动速度",
+  "builder_enemy_drops": "提高掉落",
+  "builder_multiplier": "倍率"
 }

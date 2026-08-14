@@ -54,6 +54,10 @@ independientes. Cada uno puede incluir `health`, `attack`, `size`, `removeShield
 `xp`, `staggerImmunity` y sus multiplicadores (`healthMultiplier`,
 `attackMultiplier`, `sizeMultiplier`, `xpMultiplier`). Los sliders de la UI
 generan exactamente ese JSON, por lo que el build headless es equivalente.
+También están disponibles `shieldRegen`, `shieldDamageReduction`, `stamina`,
+`staminaRegen`, `attackSpeed`, `moveSpeed` y `drops`, con sus multiplicadores.
+`challengeProfile` acepta `glassCannon`, `attrition` o `endurance` y completa
+los dos objetos sin pisar valores explícitos.
 
 ### Partidas
 

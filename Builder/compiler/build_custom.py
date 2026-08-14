@@ -60,6 +60,41 @@ DEFAULT_ALPHA = "alpha6"   # el chain: prueba las tres estrategias y se queda co
 # Respuesta del cuestionario -> factor de vida de la variante de boss (`_OW`).
 OVERWORLD_HEALTH = {"quarter": 0.25, "half": 0.5, "threeQuarter": 0.75, "full": 1.0}
 
+CHALLENGE_PROFILES = {
+    "glassCannon": {
+        "healthMultiplier": 1.25, "attackMultiplier": 2.0,
+        "attackSpeedMultiplier": 1.15, "moveSpeedMultiplier": 1.25,
+    },
+    "attrition": {
+        "healthMultiplier": 2.5, "attackMultiplier": 1.25,
+        "shieldRegenMultiplier": 2.0, "shieldDamageReductionMultiplier": 1.5,
+        "staggerImmunity": True,
+    },
+    "endurance": {
+        "healthMultiplier": 4.0, "attackMultiplier": 1.5,
+        "staminaMultiplier": 2.0, "staminaRegenMultiplier": 1.5,
+    },
+}
+
+
+def apply_challenge_profile(a: dict) -> dict:
+    """Expande un perfil headless sin pisar valores explícitos del usuario."""
+    profile = a.get("challengeProfile", "none")
+    values = CHALLENGE_PROFILES.get(profile)
+    if not values:
+        return a
+    for key in ("harderBosses", "harderEnemies"):
+        cfg = dict(a.get(key) or {})
+        cfg.setdefault("enabled", True)
+        for name, value in values.items():
+            cfg.setdefault(name, value)
+        for name in ("health", "attack", "attackSpeed", "moveSpeed",
+                     "shieldRegen", "shieldDamageReduction", "stamina", "staminaRegen"):
+            if name in cfg or name + "Multiplier" in values:
+                cfg.setdefault(name, True)
+        a[key] = cfg
+    return a
+
 
 def normalize(answers: dict) -> dict:
     """Rellena defaults y normaliza miniBoss a on/off para la clave de preset."""
@@ -101,6 +136,8 @@ def normalize(answers: dict) -> dict:
     # Mundo/economia: tablas fuera del combate (tienda, drops, progresion, pesca).
     a.setdefault("worldTweaks", [])
     a.setdefault("worldTweakValues", {})
+    a.setdefault("challengeProfile", "none")
+    a = apply_challenge_profile(a)
     a.setdefault("lang", "es")
     if a["lang"] not in SUPPORTED_LANGS:
         a["lang"] = "es"

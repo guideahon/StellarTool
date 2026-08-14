@@ -231,5 +231,17 @@
   "builder_enemy_health_multiplier": "体力倍率",
   "builder_enemy_attack_multiplier": "攻撃倍率",
   "builder_enemy_size_multiplier": "サイズ倍率",
-  "builder_enemy_xp_multiplier": "XP倍率"
+  "builder_enemy_xp_multiplier": "XP倍率",
+  "builder_challenge_profiles": "チャレンジプロファイル",
+  "builder_profile_glass": "グラスキャノン",
+  "builder_profile_attrition": "消耗戦",
+  "builder_profile_endurance": "耐久戦",
+  "builder_shield_regen": "シールド回復を増加",
+  "builder_shield_reduction": "シールド軽減を増加",
+  "builder_stamina": "スタミナを増加",
+  "builder_stamina_regen": "スタミナ回復を増加",
+  "builder_attack_speed": "攻撃速度を増加",
+  "builder_move_speed": "移動速度を増加",
+  "builder_enemy_drops": "ドロップを増加",
+  "builder_multiplier": "倍率"
 }

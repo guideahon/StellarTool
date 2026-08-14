@@ -25,6 +25,10 @@ Ver [ARCHITECTURE.md](ARCHITECTURE.md). Manifest de features: [features/manifest
   valores son % sobre vanilla (100 = vanilla) y salen en el pak
   `StellarSouls-World`. Con mini-boss/First Run el ajuste de drops se aplica
   dentro del pak combinado, que ya trae `RewardGroupTable`.
+- **Dificultad avanzada** (`harderBosses` / `harderEnemies`): vida, ataque,
+  tamaño, escudo, XP, stagger, regeneración y reducción de escudo, stamina,
+  velocidad de ataque/movimiento y drops. Los perfiles `glassCannon`,
+  `attrition` y `endurance` funcionan igual desde QML y headless.
 
 ## Uso (CLI, F1)
 

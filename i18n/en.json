@@ -539,5 +539,17 @@
   "builder_enemy_health_multiplier": "Health multiplier",
   "builder_enemy_attack_multiplier": "Attack multiplier",
   "builder_enemy_size_multiplier": "Size multiplier",
-  "builder_enemy_xp_multiplier": "XP multiplier"
+  "builder_enemy_xp_multiplier": "XP multiplier",
+  "builder_challenge_profiles": "Challenge profiles",
+  "builder_profile_glass": "Glass cannon",
+  "builder_profile_attrition": "Attrition",
+  "builder_profile_endurance": "Endurance",
+  "builder_shield_regen": "Increase shield regeneration",
+  "builder_shield_reduction": "Increase shield damage reduction",
+  "builder_stamina": "Increase stamina",
+  "builder_stamina_regen": "Increase stamina regeneration",
+  "builder_attack_speed": "Increase attack speed",
+  "builder_move_speed": "Increase movement speed",
+  "builder_enemy_drops": "Increase drops",
+  "builder_multiplier": "Multiplier"
 }

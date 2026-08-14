@@ -2073,6 +2073,26 @@ def test_custom_enemy_tuning_separates_bosses_and_regular_enemies():
         "enemyTweaks.enemy.skill", "enemyTweaks.enemy.rewards"]
 
 
+def test_challenge_profiles_expand_to_headless_enemy_configs():
+    answers = bc.normalize({"challengeProfile": "attrition"})
+    assert answers["harderBosses"]["enabled"] is True
+    assert answers["harderEnemies"]["healthMultiplier"] == 2.5
+    assert answers["harderEnemies"]["shieldRegen"] is True
+    assert answers["harderEnemies"]["staggerImmunity"] is True
+
+
+def test_advanced_enemy_controls_are_wired_to_answers():
+    qml = (Path(__file__).resolve().parents[2] / "qml" / "pages" / "BuilderPage.qml").read_text(
+        encoding="utf-8")
+    for control in ("bossShieldRegen", "bossShieldReduction", "bossStamina",
+                    "bossAttackSpeed", "bossMoveSpeed", "bossDrops",
+                    "enemyShieldRegen", "enemyShieldReduction", "enemyStamina",
+                    "enemyAttackSpeed", "enemyMoveSpeed", "enemyDrops"):
+        assert f"id: {control}" in qml
+    assert "challengeProfile: root.challengeProfile" in qml
+    assert "setDifficultyProfile" in qml
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

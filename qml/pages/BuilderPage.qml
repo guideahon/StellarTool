@@ -16,6 +16,7 @@ Item {
     property var historyModel: []
     property var presetModel: []
     property var installed: ({ paks: [], helper: false, helpers: [] })
+    property string challengeProfile: "none"
     property string conflictNewLabel: ""
     property string conflictCurrentLabel: ""
     property var conflictApplyNew: null
@@ -227,6 +228,7 @@ Item {
         harderInsane.checked = hardcore === "insane"
         var hb = a.harderBosses || {}
         var he = a.harderEnemies || {}
+        challengeProfile = a.challengeProfile || "none"
         hardBosses.checked = hb.enabled === true
         hardEnemies.checked = he.enabled === true
         bossHealth.checked = hb.health === undefined ? true : hb.health
@@ -235,20 +237,48 @@ Item {
         bossShield.checked = hb.removeShield === true
         bossXp.checked = hb.xp === true
         bossStagger.checked = hb.staggerImmunity === true
+        bossShieldRegen.checked = hb.shieldRegen === true
+        bossShieldReduction.checked = hb.shieldDamageReduction === true
+        bossStamina.checked = hb.stamina === true
+        bossStaminaRegen.checked = hb.staminaRegen === true
+        bossAttackSpeed.checked = hb.attackSpeed === true
+        bossMoveSpeed.checked = hb.moveSpeed === true
+        bossDrops.checked = hb.drops === true
         enemyHealth.checked = he.health === undefined ? true : he.health
         enemyAttack.checked = he.attack === undefined ? true : he.attack
         enemySize.checked = he.size === undefined ? false : he.size
         enemyShield.checked = he.removeShield === true
         enemyXp.checked = he.xp === true
         enemyStagger.checked = he.staggerImmunity === true
+        enemyShieldRegen.checked = he.shieldRegen === true
+        enemyShieldReduction.checked = he.shieldDamageReduction === true
+        enemyStamina.checked = he.stamina === true
+        enemyStaminaRegen.checked = he.staminaRegen === true
+        enemyAttackSpeed.checked = he.attackSpeed === true
+        enemyMoveSpeed.checked = he.moveSpeed === true
+        enemyDrops.checked = he.drops === true
         bossHealthValue.scaledValue = Math.round(Number(hb.healthMultiplier || 2) * 100)
         bossAttackValue.scaledValue = Math.round(Number(hb.attackMultiplier || 1.5) * 100)
         bossSizeValue.scaledValue = Math.round(Number(hb.sizeMultiplier || 1.2) * 100)
         bossXpValue.scaledValue = Math.round(Number(hb.xpMultiplier || 2) * 100)
+        bossShieldRegenValue.scaledValue = Math.round(Number(hb.shieldRegenMultiplier || 1.5) * 100)
+        bossShieldReductionValue.scaledValue = Math.round(Number(hb.shieldDamageReductionMultiplier || 1.25) * 100)
+        bossStaminaValue.scaledValue = Math.round(Number(hb.staminaMultiplier || 1.5) * 100)
+        bossStaminaRegenValue.scaledValue = Math.round(Number(hb.staminaRegenMultiplier || 1.25) * 100)
+        bossAttackSpeedValue.scaledValue = Math.round(Number(hb.attackSpeedMultiplier || 1.15) * 100)
+        bossMoveSpeedValue.scaledValue = Math.round(Number(hb.moveSpeedMultiplier || 1.25) * 100)
+        bossDropValue.scaledValue = Math.round(Number(hb.dropMultiplier || 1.5) * 100)
         enemyHealthValue.scaledValue = Math.round(Number(he.healthMultiplier || 2) * 100)
         enemyAttackValue.scaledValue = Math.round(Number(he.attackMultiplier || 1.5) * 100)
         enemySizeValue.scaledValue = Math.round(Number(he.sizeMultiplier || 1.2) * 100)
         enemyXpValue.scaledValue = Math.round(Number(he.xpMultiplier || 2) * 100)
+        enemyShieldRegenValue.scaledValue = Math.round(Number(he.shieldRegenMultiplier || 1.5) * 100)
+        enemyShieldReductionValue.scaledValue = Math.round(Number(he.shieldDamageReductionMultiplier || 1.25) * 100)
+        enemyStaminaValue.scaledValue = Math.round(Number(he.staminaMultiplier || 1.5) * 100)
+        enemyStaminaRegenValue.scaledValue = Math.round(Number(he.staminaRegenMultiplier || 1.25) * 100)
+        enemyAttackSpeedValue.scaledValue = Math.round(Number(he.attackSpeedMultiplier || 1.15) * 100)
+        enemyMoveSpeedValue.scaledValue = Math.round(Number(he.moveSpeedMultiplier || 1.25) * 100)
+        enemyDropValue.scaledValue = Math.round(Number(he.dropMultiplier || 1.5) * 100)
         exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
         baseHp.scaledValue = extraValue("base_attributes", "max_hp", 3000)
         baseShield.scaledValue = extraValue("base_attributes", "max_shield", 1000)
@@ -354,6 +384,37 @@ Item {
             mbShield.checked=true; mbRewards.checked=true; mbXp.checked=true
             mbPersistent.checked=true; mbBossType.checked=true; mbExecution.checked=true
             mbStagger.checked=true
+        }
+    }
+    function setDifficultyProfile(kind) {
+        challengeProfile = kind
+        var boss = hardBosses.checked || kind === "glassCannon" || kind === "attrition" || kind === "endurance"
+        var enemy = hardEnemies.checked || boss
+        hardBosses.checked = boss; hardEnemies.checked = enemy
+        bossHealth.checked = enemyHealth.checked = true
+        bossAttack.checked = enemyAttack.checked = true
+        bossShieldRegen.checked = enemyShieldRegen.checked = true
+        bossAttackSpeed.checked = enemyAttackSpeed.checked = true
+        bossMoveSpeed.checked = enemyMoveSpeed.checked = true
+        if (kind === "glassCannon") {
+            bossHealthValue.scaledValue = enemyHealthValue.scaledValue = 125
+            bossAttackValue.scaledValue = enemyAttackValue.scaledValue = 200
+            bossAttackSpeedValue.scaledValue = enemyAttackSpeedValue.scaledValue = 115
+            bossMoveSpeedValue.scaledValue = enemyMoveSpeedValue.scaledValue = 125
+        } else if (kind === "attrition") {
+            bossHealthValue.scaledValue = enemyHealthValue.scaledValue = 250
+            bossAttackValue.scaledValue = enemyAttackValue.scaledValue = 125
+            bossShieldRegenValue.scaledValue = enemyShieldRegenValue.scaledValue = 200
+            bossShieldReduction.checked = enemyShieldReduction.checked = true
+            bossShieldReductionValue.scaledValue = enemyShieldReductionValue.scaledValue = 150
+            bossStagger.checked = enemyStagger.checked = true
+        } else if (kind === "endurance") {
+            bossHealthValue.scaledValue = enemyHealthValue.scaledValue = 400
+            bossAttackValue.scaledValue = enemyAttackValue.scaledValue = 150
+            bossStamina.checked = enemyStamina.checked = true
+            bossStaminaValue.scaledValue = enemyStaminaValue.scaledValue = 200
+            bossStaminaRegen.checked = enemyStaminaRegen.checked = true
+            bossStaminaRegenValue.scaledValue = enemyStaminaRegenValue.scaledValue = 150
         }
     }
     function hardcoreValue() { return !exHarder.checked ? "off" : (harderInsane.checked ? "insane" : "main") }
@@ -1051,6 +1112,13 @@ Item {
                                     FieldLabel { text: I18n.s.builder_enemy_tuning || "Dificultad personalizada"; font.bold: true }
                                     Text { text: I18n.s.builder_enemy_tuning_hint || "Ajustes independientes para bosses y enemigos normales."; color: Theme.textDim; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
                                 }
+                                RowLayout {
+                                    spacing: 6
+                                    FieldLabel { text: I18n.s.builder_challenge_profiles || "Perfiles de desafío" }
+                                    Button { text: I18n.s.builder_profile_glass || "Glass cannon"; onClicked: root.setDifficultyProfile("glassCannon") }
+                                    Button { text: I18n.s.builder_profile_attrition || "Attrition"; onClicked: root.setDifficultyProfile("attrition") }
+                                    Button { text: I18n.s.builder_profile_endurance || "Endurance"; onClicked: root.setDifficultyProfile("endurance") }
+                                }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 3
                                     CheckBox { id: hardBosses; text: I18n.s.builder_harder_bosses || "Harder bosses" }
@@ -1064,6 +1132,20 @@ Item {
                                     CheckBox { id: bossXp; enabled: hardBosses.checked; text: I18n.s.builder_mb_xp || "Increase XP" }
                                     NumericEditor { id: bossXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderBosses.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; visible: hardBosses.checked && bossXp.checked; factor: 100 }
                                     CheckBox { id: bossStagger; enabled: hardBosses.checked; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
+                                    CheckBox { id: bossShieldRegen; enabled: hardBosses.checked; text: I18n.s.builder_shield_regen || "Increase shield regeneration" }
+                                    NumericEditor { id: bossShieldRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.shieldRegenMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardBosses.checked && bossShieldRegen.checked; factor: 100 }
+                                    CheckBox { id: bossShieldReduction; enabled: hardBosses.checked; text: I18n.s.builder_shield_reduction || "Increase shield damage reduction" }
+                                    NumericEditor { id: bossShieldReductionValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.shieldDamageReductionMultiplier"; minimum: 100; maximum: 200; step: 10; scaledValue: 125; visible: hardBosses.checked && bossShieldReduction.checked; factor: 100 }
+                                    CheckBox { id: bossStamina; enabled: hardBosses.checked; text: I18n.s.builder_stamina || "Increase stamina" }
+                                    NumericEditor { id: bossStaminaValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.staminaMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardBosses.checked && bossStamina.checked; factor: 100 }
+                                    CheckBox { id: bossStaminaRegen; enabled: hardBosses.checked; text: I18n.s.builder_stamina_regen || "Increase stamina regeneration" }
+                                    NumericEditor { id: bossStaminaRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.staminaRegenMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 125; visible: hardBosses.checked && bossStaminaRegen.checked; factor: 100 }
+                                    CheckBox { id: bossAttackSpeed; enabled: hardBosses.checked; text: I18n.s.builder_attack_speed || "Increase attack speed" }
+                                    NumericEditor { id: bossAttackSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.attackSpeedMultiplier"; minimum: 100; maximum: 250; step: 5; scaledValue: 115; visible: hardBosses.checked && bossAttackSpeed.checked; factor: 100 }
+                                    CheckBox { id: bossMoveSpeed; enabled: hardBosses.checked; text: I18n.s.builder_move_speed || "Increase movement speed" }
+                                    NumericEditor { id: bossMoveSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.moveSpeedMultiplier"; minimum: 100; maximum: 300; step: 5; scaledValue: 125; visible: hardBosses.checked && bossMoveSpeed.checked; factor: 100 }
+                                    CheckBox { id: bossDrops; enabled: hardBosses.checked; text: I18n.s.builder_enemy_drops || "Increase drops" }
+                                    NumericEditor { id: bossDropValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.dropMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 150; visible: hardBosses.checked && bossDrops.checked; factor: 100 }
                                 }
                                 ColumnLayout {
                                     Layout.fillWidth: true; spacing: 3
@@ -1078,6 +1160,20 @@ Item {
                                     CheckBox { id: enemyXp; enabled: hardEnemies.checked; text: I18n.s.builder_mb_xp || "Increase XP" }
                                     NumericEditor { id: enemyXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderEnemies.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; visible: hardEnemies.checked && enemyXp.checked; factor: 100 }
                                     CheckBox { id: enemyStagger; enabled: hardEnemies.checked; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
+                                    CheckBox { id: enemyShieldRegen; enabled: hardEnemies.checked; text: I18n.s.builder_shield_regen || "Increase shield regeneration" }
+                                    NumericEditor { id: enemyShieldRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.shieldRegenMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyShieldRegen.checked; factor: 100 }
+                                    CheckBox { id: enemyShieldReduction; enabled: hardEnemies.checked; text: I18n.s.builder_shield_reduction || "Increase shield damage reduction" }
+                                    NumericEditor { id: enemyShieldReductionValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.shieldDamageReductionMultiplier"; minimum: 100; maximum: 200; step: 10; scaledValue: 125; visible: hardEnemies.checked && enemyShieldReduction.checked; factor: 100 }
+                                    CheckBox { id: enemyStamina; enabled: hardEnemies.checked; text: I18n.s.builder_stamina || "Increase stamina" }
+                                    NumericEditor { id: enemyStaminaValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.staminaMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyStamina.checked; factor: 100 }
+                                    CheckBox { id: enemyStaminaRegen; enabled: hardEnemies.checked; text: I18n.s.builder_stamina_regen || "Increase stamina regeneration" }
+                                    NumericEditor { id: enemyStaminaRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.staminaRegenMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 125; visible: hardEnemies.checked && enemyStaminaRegen.checked; factor: 100 }
+                                    CheckBox { id: enemyAttackSpeed; enabled: hardEnemies.checked; text: I18n.s.builder_attack_speed || "Increase attack speed" }
+                                    NumericEditor { id: enemyAttackSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.attackSpeedMultiplier"; minimum: 100; maximum: 250; step: 5; scaledValue: 115; visible: hardEnemies.checked && enemyAttackSpeed.checked; factor: 100 }
+                                    CheckBox { id: enemyMoveSpeed; enabled: hardEnemies.checked; text: I18n.s.builder_move_speed || "Increase movement speed" }
+                                    NumericEditor { id: enemyMoveSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.moveSpeedMultiplier"; minimum: 100; maximum: 300; step: 5; scaledValue: 125; visible: hardEnemies.checked && enemyMoveSpeed.checked; factor: 100 }
+                                    CheckBox { id: enemyDrops; enabled: hardEnemies.checked; text: I18n.s.builder_enemy_drops || "Increase drops" }
+                                    NumericEditor { id: enemyDropValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.dropMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyDrops.checked; factor: 100 }
                                 }
 
                                 // Extras de gameplay (BETA)
@@ -1839,7 +1935,14 @@ Item {
                                 attackMultiplier: bossAttackValue.realValue, size: bossSize.checked,
                                 sizeMultiplier: bossSizeValue.realValue, removeShield: bossShield.checked,
                                 xp: bossXp.checked, xpMultiplier: bossXpValue.realValue,
-                                staggerImmunity: bossStagger.checked
+                                staggerImmunity: bossStagger.checked,
+                                shieldRegen: bossShieldRegen.checked, shieldRegenMultiplier: bossShieldRegenValue.realValue,
+                                shieldDamageReduction: bossShieldReduction.checked, shieldDamageReductionMultiplier: bossShieldReductionValue.realValue,
+                                stamina: bossStamina.checked, staminaMultiplier: bossStaminaValue.realValue,
+                                staminaRegen: bossStaminaRegen.checked, staminaRegenMultiplier: bossStaminaRegenValue.realValue,
+                                attackSpeed: bossAttackSpeed.checked, attackSpeedMultiplier: bossAttackSpeedValue.realValue,
+                                moveSpeed: bossMoveSpeed.checked, moveSpeedMultiplier: bossMoveSpeedValue.realValue,
+                                drops: bossDrops.checked, dropMultiplier: bossDropValue.realValue
                             },
                             harderEnemies: {
                                 enabled: hardEnemies.checked, health: enemyHealth.checked,
@@ -1847,8 +1950,16 @@ Item {
                                 attackMultiplier: enemyAttackValue.realValue, size: enemySize.checked,
                                 sizeMultiplier: enemySizeValue.realValue, removeShield: enemyShield.checked,
                                 xp: enemyXp.checked, xpMultiplier: enemyXpValue.realValue,
-                                staggerImmunity: enemyStagger.checked
+                                staggerImmunity: enemyStagger.checked,
+                                shieldRegen: enemyShieldRegen.checked, shieldRegenMultiplier: enemyShieldRegenValue.realValue,
+                                shieldDamageReduction: enemyShieldReduction.checked, shieldDamageReductionMultiplier: enemyShieldReductionValue.realValue,
+                                stamina: enemyStamina.checked, staminaMultiplier: enemyStaminaValue.realValue,
+                                staminaRegen: enemyStaminaRegen.checked, staminaRegenMultiplier: enemyStaminaRegenValue.realValue,
+                                attackSpeed: enemyAttackSpeed.checked, attackSpeedMultiplier: enemyAttackSpeedValue.realValue,
+                                moveSpeed: enemyMoveSpeed.checked, moveSpeedMultiplier: enemyMoveSpeedValue.realValue,
+                                drops: enemyDrops.checked, dropMultiplier: enemyDropValue.realValue
                             },
+                            challengeProfile: root.challengeProfile,
                             forgivingJustMult: just15.checked ? 1.5 : (just2.checked ? 2 : 3),
                             airDodgeCount: air2.checked ? 2 : 3,
                             tumblerHealPercent: tumblerValue(),

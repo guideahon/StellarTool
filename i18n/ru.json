@@ -231,5 +231,17 @@
   "builder_enemy_health_multiplier": "Множитель здоровья",
   "builder_enemy_attack_multiplier": "Множитель атаки",
   "builder_enemy_size_multiplier": "Множитель размера",
-  "builder_enemy_xp_multiplier": "Множитель XP"
+  "builder_enemy_xp_multiplier": "Множитель XP",
+  "builder_challenge_profiles": "Профили испытаний",
+  "builder_profile_glass": "Стеклянная пушка",
+  "builder_profile_attrition": "Истощение",
+  "builder_profile_endurance": "Выносливость",
+  "builder_shield_regen": "Увеличить восстановление щита",
+  "builder_shield_reduction": "Увеличить снижение от щита",
+  "builder_stamina": "Увеличить выносливость",
+  "builder_stamina_regen": "Увеличить восстановление выносливости",
+  "builder_attack_speed": "Увеличить скорость атаки",
+  "builder_move_speed": "Увеличить скорость движения",
+  "builder_enemy_drops": "Увеличить добычу",
+  "builder_multiplier": "Множитель"
 }

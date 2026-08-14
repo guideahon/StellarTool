@@ -231,5 +231,17 @@
   "builder_enemy_health_multiplier": "체력 배율",
   "builder_enemy_attack_multiplier": "공격력 배율",
   "builder_enemy_size_multiplier": "크기 배율",
-  "builder_enemy_xp_multiplier": "XP 배율"
+  "builder_enemy_xp_multiplier": "XP 배율",
+  "builder_challenge_profiles": "도전 프로필",
+  "builder_profile_glass": "유리 대포",
+  "builder_profile_attrition": "소모전",
+  "builder_profile_endurance": "지구력",
+  "builder_shield_regen": "실드 재생 증가",
+  "builder_shield_reduction": "실드 피해 감소 증가",
+  "builder_stamina": "스태미나 증가",
+  "builder_stamina_regen": "스태미나 재생 증가",
+  "builder_attack_speed": "공격 속도 증가",
+  "builder_move_speed": "이동 속도 증가",
+  "builder_enemy_drops": "드롭 증가",
+  "builder_multiplier": "배율"
 }

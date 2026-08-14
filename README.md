@@ -112,6 +112,10 @@ checkboxes para quitar escudo e inmunidad al stagger. Se compila sobre los
 arquetipos nativos de `CharacterTable`/`SkillTable`; el XP sólo modifica campos
 XP/EXP presentes en `RewardGroupTable` y el `build_manifest.json` deja el
 conteo aplicado.
+También incluye sliders para regeneración y reducción de escudo, stamina,
+regeneración de stamina, velocidad de ataque, velocidad de movimiento y drops.
+Los perfiles **Glass cannon**, **Attrition** y **Endurance** preseleccionan
+valores, pero no bloquean la edición manual.
 Los extras permiten recrear de forma granular Base Attribute Enhancement:
 HP/escudo y reducción base, regeneración de escudo 160/20, capacidad
 Beta/Burst 1500/2000, HP pasivo 20/s, pesca 50, munición x100, recuperación

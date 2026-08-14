@@ -231,5 +231,17 @@
   "builder_enemy_health_multiplier": "Lebensmultiplikator",
   "builder_enemy_attack_multiplier": "Angriffsmultiplikator",
   "builder_enemy_size_multiplier": "Größenmultiplikator",
-  "builder_enemy_xp_multiplier": "XP-Multiplikator"
+  "builder_enemy_xp_multiplier": "XP-Multiplikator",
+  "builder_challenge_profiles": "Herausforderungsprofile",
+  "builder_profile_glass": "Glaskanone",
+  "builder_profile_attrition": "Zermürbung",
+  "builder_profile_endurance": "Ausdauer",
+  "builder_shield_regen": "Schildregeneration erhöhen",
+  "builder_shield_reduction": "Schildschadensreduktion erhöhen",
+  "builder_stamina": "Ausdauer erhöhen",
+  "builder_stamina_regen": "Ausdauerregeneration erhöhen",
+  "builder_attack_speed": "Angriffsgeschwindigkeit erhöhen",
+  "builder_move_speed": "Bewegungsgeschwindigkeit erhöhen",
+  "builder_enemy_drops": "Drops erhöhen",
+  "builder_multiplier": "Multiplikator"
 }

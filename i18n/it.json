@@ -231,5 +231,17 @@
   "builder_enemy_health_multiplier": "Moltiplicatore salute",
   "builder_enemy_attack_multiplier": "Moltiplicatore attacco",
   "builder_enemy_size_multiplier": "Moltiplicatore dimensioni",
-  "builder_enemy_xp_multiplier": "Moltiplicatore XP"
+  "builder_enemy_xp_multiplier": "Moltiplicatore XP",
+  "builder_challenge_profiles": "Profili di sfida",
+  "builder_profile_glass": "Cannone di vetro",
+  "builder_profile_attrition": "Logoramento",
+  "builder_profile_endurance": "Resistenza",
+  "builder_shield_regen": "Aumenta rigenerazione scudo",
+  "builder_shield_reduction": "Aumenta riduzione da scudo",
+  "builder_stamina": "Aumenta stamina",
+  "builder_stamina_regen": "Aumenta rigenerazione stamina",
+  "builder_attack_speed": "Aumenta velocità d'attacco",
+  "builder_move_speed": "Aumenta velocità di movimento",
+  "builder_enemy_drops": "Aumenta ricompense",
+  "builder_multiplier": "Moltiplicatore"
 }
