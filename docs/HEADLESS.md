@@ -49,6 +49,12 @@ StellarTool.exe --headless detect
 StellarTool.exe --headless status
 ```
 
+`build --answers` también acepta `harderBosses` y `harderEnemies` como objetos
+independientes. Cada uno puede incluir `health`, `attack`, `size`, `removeShield`,
+`xp`, `staggerImmunity` y sus multiplicadores (`healthMultiplier`,
+`attackMultiplier`, `sizeMultiplier`, `xpMultiplier`). Los sliders de la UI
+generan exactamente ese JSON, por lo que el build headless es equivalente.
+
 ### Partidas
 
 ```bat

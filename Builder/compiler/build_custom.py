@@ -136,8 +136,9 @@ def validate(a: dict) -> None:
     combat, outfit, mb = a["combatProfile"], a["outfitSkinSuit"], a["miniBoss"]
     mb_on = mb not in ("off", False, None)
     hardcore_on = a.get("hardcoreEnemyBoost", "off") in ("main", "insane")
+    tuning_on = any((a.get(key) or {}).get("enabled") for key in ("harderBosses", "harderEnemies"))
     world_on = bool(build_specs.world_selection(a))
-    if combat == "none" and not outfit and not mb_on and not hardcore_on and not world_on:
+    if combat == "none" and not outfit and not mb_on and not hardcore_on and not tuning_on and not world_on:
         raise SystemExit(
             "[builder] Nada seleccionado: activa combate, outfit, mini-boss o "
             "algun ajuste de mundo (tienda, drops, progresion, pesca).")
@@ -351,6 +352,8 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     table_compiler.PARAMS["tumbler_value"] = float(a.get("tumblerHealPercent", 60))
     table_compiler.PARAMS["extra_values"] = a.get("gameplayExtraValues") or {}
     table_compiler.PARAMS["world_values"] = a.get("worldTweakValues") or {}
+    table_compiler.PARAMS["harder_bosses"] = a.get("harderBosses") or {}
+    table_compiler.PARAMS["harder_enemies"] = a.get("harderEnemies") or {}
     world_ids = build_specs.world_selection(a)
     if a.get("combatProfile") == "firstRun" and not a.get("forcePreset"):
         # First Run = variante fija (repack del staging legacy).
@@ -388,7 +391,9 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             overworld_config=a.get("overworldBosses"),
             just_mult=float(a.get("forgivingJustMult", 1.5)),
             air_count=int(a.get("airDodgeCount", 2)),
-            combat_transform_ids=build_specs.combat_transforms(a),
+            combat_transform_ids=build_specs.combat_transforms(a)
+            + [tid for tid in build_specs.enemy_tuning_transforms(a)
+               if tid.endswith(".character") or tid.endswith(".skill")],
             world_extra_ids=world_ids,
             world_values=a.get("worldTweakValues"))
         for key in ("pak", "ucas", "utoc"):

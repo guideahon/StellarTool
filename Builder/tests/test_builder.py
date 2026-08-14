@@ -2024,6 +2024,42 @@ def test_questionnaire_offers_world_tweaks_in_every_language():
         assert set(bc.SUPPORTED_LANGS) <= strings[key].keys()
 
 
+def test_custom_enemy_tuning_separates_bosses_and_regular_enemies():
+    import enemy_tweaks
+    import build_specs
+
+    def row(name, actor, hp=100, shield=40):
+        return {"Name": name, "Value": [
+            {"Name": "ActorType", "Value": actor},
+            {"Name": "MaxHP", "Value": hp},
+            {"Name": "MaxShield", "Value": shield},
+            {"Name": "HitDefenseLevel", "Value": 1},
+        ]}
+
+    doc = {"Exports": [{"Table": {"Data": [
+        row("Abaddon", "ActorType_BossMonster"),
+        row("Crawler", "ActorType_NormalMonster"),
+    ]}}]}
+    cfg = {"health": True, "healthMultiplier": 2,
+           "removeShield": True, "staggerImmunity": True}
+    enemy_tweaks.apply_character(doc, True, cfg)
+    boss, regular = doc["Exports"][0]["Table"]["Data"]
+    assert next(p["Value"] for p in boss["Value"] if p["Name"] == "MaxHP") == 200
+    assert next(p["Value"] for p in boss["Value"] if p["Name"] == "MaxShield") == 0
+    assert next(p["Value"] for p in boss["Value"] if p["Name"] == "HitDefenseLevel") == 5
+    assert next(p["Value"] for p in regular["Value"] if p["Name"] == "MaxHP") == 100
+
+    targets = build_specs.combo_to_targets({
+        "combatProfile": "full", "outfitSkinSuit": False,
+        "harderBosses": {"enabled": True}, "harderEnemies": {"enabled": True},
+    })
+    tuning = next(t for t in targets if t["name"] == "StellarSouls-EnemyTuning")
+    assert tuning["transforms"] == [
+        "enemyTweaks.boss.character", "enemyTweaks.boss.skill",
+        "enemyTweaks.boss.rewards", "enemyTweaks.enemy.character",
+        "enemyTweaks.enemy.skill", "enemyTweaks.enemy.rewards"]
+
+
 if __name__ == "__main__":
     passed = failed = 0
     for name, fn in sorted(globals().items()):

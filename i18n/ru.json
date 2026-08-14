@@ -223,5 +223,13 @@
   "settings_oodle_none": "Не найдена. Укажите папку игры выше или DLL здесь.",
   "settings_oodle_choose": "Выбрать DLL...",
   "settings_oodle_reset": "Автоопределение",
-  "err_oodle_bad_file": "Это не файл oo2core_9_win64.dll."
+  "err_oodle_bad_file": "Это не файл oo2core_9_win64.dll.",
+  "builder_enemy_tuning": "Пользовательская сложность врагов",
+  "builder_enemy_tuning_hint": "Независимые настройки боссов и обычных врагов.",
+  "builder_harder_bosses": "Усилить боссов",
+  "builder_harder_enemies": "Усилить обычных врагов",
+  "builder_enemy_health_multiplier": "Множитель здоровья",
+  "builder_enemy_attack_multiplier": "Множитель атаки",
+  "builder_enemy_size_multiplier": "Множитель размера",
+  "builder_enemy_xp_multiplier": "Множитель XP"
 }

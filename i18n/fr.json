@@ -223,5 +223,13 @@
   "settings_oodle_none": "Introuvable. Choisis le dossier du jeu ci-dessus, ou la DLL ici.",
   "settings_oodle_choose": "Choisir la DLL...",
   "settings_oodle_reset": "Detection auto",
-  "err_oodle_bad_file": "Ce fichier n'est pas oo2core_9_win64.dll."
+  "err_oodle_bad_file": "Ce fichier n'est pas oo2core_9_win64.dll.",
+  "builder_enemy_tuning": "Difficulté personnalisée des ennemis",
+  "builder_enemy_tuning_hint": "Réglages indépendants pour les boss et les ennemis normaux.",
+  "builder_harder_bosses": "Boss plus difficiles",
+  "builder_harder_enemies": "Ennemis plus difficiles",
+  "builder_enemy_health_multiplier": "Multiplicateur de vie",
+  "builder_enemy_attack_multiplier": "Multiplicateur d'attaque",
+  "builder_enemy_size_multiplier": "Multiplicateur de taille",
+  "builder_enemy_xp_multiplier": "Multiplicateur d'XP"
 }

@@ -231,6 +231,30 @@ Item {
         exHarder.checked = hardcore !== "off"
         harderMain.checked = hardcore === "main"
         harderInsane.checked = hardcore === "insane"
+        var hb = a.harderBosses || {}
+        var he = a.harderEnemies || {}
+        hardBosses.checked = hb.enabled === true
+        hardEnemies.checked = he.enabled === true
+        bossHealth.checked = hb.health === undefined ? true : hb.health
+        bossAttack.checked = hb.attack === undefined ? true : hb.attack
+        bossSize.checked = hb.size === undefined ? false : hb.size
+        bossShield.checked = hb.removeShield === true
+        bossXp.checked = hb.xp === true
+        bossStagger.checked = hb.staggerImmunity === true
+        enemyHealth.checked = he.health === undefined ? true : he.health
+        enemyAttack.checked = he.attack === undefined ? true : he.attack
+        enemySize.checked = he.size === undefined ? false : he.size
+        enemyShield.checked = he.removeShield === true
+        enemyXp.checked = he.xp === true
+        enemyStagger.checked = he.staggerImmunity === true
+        bossHealthValue.scaledValue = Math.round(Number(hb.healthMultiplier || 2) * 100)
+        bossAttackValue.scaledValue = Math.round(Number(hb.attackMultiplier || 1.5) * 100)
+        bossSizeValue.scaledValue = Math.round(Number(hb.sizeMultiplier || 1.2) * 100)
+        bossXpValue.scaledValue = Math.round(Number(hb.xpMultiplier || 2) * 100)
+        enemyHealthValue.scaledValue = Math.round(Number(he.healthMultiplier || 2) * 100)
+        enemyAttackValue.scaledValue = Math.round(Number(he.attackMultiplier || 1.5) * 100)
+        enemySizeValue.scaledValue = Math.round(Number(he.sizeMultiplier || 1.2) * 100)
+        enemyXpValue.scaledValue = Math.round(Number(he.xpMultiplier || 2) * 100)
         exTumbler.checked = ex.indexOf("tumblerHeal") >= 0
         baseHp.scaledValue = extraValue("base_attributes", "max_hp", 3000)
         baseShield.scaledValue = extraValue("base_attributes", "max_shield", 1000)
@@ -1035,10 +1059,44 @@ Item {
                         }
 
                         // Extras y patches TOML: NO dependen de mini-boss.
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 6
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 6
 
-                            // Extras de gameplay (BETA)
+                                RowLayout {
+                                    spacing: 8; Layout.topMargin: 8
+                                    FieldLabel { text: I18n.s.builder_enemy_tuning || "Dificultad personalizada"; font.bold: true }
+                                    Text { text: I18n.s.builder_enemy_tuning_hint || "Ajustes independientes para bosses y enemigos normales."; color: Theme.textDim; font.pixelSize: 11; wrapMode: Text.Wrap; Layout.fillWidth: true }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 3
+                                    CheckBox { id: hardBosses; text: I18n.s.builder_harder_bosses || "Harder bosses" }
+                                    CheckBox { id: bossHealth; enabled: hardBosses.checked; text: I18n.s.builder_mb_health || "Increase health" }
+                                    NumericEditor { id: bossHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "harderBosses.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 200; visible: hardBosses.checked && bossHealth.checked; factor: 100 }
+                                    CheckBox { id: bossAttack; enabled: hardBosses.checked; text: I18n.s.builder_mb_attack || "Increase attack" }
+                                    NumericEditor { id: bossAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "harderBosses.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardBosses.checked && bossAttack.checked; factor: 100 }
+                                    CheckBox { id: bossSize; enabled: hardBosses.checked; text: I18n.s.builder_mb_scale || "Increase size" }
+                                    NumericEditor { id: bossSizeValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "harderBosses.sizeMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 120; visible: hardBosses.checked && bossSize.checked; factor: 100 }
+                                    CheckBox { id: bossShield; enabled: hardBosses.checked; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
+                                    CheckBox { id: bossXp; enabled: hardBosses.checked; text: I18n.s.builder_mb_xp || "Increase XP" }
+                                    NumericEditor { id: bossXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderBosses.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; visible: hardBosses.checked && bossXp.checked; factor: 100 }
+                                    CheckBox { id: bossStagger; enabled: hardBosses.checked; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
+                                }
+                                ColumnLayout {
+                                    Layout.fillWidth: true; spacing: 3
+                                    CheckBox { id: hardEnemies; text: I18n.s.builder_harder_enemies || "Harder enemies" }
+                                    CheckBox { id: enemyHealth; enabled: hardEnemies.checked; text: I18n.s.builder_mb_health || "Increase health" }
+                                    NumericEditor { id: enemyHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "harderEnemies.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 200; visible: hardEnemies.checked && enemyHealth.checked; factor: 100 }
+                                    CheckBox { id: enemyAttack; enabled: hardEnemies.checked; text: I18n.s.builder_mb_attack || "Increase attack" }
+                                    NumericEditor { id: enemyAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "harderEnemies.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyAttack.checked; factor: 100 }
+                                    CheckBox { id: enemySize; enabled: hardEnemies.checked; text: I18n.s.builder_mb_scale || "Increase size" }
+                                    NumericEditor { id: enemySizeValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "harderEnemies.sizeMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 120; visible: hardEnemies.checked && enemySize.checked; factor: 100 }
+                                    CheckBox { id: enemyShield; enabled: hardEnemies.checked; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
+                                    CheckBox { id: enemyXp; enabled: hardEnemies.checked; text: I18n.s.builder_mb_xp || "Increase XP" }
+                                    NumericEditor { id: enemyXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderEnemies.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; visible: hardEnemies.checked && enemyXp.checked; factor: 100 }
+                                    CheckBox { id: enemyStagger; enabled: hardEnemies.checked; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
+                                }
+
+                                // Extras de gameplay (BETA)
                             RowLayout {
                                 spacing: 6; Layout.topMargin: 8
                                 FieldLabel { text: I18n.s.builder_extras || "Extras de gameplay" }
@@ -1791,6 +1849,22 @@ Item {
                                 }
                             },
                             hardcoreEnemyBoost: hardcoreValue(),
+                            harderBosses: {
+                                enabled: hardBosses.checked, health: bossHealth.checked,
+                                healthMultiplier: bossHealthValue.realValue, attack: bossAttack.checked,
+                                attackMultiplier: bossAttackValue.realValue, size: bossSize.checked,
+                                sizeMultiplier: bossSizeValue.realValue, removeShield: bossShield.checked,
+                                xp: bossXp.checked, xpMultiplier: bossXpValue.realValue,
+                                staggerImmunity: bossStagger.checked
+                            },
+                            harderEnemies: {
+                                enabled: hardEnemies.checked, health: enemyHealth.checked,
+                                healthMultiplier: enemyHealthValue.realValue, attack: enemyAttack.checked,
+                                attackMultiplier: enemyAttackValue.realValue, size: enemySize.checked,
+                                sizeMultiplier: enemySizeValue.realValue, removeShield: enemyShield.checked,
+                                xp: enemyXp.checked, xpMultiplier: enemyXpValue.realValue,
+                                staggerImmunity: enemyStagger.checked
+                            },
                             forgivingJustMult: just15.checked ? 1.5 : (just2.checked ? 2 : 3),
                             airDodgeCount: air2.checked ? 2 : 3,
                             tumblerHealPercent: tumblerValue(),

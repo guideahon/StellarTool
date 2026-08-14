@@ -106,6 +106,12 @@ ofrecen niveles visibles; los mini-bosses permiten densidad independiente por
 región y configuración separada de vida, ataque, tamaño, escudo, drops, XP,
 persistencia, tipo Boss e inmunidad a ejecución. El cuestionario no usa menús
 desplegables.
+La sección **Dificultad personalizada** permite activar por separado **Harder
+bosses** y **Harder enemies**, con sliders para vida, ataque, tamaño y XP, más
+checkboxes para quitar escudo e inmunidad al stagger. Se compila sobre los
+arquetipos nativos de `CharacterTable`/`SkillTable`; el XP sólo modifica campos
+XP/EXP presentes en `RewardGroupTable` y el `build_manifest.json` deja el
+conteo aplicado.
 Los extras permiten recrear de forma granular Base Attribute Enhancement:
 HP/escudo y reducción base, regeneración de escudo 160/20, capacidad
 Beta/Burst 1500/2000, HP pasivo 20/s, pesca 50, munición x100, recuperación

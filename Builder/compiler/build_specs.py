@@ -145,6 +145,17 @@ def overworld_enabled(a: dict) -> bool:
     return bool((a.get("overworldBosses") or {}).get("enabled"))
 
 
+def enemy_tuning_transforms(a: dict) -> list[str]:
+    out = []
+    for kind, key in (("boss", "harderBosses"), ("enemy", "harderEnemies")):
+        cfg = a.get(key) or {}
+        if not cfg.get("enabled"):
+            continue
+        out += [f"enemyTweaks.{kind}.character", f"enemyTweaks.{kind}.skill",
+                f"enemyTweaks.{kind}.rewards"]
+    return out
+
+
 def combo_to_targets(a: dict):
     """a = respuestas normalizadas. Devuelve [ {name, transforms} ] o None."""
     combat = a.get("combatProfile", "full")
@@ -167,6 +178,9 @@ def combo_to_targets(a: dict):
     sk_extras = [e for e in sk_extras if e != "droneScanBoost"]
 
     targets = []
+    tuning = enemy_tuning_transforms(a)
+    if tuning:
+        targets.append({"name": "StellarSouls-EnemyTuning", "transforms": tuning})
     hardcore = a.get("hardcoreEnemyBoost", "off")
     if hardcore in ("main", "insane"):
         targets.append({

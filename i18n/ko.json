@@ -223,5 +223,13 @@
   "settings_oodle_none": "찾지 못했습니다. 위에서 게임 폴더를 선택하거나 여기서 DLL을 지정하세요.",
   "settings_oodle_choose": "DLL 선택...",
   "settings_oodle_reset": "자동 감지",
-  "err_oodle_bad_file": "해당 파일은 oo2core_9_win64.dll이 아닙니다."
+  "err_oodle_bad_file": "해당 파일은 oo2core_9_win64.dll이 아닙니다.",
+  "builder_enemy_tuning": "적 커스텀 난이도",
+  "builder_enemy_tuning_hint": "보스와 일반 적을 독립적으로 설정합니다.",
+  "builder_harder_bosses": "보스 강화",
+  "builder_harder_enemies": "일반 적 강화",
+  "builder_enemy_health_multiplier": "체력 배율",
+  "builder_enemy_attack_multiplier": "공격력 배율",
+  "builder_enemy_size_multiplier": "크기 배율",
+  "builder_enemy_xp_multiplier": "XP 배율"
 }

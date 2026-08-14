@@ -18,6 +18,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import toolchain
+import enemy_tweaks
 
 BUILDER_DIR = Path(__file__).resolve().parent.parent
 SOURCES = BUILDER_DIR / "base_tables" / "sources.json"
@@ -177,7 +178,8 @@ def _blaster_x2(doc, vanilla):
 PARAMS = {
     "harder_mult": 2.0, "gear_mult": 2.0, "combat_levels": {},
     "economy_levels": {}, "blaster_mult": 2.0, "just_mult": 1.5, "air_count": 2,
-    "tumbler_value": 60.0, "world_values": {},
+    "tumbler_value": 60.0, "world_values": {}, "harder_bosses": {},
+    "harder_enemies": {},
 }
 
 
@@ -411,6 +413,23 @@ def _hardcore_enemies_main(doc, _vanilla):
 def _hardcore_enemies_insane(doc, _vanilla):
     import hardcore_enemies
     doc.setdefault("_report", {})["hardcoreEnemies"] = hardcore_enemies.apply(doc, "insane")
+
+
+def _enemy_tuning(tid, table, key, fn):
+    @transform(tid, table=table, base="vanilla")
+    def apply(doc, _vanilla, _key=key, _fn=fn):
+        import enemy_tweaks
+        config = PARAMS.get(_key) or {}
+        boss = _key == "harder_bosses"
+        doc.setdefault("_report", {})[tid] = _fn(doc, boss, config)
+
+
+_enemy_tuning("enemyTweaks.boss.character", "CharacterTable", "harder_bosses", enemy_tweaks.apply_character)
+_enemy_tuning("enemyTweaks.enemy.character", "CharacterTable", "harder_enemies", enemy_tweaks.apply_character)
+_enemy_tuning("enemyTweaks.boss.skill", "SkillTable", "harder_bosses", enemy_tweaks.apply_skills)
+_enemy_tuning("enemyTweaks.enemy.skill", "SkillTable", "harder_enemies", enemy_tweaks.apply_skills)
+_enemy_tuning("enemyTweaks.boss.rewards", "RewardGroupTable", "harder_bosses", enemy_tweaks.apply_xp)
+_enemy_tuning("enemyTweaks.enemy.rewards", "RewardGroupTable", "harder_enemies", enemy_tweaks.apply_xp)
 _reg_extra("extras.dashCooldown4", "SkillTable", "full", "dash_cooldown_4s", "skill_extras")
 _reg_extra("extras.droneScanCooldown", "SkillTable", "full", "drone_scan_cooldown_5s", "skill_extras")
 # Mundo/economia: tablas que ningun pak previo tocaba, siempre desde vanilla.

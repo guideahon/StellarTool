@@ -531,5 +531,13 @@
   "live_reset": "Restore game values",
   "live_bridge": "Bridge",
   "live_uninstall_title": "Uninstall bridge",
-  "live_uninstall_confirm": "The StellarToolLive folder will be removed from UE4SS mods. No other mod is touched. Values return to the game defaults after restarting it. Continue?"
+  "live_uninstall_confirm": "The StellarToolLive folder will be removed from UE4SS mods. No other mod is touched. Values return to the game defaults after restarting it. Continue?",
+  "builder_enemy_tuning": "Custom enemy difficulty",
+  "builder_enemy_tuning_hint": "Independent settings for bosses and regular enemies.",
+  "builder_harder_bosses": "Harder bosses",
+  "builder_harder_enemies": "Harder enemies",
+  "builder_enemy_health_multiplier": "Health multiplier",
+  "builder_enemy_attack_multiplier": "Attack multiplier",
+  "builder_enemy_size_multiplier": "Size multiplier",
+  "builder_enemy_xp_multiplier": "XP multiplier"
 }
