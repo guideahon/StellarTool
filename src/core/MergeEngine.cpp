@@ -151,8 +151,34 @@ static QJsonValue fillTemplate(const QJsonValue &tmpl, const QJsonValue &clean) 
         const QJsonArray ta = tmpl.toArray(), ca = clean.toArray();
         // Array de propiedades con nombre: matchear por Name.
         bool named = !ta.isEmpty();
+        QSet<QString> templateNames;
         for (const QJsonValue &e : ta)
-            if (!e.isObject() || !isWrapperObj(e.toObject())) { named = false; break; }
+            if (!e.isObject() || !isWrapperObj(e.toObject())) {
+                named = false;
+                break;
+            } else {
+                const QString name = e.toObject().value(QLatin1String("Name")).toString();
+                // UAssetAPI emits numeric array entries as repeated Name="0"
+                // in some Zen exports. Treat those as indexed, otherwise the
+                // name map below collapses all repeated entries into one.
+                if (templateNames.contains(name)) {
+                    named = false;
+                    break;
+                }
+                templateNames.insert(name);
+            }
+        // The normalized/clean representation strips numeric array wrappers
+        // down to their values. Only use name matching when the incoming
+        // array still carries named property objects; otherwise it is an
+        // indexed array and must preserve every element in order.
+        if (named) {
+            for (const QJsonValue &e : ca) {
+                if (!e.isObject() || !isWrapperObj(e.toObject())) {
+                    named = false;
+                    break;
+                }
+            }
+        }
         if (named) {
             QHash<QString, QJsonValue> byName;
             for (const QJsonValue &e : ca) {

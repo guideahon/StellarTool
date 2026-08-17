@@ -17,6 +17,7 @@ private slots:
     void newFNamesRegisteredInNameMap();
     void writesOverUAssetGuiFloatZero();
     void cleanEmptyNameArrayMerge();
+    void cleanRepeatedNameArrayKeepsAllEntries();
     void cleanRowAddedNormalizesNestedEmptyFNames();
     void cleanModifiedClearedFNameBecomesNull();
     void numberedEnumsRewrittenAsByte();
@@ -241,6 +242,52 @@ void TestMergeEngine::cleanEmptyNameArrayMerge() {
     QCOMPARE(written.value(QStringLiteral("ArrayIndex")).toInt(), 0);
     QCOMPARE(written.value(QStringLiteral("Value")).toString(),
              QStringLiteral("P_Eve_Gun_Missile_TimeScaleEnd"));
+}
+
+void TestMergeEngine::cleanRepeatedNameArrayKeepsAllEntries() {
+    QJsonObject baseArray = prop(QStringLiteral("NextComboCommandArray"),
+                                 QJsonArray{
+                                     prop(QStringLiteral("0"), QStringLiteral("Old0"),
+                                          QStringLiteral("NamePropertyData")),
+                                     prop(QStringLiteral("1"), QStringLiteral("Old1"),
+                                          QStringLiteral("NamePropertyData"))
+                                 }, QStringLiteral("ArrayPropertyData"));
+    baseArray.insert(QStringLiteral("ArrayType"), QStringLiteral("NameProperty"));
+    const QJsonObject base = table({row(QStringLiteral("Skill1"), {baseArray})});
+
+    ChangeItem item;
+    item.tablePath = QStringLiteral("t.uasset");
+    item.rowName = QStringLiteral("Skill1");
+    item.propPath = {QStringLiteral("K:Value"),
+                     QStringLiteral("N:NextComboCommandArray#0"),
+                     QStringLiteral("K:Value")};
+    item.baseValue = QJsonArray{QStringLiteral("Old0"), QStringLiteral("Old1")};
+    item.newValue = QJsonArray{QStringLiteral("New0"), QStringLiteral("New1"),
+                               QStringLiteral("New2")};
+    item.clean = true;
+    QList<ChangeItem> items{item};
+
+    QJsonObject out = base;
+    const auto res = MergeEngine::applyToTable(out, items);
+    QVERIFY(res.ok);
+    QCOMPARE(res.applied, 1);
+    const auto props = dataTableRows(out).first().toObject()
+        .value(QStringLiteral("Value")).toArray();
+    QJsonArray written;
+    for (const auto &p : props) {
+        if (p.toObject().value(QStringLiteral("Name")).toString()
+                == QLatin1String("NextComboCommandArray")) {
+            written = p.toObject().value(QStringLiteral("Value")).toArray();
+            break;
+        }
+    }
+    QCOMPARE(written.size(), 3);
+    QCOMPARE(written.at(0).toObject().value(QStringLiteral("Value")).toString(),
+             QStringLiteral("New0"));
+    QCOMPARE(written.at(1).toObject().value(QStringLiteral("Value")).toString(),
+             QStringLiteral("New1"));
+    QCOMPARE(written.at(2).toObject().value(QStringLiteral("Value")).toString(),
+             QStringLiteral("New2"));
 }
 
 void TestMergeEngine::cleanRowAddedNormalizesNestedEmptyFNames() {
