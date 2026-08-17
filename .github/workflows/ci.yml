@@ -12,6 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Download mapping for schema tests
+        shell: pwsh
+        run: |
+          $url = 'https://raw.githubusercontent.com/TheNaeem/Unreal-Mappings-Archive/main/Stellar%20Blade/1.4.1/Mappings.usmap'
+          $out = 'tools/StellarBlade.usmap'
+          Invoke-WebRequest -Uri $url -OutFile $out
+          if (-not (Test-Path $out) -or (Get-Item $out).Length -lt 100000) {
+            throw "The Stellar Blade mapping was not downloaded correctly."
+          }
+
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
