@@ -179,8 +179,54 @@ PARAMS = {
     "harder_mult": 2.0, "gear_mult": 2.0, "combat_levels": {},
     "economy_levels": {}, "blaster_mult": 2.0, "just_mult": 1.5, "air_count": 2,
     "tumbler_value": 60.0, "world_values": {}, "harder_bosses": {},
-    "harder_enemies": {},
+    "harder_enemies": {}, "moveset_changes": [],
 }
+
+
+def _moveset_set(row, path, value):
+    """Aplica un cambio CUE4Parse a un JSON UAssetAPI cuando es escalar.
+
+    Las propiedades compuestas quedan en el reporte como no aplicadas hasta
+    que exista una plantilla de layout verificable; nunca se inyecta a ciegas
+    una estructura CUE en un JSON UAssetAPI.
+    """
+    if not path or "." in path or "[" in path:
+        return False
+    for prop_data in row.get("Value", []):
+        if prop_data.get("Name") != path:
+            continue
+        if isinstance(value, (dict, list)):
+            return False
+        current = prop_data.get("Value")
+        if isinstance(current, bool):
+            if not isinstance(value, bool): return False
+        elif isinstance(current, (int, float)) and not isinstance(current, bool):
+            if not isinstance(value, (int, float)) or isinstance(value, bool): return False
+            value = type(current)(value)
+        elif current is not None and not isinstance(value, str):
+            return False
+        prop_data["Value"] = value
+        prop_data["IsZero"] = value in (0, 0.0, None)
+        return True
+    return False
+
+
+def apply_moveset_changes(doc, selected):
+    rows_by_name = {r.get("Name"): r for r in rows(doc)}
+    applied = skipped = 0
+    for change in selected:
+        if change.get("table") and change.get("table") != PARAMS.get("moveset_table"):
+            continue
+        if change.get("support") not in ("scalar", "asset"):
+            skipped += 1
+            continue
+        row = rows_by_name.get(change.get("row"))
+        if not row or not _moveset_set(row, change.get("propertyPath", ""), change.get("after")):
+            skipped += 1
+            continue
+        applied += 1
+    doc.setdefault("_report", {})["movesetApplied"] = applied
+    doc.setdefault("_report", {})["movesetSkipped"] = skipped
 
 
 # Cambios semánticos del mod histórico. A diferencia de combat.skill.full, estos
@@ -437,6 +483,13 @@ for _wid, (_wtable, _wfn) in __import__("world_extras").WORLD_EXTRAS.items():
     _reg_extra(f"world.{_wid}", _wtable, "vanilla", _wfn, "world_extras")
 _reg_extra("extras.droneScanDuration", "EffectTable", "full", "drone_scan_duration", "effect_extras")
 _reg_extra("extrasVanilla.droneScanDuration", "EffectTable", "vanilla", "drone_scan_duration", "effect_extras")
+for _moveset_table in ("SkillActiveStepTable", "SkillResultTable", "SkillTable",
+                       "SkillCommandTable", "CharacterMoveTable", "ProjectileTable"):
+    _tid = f"moveset.{_moveset_table}"
+    @transform(_tid, table=_moveset_table, base="vanilla")
+    def _moveset_transform(doc, _vanilla, _table=_moveset_table):
+        PARAMS["moveset_table"] = _table
+        apply_moveset_changes(doc, PARAMS.get("moveset_changes", []))
 
 
 # ---- compilador ----

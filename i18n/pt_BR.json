@@ -243,5 +243,6 @@
   "builder_attack_speed": "Aumentar velocidade de ataque",
   "builder_move_speed": "Aumentar velocidade de movimento",
   "builder_enemy_drops": "Aumentar drops",
-  "builder_multiplier": "Multiplicador"
+  "builder_multiplier": "Multiplicador",
+  "builder_moveset_title": "Movesets e habilidades", "builder_moveset_hint": "Analise variantes e combine alterações individuais.", "builder_moveset_source": "Escolher pasta de variantes", "builder_moveset_source_placeholder": "Pasta com variantes .pak/.ucas/.utoc", "builder_moveset_analyze": "Analisar", "builder_moveset_analyzing": "Analisando variantes…", "builder_moveset_selected": "Alterações selecionadas: %1", "builder_moveset_conflict": "alternativa exclusiva", "builder_moveset_unsupported": "requer validação", "builder_moveset_analyzed": "Catálogo pronto (%1 alterações).", "err_moveset_source": "Escolha uma pasta válida de variantes.", "err_moveset_game": "Escolha uma instalação válida do Stellar Blade.", "err_moveset_analysis": "Falha na análise do moveset."
 }

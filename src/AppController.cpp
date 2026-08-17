@@ -90,6 +90,10 @@ bool hardLink(const QString &src, const QString &dst) {
 
 namespace st {
 
+static QString builderScript();
+static QString pythonExe();
+static void applyBuilderEnv(QProcess &proc, const QString &gameDir = QString());
+
 AppController::AppController(Translator *i18n, QObject *parent)
     : QObject(parent),
       m_i18n(i18n),
@@ -1410,6 +1414,64 @@ void AppController::importBaseline(const QUrl &dirUrl) {
     });
 }
 
+void AppController::analyzeMovesets(const QUrl &sourceUrl, const QUrl &gameUrl) {
+    if (m_busy || m_movesetAnalyzing) return;
+    const QString source = sourceUrl.isLocalFile() ? sourceUrl.toLocalFile() : sourceUrl.toString();
+    const QString game = gameUrl.isLocalFile() && !gameUrl.toLocalFile().isEmpty()
+            ? gameUrl.toLocalFile() : GamePaths::gameRoot();
+    if (source.isEmpty() || !QFileInfo(source).isDir()) {
+        emit errorOccurred(t(QStringLiteral("err_moveset_source")));
+        return;
+    }
+    if (game.isEmpty() || !QFileInfo(QDir(game).filePath(QStringLiteral("SB/Content/Paks"))).isDir()) {
+        emit errorOccurred(t(QStringLiteral("err_moveset_game")));
+        return;
+    }
+    const QString builderDir = QFileInfo(builderScript()).absolutePath();
+    const QString script = QDir(builderDir).filePath(QStringLiteral("moveset_catalog.py"));
+    const QString out = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
+                       + QStringLiteral("/movesets/catalog.json");
+    QDir().mkpath(QFileInfo(out).absolutePath());
+    m_movesetAnalyzing = true;
+    emit movesetAnalyzingChanged();
+    setBusy(true, t(QStringLiteral("builder_moveset_analyzing")));
+    std::ignore = QtConcurrent::run([this, source, game, script, out] {
+        QProcess proc;
+        proc.setProgram(pythonExe());
+        proc.setArguments({script, QStringLiteral("--source"), source,
+                           QStringLiteral("--game"), game,
+                           QStringLiteral("--out"), out});
+        applyBuilderEnv(proc, game);
+        proc.start();
+        const bool started = proc.waitForStarted(30000);
+        const bool finished = started && proc.waitForFinished(15 * 60 * 1000);
+        const int code = proc.exitCode();
+        const QString detail = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        const bool ok = finished && proc.exitStatus() == QProcess::NormalExit
+                        && code == 0 && QFileInfo::exists(out);
+        QMetaObject::invokeMethod(this, [this, ok, out, detail] {
+            m_movesetAnalyzing = false;
+            emit movesetAnalyzingChanged();
+            if (ok) {
+                QFile f(out);
+                const QJsonObject catalog = f.open(QIODevice::ReadOnly)
+                        ? QJsonDocument::fromJson(f.readAll()).object() : QJsonObject();
+                m_movesetCatalogPath = out;
+                m_movesetChangeModel.setCatalog(catalog);
+                emit movesetCatalogChanged();
+                emit movesetCatalogFinished(true, out);
+                setStatus(t(QStringLiteral("builder_moveset_analyzed"))
+                          .arg(catalog.value(QStringLiteral("summary")).toObject()
+                               .value(QStringLiteral("changes")).toInt()));
+            } else {
+                emit movesetCatalogFinished(false, detail.isEmpty()
+                    ? t(QStringLiteral("err_moveset_analysis")) : detail);
+            }
+            setBusy(false);
+        }, Qt::QueuedConnection);
+    });
+}
+
 static QString builderScript() {
     // El Builder vive dentro de Stellar Tool (junto al exe: <appDir>/Builder, o
     // en el repo). Override por env STELLAR_SOULS_BUILDER.
@@ -1439,7 +1501,7 @@ static QString pythonExe() {
 // Ademas fuerza UTF-8 en el Python del Builder: leemos su salida como UTF-8, y
 // con el locale por defecto (cp936 en Windows chino) los textos acentuados o las
 // rutas no-ASCII rompian el proceso al imprimir.
-static void applyBuilderEnv(QProcess &proc, const QString &gameDir = QString()) {
+static void applyBuilderEnv(QProcess &proc, const QString &gameDir) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
     env.insert(QStringLiteral("PYTHONUTF8"), QStringLiteral("1"));
     env.insert(QStringLiteral("PYTHONIOENCODING"), QStringLiteral("utf-8"));

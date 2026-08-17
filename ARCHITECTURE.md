@@ -277,15 +277,20 @@ CMake + Qt 6.4+ (Core, Quick, Concurrent, Widgets, Multimedia, Network), C++17, 
 
 ## 9. Modo headless (CLI)
 
-### Catálogo de movesets precompilados
+### Catálogo granular de movesets
 
-`MovesetService` inspecciona carpetas externas buscando tríos IoStore completos
-(`.pak/.ucas/.utoc`) y clasifica sus nombres en familia (`fusion`, `scarlet`,
-`raven`), tier y variante `aggro`. No interpreta el contenido binario ni copia
-los archivos al repo. La instalación explícita copia el trío a `~mods`, rechaza
-colisiones con archivos existentes y guarda un manifiesto en
-`%LOCALAPPDATA%/StellarTool/moveset_install.json`; la desinstalación usa solo
-ese manifiesto.
+`moveset_catalog.py` analiza las variantes Zen externas contra la instalación
+vanilla usando CUE4Parse y retoc. Expone cada modificación de tablas (`Skill*`,
+`CharacterMoveTable`, `ProjectileTable`) como una entrada seleccionable con
+fila, propiedad, valor anterior/nuevo y grupo de conflicto. Los arrays, filas
+nuevas/eliminadas y estructuras que no tienen round-trip seguro se muestran
+como `requires validation` y no se aplican silenciosamente.
+
+Los assets cocinados se enumeran individualmente y se conservan mediante el
+bundle Zen de la variante que los aporta; las tablas generadas por Stellar Tool
+se empaquetan después para que tengan prioridad. Así el Builder permite mezclar
+familias, tiers y variantes aggro sin regenerar binarios de juego ni modificar
+las fuentes.
 
 El contrato completo para agentes y automatizaciones, incluida la matriz por
 sección, precondiciones, efectos y códigos de salida, está en

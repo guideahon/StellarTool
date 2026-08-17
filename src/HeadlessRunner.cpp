@@ -47,7 +47,7 @@ QStringList HeadlessRunner::knownCommands() {
             QStringLiteral("presets"), QStringLiteral("save-to-json"),
             QStringLiteral("save-from-json"), QStringLiteral("fix-save"),
             QStringLiteral("reshade"), QStringLiteral("live"),
-            QStringLiteral("moveset"), QStringLiteral("patch-validate"),
+            QStringLiteral("moveset"), QStringLiteral("moveset-catalog"), QStringLiteral("patch-validate"),
             QStringLiteral("patch-preview"), QStringLiteral("patch-apply"),
             QStringLiteral("patch-export")};
 }
@@ -110,6 +110,9 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
         if (o.action.isEmpty()) return fail(QStringLiteral("live necesita --action <status|install|uninstall|reset|set>"));
         if (o.action == QLatin1String("set") && o.fov < 0 && o.speed < 0 && o.jump < 0 && !o.fovEnabledSet)
             return fail(QStringLiteral("live set necesita --fov, --speed, --jump o --fov-enabled/--no-fov"));
+    } else if (command == QLatin1String("moveset-catalog")) {
+        if (o.mods.isEmpty()) return fail(QStringLiteral("moveset-catalog necesita --mod <carpeta>"));
+        if (o.outDir.isEmpty()) return fail(QStringLiteral("moveset-catalog necesita --out <catalog.json>"));
     } else if (command == QLatin1String("moveset")) {
         if (o.action.isEmpty()) return fail(QStringLiteral("moveset necesita --action <list|install|uninstall>"));
         if (o.action != QLatin1String("list") && o.action != QLatin1String("install")
@@ -141,6 +144,7 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
     if (command == QLatin1String("reshade")) return runReShade(o);
     if (command == QLatin1String("live")) return runLive(o);
     if (command == QLatin1String("moveset")) return runMoveset(o);
+    if (command == QLatin1String("moveset-catalog")) return runMovesetCatalog(o);
     if (command.startsWith(QLatin1String("patch-"))) return runPatch(command, o);
     if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
         return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection);
@@ -218,6 +222,43 @@ int HeadlessRunner::runMoveset(const Options &o) {
     }
     out(QStringLiteral("[ERROR] Variante no encontrada: %1").arg(o.selection));
     return 2;
+}
+
+int HeadlessRunner::runMovesetCatalog(const Options &o) {
+    const QString game = GamePaths::gameRoot();
+    if (game.isEmpty()) {
+        out(QStringLiteral("[ERROR] moveset-catalog necesita --game <dir> o un juego detectado."));
+        return 2;
+    }
+    bool catalogOk = false;
+    QString detail;
+    const QMetaObject::Connection connection = connect(
+        m_controller, &AppController::movesetCatalogFinished, this,
+        [&](bool ok, const QString &message) { catalogOk = ok; detail = message; });
+    m_controller->analyzeMovesets(QUrl::fromLocalFile(o.mods.first()),
+                                   QUrl::fromLocalFile(game));
+    const bool idle = waitIdle();
+    disconnect(connection);
+    if (!idle || !catalogOk) {
+        out(QStringLiteral("[ERROR] %1").arg(detail.isEmpty()
+            ? QStringLiteral("No se pudo generar el catálogo de movesets.") : detail));
+        return 5;
+    }
+    const QString generated = m_controller->movesetCatalogPath();
+    if (generated.isEmpty() || !QFileInfo::exists(generated)) {
+        out(QStringLiteral("[ERROR] El analizador no produjo el catálogo."));
+        return 5;
+    }
+    if (QFile::exists(o.outDir) && !QFile::remove(o.outDir)) {
+        out(QStringLiteral("[ERROR] No se pudo reemplazar %1").arg(o.outDir));
+        return 5;
+    }
+    if (!QFile::copy(generated, o.outDir)) {
+        out(QStringLiteral("[ERROR] No se pudo copiar el catálogo a %1").arg(o.outDir));
+        return 5;
+    }
+    out(QStringLiteral("[OK] Catálogo de movesets: %1").arg(o.outDir));
+    return 0;
 }
 
 HeadlessRunner::HeadlessRunner(AppController *controller, QObject *parent)

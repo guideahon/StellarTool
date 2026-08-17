@@ -34,6 +34,7 @@ set(CORE_SOURCES
     src/models/ModListModel.cpp
     src/models/ChangeListModel.cpp
     src/models/ConflictModel.cpp
+    src/models/MovesetChangeModel.cpp
     src/AppController.cpp
     src/HeadlessRunner.cpp
     src/Translator.cpp
@@ -60,6 +61,7 @@ set(CORE_HEADERS
     src/models/ModListModel.h
     src/models/ChangeListModel.h
     src/models/ConflictModel.h
+    src/models/MovesetChangeModel.h
     src/AppController.h
     src/HeadlessRunner.h
     src/Translator.h

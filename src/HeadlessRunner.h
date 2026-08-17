@@ -28,6 +28,7 @@ class AppController;
 //   StellarTool --headless fix-save       --input <sav>
 //   StellarTool --headless reshade        --action <list|save|restore|rename|delete|import|export>
 //   StellarTool --headless live           --action <status|install|uninstall|reset|set>
+//   StellarTool --headless moveset-catalog --mod <carpeta> --out <catalog.json> [--game <dir>]
 //   StellarTool --headless moveset        --mod <carpeta> --action <list|install|uninstall>
 //   StellarTool --headless patch-validate --input <patch.toml>
 //   StellarTool --headless patch-preview  --input <patch.toml> [--baseline <dir>]
@@ -102,6 +103,7 @@ public:
     int runReShade(const Options &options);
     int runLive(const Options &options);
     int runMoveset(const Options &options);
+    int runMovesetCatalog(const Options &options);
     int runPatch(const QString &command, const Options &options);
 
 private:

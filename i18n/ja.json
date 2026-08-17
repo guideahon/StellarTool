@@ -243,5 +243,6 @@
   "builder_attack_speed": "攻撃速度を増加",
   "builder_move_speed": "移動速度を増加",
   "builder_enemy_drops": "ドロップを増加",
-  "builder_multiplier": "倍率"
+  "builder_multiplier": "倍率",
+  "builder_moveset_title": "ムーブセットとスキル", "builder_moveset_hint": "バリアントを解析し、変更を組み合わせます。", "builder_moveset_source": "バリアントフォルダーを選択", "builder_moveset_source_placeholder": ".pak/.ucas/.utoc バリアントのフォルダー", "builder_moveset_analyze": "解析", "builder_moveset_analyzing": "解析中…", "builder_moveset_selected": "選択した変更: %1", "builder_moveset_conflict": "排他的な選択肢", "builder_moveset_unsupported": "検証が必要", "builder_moveset_analyzed": "カタログ準備完了 (%1 件)。", "err_moveset_source": "有効なバリアントフォルダーを選択してください。", "err_moveset_game": "有効な Stellar Blade のインストールを選択してください。", "err_moveset_analysis": "ムーブセットの解析に失敗しました。"
 }

@@ -27,6 +27,7 @@ private slots:
     void commandsWithoutArgumentsValidate();
     void answersAcceptInlineJsonFileAndPreset();
     void movesetCatalogRecognizesFamiliesAndAggro();
+    void movesetCatalogNeedsSourceAndOutput();
 };
 
 namespace {
@@ -78,6 +79,14 @@ void TestHeadless::movesetCatalogRecognizesFamiliesAndAggro() {
     QCOMPARE(variants.first().id, QStringLiteral("aggro-scarlet-goddess"));
     QCOMPARE(variants.first().family, QStringLiteral("scarlet"));
     QVERIFY(variants.first().aggro);
+}
+
+void TestHeadless::movesetCatalogNeedsSourceAndOutput() {
+    QVERIFY(!validationError(QStringLiteral("moveset-catalog"), {}).isEmpty());
+    auto o = withMods({QStringLiteral("variants")});
+    QVERIFY(!validationError(QStringLiteral("moveset-catalog"), o).isEmpty());
+    o.outDir = QStringLiteral("catalog.json");
+    QVERIFY(validationError(QStringLiteral("moveset-catalog"), o).isEmpty());
 }
 
 void TestHeadless::unknownCommandIsRejected() {

@@ -243,5 +243,6 @@
   "builder_attack_speed": "Angriffsgeschwindigkeit erhöhen",
   "builder_move_speed": "Bewegungsgeschwindigkeit erhöhen",
   "builder_enemy_drops": "Drops erhöhen",
-  "builder_multiplier": "Multiplikator"
+  "builder_multiplier": "Multiplikator",
+  "builder_moveset_title": "Movesets und Fähigkeiten", "builder_moveset_hint": "Analysiere Varianten und kombiniere einzelne Änderungen.", "builder_moveset_source": "Variantenordner auswählen", "builder_moveset_source_placeholder": "Ordner mit .pak/.ucas/.utoc-Varianten", "builder_moveset_analyze": "Analysieren", "builder_moveset_analyzing": "Moveset-Varianten werden analysiert…", "builder_moveset_selected": "Ausgewählte Änderungen: %1", "builder_moveset_conflict": "exklusive Alternative", "builder_moveset_unsupported": "Validierung erforderlich", "builder_moveset_analyzed": "Moveset-Katalog bereit (%1 Änderungen).", "err_moveset_source": "Wähle einen gültigen Moveset-Variantenordner.", "err_moveset_game": "Wähle eine gültige Stellar-Blade-Installation.", "err_moveset_analysis": "Moveset-Analyse fehlgeschlagen."
 }

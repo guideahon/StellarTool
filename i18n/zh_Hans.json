@@ -243,5 +243,6 @@
   "builder_attack_speed": "提高攻击速度",
   "builder_move_speed": "提高移动速度",
   "builder_enemy_drops": "提高掉落",
-  "builder_multiplier": "倍率"
+  "builder_multiplier": "倍率",
+  "builder_moveset_title": "招式与技能", "builder_moveset_hint": "分析变体并组合单独的改动。", "builder_moveset_source": "选择变体文件夹", "builder_moveset_source_placeholder": "包含 .pak/.ucas/.utoc 变体的文件夹", "builder_moveset_analyze": "分析", "builder_moveset_analyzing": "正在分析变体…", "builder_moveset_selected": "已选择改动：%1", "builder_moveset_conflict": "互斥选项", "builder_moveset_unsupported": "需要验证", "builder_moveset_analyzed": "目录已就绪（%1 项改动）。", "err_moveset_source": "请选择有效的招式变体文件夹。", "err_moveset_game": "请选择有效的 Stellar Blade 安装。", "err_moveset_analysis": "招式分析失败。"
 }

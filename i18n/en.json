@@ -551,5 +551,18 @@
   "builder_attack_speed": "Increase attack speed",
   "builder_move_speed": "Increase movement speed",
   "builder_enemy_drops": "Increase drops",
-  "builder_multiplier": "Multiplier"
+  "builder_multiplier": "Multiplier",
+  "builder_moveset_title": "Movesets and skills",
+  "builder_moveset_hint": "Analyze Fusion, Scarlet, Raven and Aggro, then combine individual changes.",
+  "builder_moveset_source": "Choose variant folder",
+  "builder_moveset_source_placeholder": "Folder containing .pak/.ucas/.utoc variants",
+  "builder_moveset_analyze": "Analyze",
+  "builder_moveset_analyzing": "Analyzing moveset variants…",
+  "builder_moveset_selected": "Selected changes: %1",
+  "builder_moveset_conflict": "exclusive alternative",
+  "builder_moveset_unsupported": "requires validation",
+  "builder_moveset_analyzed": "Moveset catalog ready (%1 changes).",
+  "err_moveset_source": "Select a valid moveset variants folder.",
+  "err_moveset_game": "Select a valid Stellar Blade installation.",
+  "err_moveset_analysis": "Moveset analysis failed."
 }

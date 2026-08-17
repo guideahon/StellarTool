@@ -243,5 +243,6 @@
   "builder_attack_speed": "공격 속도 증가",
   "builder_move_speed": "이동 속도 증가",
   "builder_enemy_drops": "드롭 증가",
-  "builder_multiplier": "배율"
+  "builder_multiplier": "배율",
+  "builder_moveset_title": "무브셋 및 스킬", "builder_moveset_hint": "변형을 분석하고 개별 변경 사항을 조합합니다.", "builder_moveset_source": "변형 폴더 선택", "builder_moveset_source_placeholder": ".pak/.ucas/.utoc 변형 폴더", "builder_moveset_analyze": "분석", "builder_moveset_analyzing": "분석 중…", "builder_moveset_selected": "선택한 변경: %1", "builder_moveset_conflict": "배타적 대안", "builder_moveset_unsupported": "검증 필요", "builder_moveset_analyzed": "카탈로그 준비 완료 (%1개 변경).", "err_moveset_source": "올바른 변형 폴더를 선택하세요.", "err_moveset_game": "올바른 Stellar Blade 설치를 선택하세요.", "err_moveset_analysis": "무브셋 분석에 실패했습니다."
 }

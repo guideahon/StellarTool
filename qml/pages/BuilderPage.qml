@@ -13,6 +13,8 @@ Item {
 
     property string resultZip: ""
     property string gamePath: ""
+    property string movesetSourceDir: ""
+    property bool movesetCatalogLoaded: false
     property var historyModel: []
     property var presetModel: []
     property var installed: ({ paks: [], helper: false, helpers: [] })
@@ -111,6 +113,13 @@ Item {
         vulnFull.checked = !vulnMild.checked
         blaster2.checked = Number(a.blasterMultiplier || 3) === 2
         blaster3.checked = !blaster2.checked
+        if (a.moveset && a.moveset.sourceDir)
+            movesetSourceDir = a.moveset.sourceDir
+        if (a.moveset && a.moveset.selectedChanges && App.movesetChangeModel) {
+            App.movesetChangeModel.clearSelection()
+            for (var mi = 0; mi < a.moveset.selectedChanges.length; ++mi)
+                App.movesetChangeModel.toggle(a.moveset.selectedChanges[mi])
+        }
         var cef = a.combatEconomyFeatures
         var legacyEconomy = a.combatEconomy === "full"
         gainRow.selected = cef ? cef.indexOf("slowerGain") >= 0 : legacyEconomy || a.combatEconomy === undefined
@@ -386,6 +395,9 @@ Item {
             mbStagger.checked=true
         }
     }
+    function movesetSourceUrl() {
+        return movesetSourceDir.length > 0 ? toFolderUrl(movesetSourceDir) : null
+    }
     function setDifficultyProfile(kind) {
         challengeProfile = kind
         var boss = hardBosses.checked || kind === "glassCannon" || kind === "attrition" || kind === "endurance"
@@ -528,6 +540,7 @@ Item {
         // El rollback pudo reponer (o sacar) paks y helper: releer que quedo.
         function onBuildCancelled() { root.refreshInstalled() }
         function onGamePathChanged() { root.refreshGamePath(); root.refreshInstalled() }
+        function onMovesetCatalogFinished(ok, message) { root.movesetCatalogLoaded = ok }
     }
 
     FolderDialog {
@@ -572,6 +585,15 @@ Item {
     FolderDialog {
         id: outDialog
         onAccepted: { outField.text = outDialog.selectedFolder }
+    }
+    FolderDialog {
+        id: movesetSourceDialog
+        title: I18n.s.builder_moveset_source || "Elegir carpeta de variantes"
+        onAccepted: {
+            root.movesetSourceDir = movesetSourceDialog.selectedFolder.toString()
+                .replace("file:///", "").replace(/\//g, "\\")
+            movesetSourceField.text = root.movesetSourceDir
+        }
     }
     FolderDialog {
         id: tomlDialog
@@ -752,6 +774,82 @@ Item {
                         MouseArea {
                             anchors.fill: parent; cursorShape: Qt.PointingHandCursor
                             onClicked: music.playing ? music.stop() : music.play()
+                        }
+                    }
+                }
+
+                Card {
+                    Layout.fillWidth: true
+                    implicitHeight: movesetCol.implicitHeight + 28
+                    ColumnLayout {
+                        id: movesetCol
+                        anchors.fill: parent; anchors.margins: 14; spacing: 8
+                        FieldLabel { text: I18n.s.builder_moveset_title || "Movesets y habilidades"; font.bold: true }
+                        Text {
+                            Layout.fillWidth: true; wrapMode: Text.Wrap
+                            text: I18n.s.builder_moveset_hint || "Analiza Fusion, Scarlet, Raven y Aggro y combina sus cambios individuales."
+                            color: Theme.textDim; font.pixelSize: 11
+                        }
+                        RowLayout {
+                            Layout.fillWidth: true; spacing: 8
+                            TextField {
+                                id: movesetSourceField
+                                Layout.fillWidth: true
+                                text: root.movesetSourceDir
+                                placeholderText: I18n.s.builder_moveset_source_placeholder || "Carpeta con las variantes .pak/.ucas/.utoc"
+                                color: Theme.text
+                                background: Rectangle { radius: Theme.radius; color: Theme.panelAlt; border.color: Theme.border }
+                                onTextChanged: root.movesetSourceDir = text
+                            }
+                            Button { text: "📁"; onClicked: movesetSourceDialog.open() }
+                            Button {
+                                text: App.movesetAnalyzing ? (I18n.s.builder_moveset_analyzing || "Analizando…")
+                                                            : (I18n.s.builder_moveset_analyze || "Analizar")
+                                enabled: !App.busy && root.movesetSourceDir.length > 0 && root.gamePath.length > 0
+                                onClicked: App.analyzeMovesets(toFolderUrl(root.movesetSourceDir), toFolderUrl(root.gamePath))
+                            }
+                        }
+                        Text {
+                            visible: root.movesetCatalogLoaded
+                            text: (I18n.s.builder_moveset_selected || "Cambios seleccionados: %1")
+                                  .replace("%1", App.movesetChangeModel.selectedCount())
+                            color: Theme.accent; font.pixelSize: 11
+                        }
+                        ListView {
+                            id: movesetChangesView
+                            visible: root.movesetCatalogLoaded
+                            Layout.fillWidth: true; Layout.preferredHeight: Math.min(340, contentHeight)
+                            clip: true; spacing: 3
+                            model: App.movesetChangeModel
+                            delegate: Rectangle {
+                                required property string changeId
+                                required property string summary
+                                required property string variant
+                                required property bool conflict
+                                required property bool selected
+                                required property string support
+                                width: movesetChangesView.width; height: movesetChangeText.implicitHeight + 10
+                                color: selected ? Theme.panelAlt : "transparent"
+                                border.color: conflict ? Theme.warn : Theme.border
+                                radius: 3
+                                RowLayout {
+                                    anchors.fill: parent; anchors.margins: 4; spacing: 6
+                                    CheckBox {
+                                        checked: selected
+                                        enabled: support !== "unsupported"
+                                        onClicked: App.movesetChangeModel.toggle(changeId)
+                                    }
+                                    ColumnLayout {
+                                        id: movesetChangeText
+                                        Layout.fillWidth: true; spacing: 1
+                                        Text { text: summary; color: Theme.text; wrapMode: Text.Wrap; Layout.fillWidth: true; font.pixelSize: 11 }
+                                        Text {
+                                            text: variant + (conflict ? "  ·  " + (I18n.s.builder_moveset_conflict || "incompatible") : "")
+                                            color: conflict ? Theme.warn : Theme.textDim; font.pixelSize: 10
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1764,6 +1862,11 @@ Item {
                         var mb = anyMiniBossRegion() ? "allRegions" : "off"
                         return {
                             combatProfile: "full",
+                            moveset: {
+                                sourceDir: root.movesetSourceDir,
+                                catalog: App.movesetCatalogPath,
+                                selectedChanges: JSON.parse(App.movesetChangeModel.selectedIdsJson() || "[]")
+                            },
                             combatEconomyFeatures: [
                                 gainRow.selected ? "slowerGain" : "",
                                 capacityRow.selected ? "lowerCapacity" : "",

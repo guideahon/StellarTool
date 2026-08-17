@@ -139,9 +139,73 @@ def normalize(answers: dict) -> dict:
     a.setdefault("challengeProfile", "none")
     a = apply_challenge_profile(a)
     a.setdefault("lang", "es")
+    _normalize_moveset(a)
     if a["lang"] not in SUPPORTED_LANGS:
         a["lang"] = "es"
     return a
+
+
+def _normalize_moveset(a: dict) -> None:
+    """Carga el catálogo seleccionado y valida que siga correspondiendo a la fuente."""
+    raw = a.get("moveset")
+    if not isinstance(raw, dict):
+        a["moveset"] = {"changes": []}
+        return
+    catalog_path = raw.get("catalog")
+    selected = set(raw.get("selectedChanges") or [])
+    if not catalog_path or not selected:
+        raw["changes"] = []
+        return
+    path = Path(catalog_path)
+    if not path.exists():
+        raise RuntimeError(f"No se encontró el catálogo de movesets: {path}")
+    catalog = json.loads(path.read_text(encoding="utf-8"))
+    changes = [c for c in catalog.get("changes", []) if c.get("id") in selected]
+    by_group = {}
+    for change in changes:
+        group = change.get("conflictGroup")
+        if group:
+            old = by_group.setdefault(group, change)
+            if old.get("id") != change.get("id"):
+                raise RuntimeError(f"Conflicto de moveset sin resolver: {group}")
+    raw["changes"] = changes
+    raw["catalogVersion"] = catalog.get("schemaVersion", 1)
+    # Los assets Zen no se pueden editar como tablas legacy: se conservan en
+    # el contenedor de la variante que los aporta. Agrupamos por variante para
+    # copiar el triple pak/ucas/utoc una sola vez durante el build.
+    variants = {v.get("id"): v for v in catalog.get("variants", [])}
+    raw["assetVariants"] = {}
+    for change in changes:
+        if change.get("kind") != "asset":
+            continue
+        variant = variants.get(change.get("variant"))
+        if variant and variant.get("containers"):
+            raw["assetVariants"][change["variant"]] = variant["containers"]
+
+
+def install_moveset_asset_bundles(a: dict, paks_dir: Path, paks_out: list[str],
+                                  report: dict) -> None:
+    """Incluye los assets Zen elegidos, manteniendo su contenedor original.
+
+    retoc puede leer estos paquetes pero no convertir sus chunks cocinados a
+    uassets editables. Por eso cada selección visual es explícitamente un
+    bundle de variante; las tablas generadas por Stellar Tool se copian con
+    prioridad posterior y pisan las tablas incluidas por esos bundles.
+    """
+    moveset = a.get("moveset") or {}
+    bundles = moveset.get("assetVariants") or {}
+    for variant_id, containers in sorted(bundles.items()):
+        copied = []
+        for raw in containers:
+            source = Path(raw)
+            if not source.exists() or source.suffix.lower() not in {".pak", ".ucas", ".utoc"}:
+                raise RuntimeError(f"Falta un contenedor del asset de moveset: {source}")
+            target = paks_dir / source.name
+            if not target.exists():
+                shutil.copy2(source, target)
+            copied.append(target.name)
+        paks_out.extend(name for name in copied if name.endswith(".pak"))
+        report.setdefault("movesetAssetBundles", {})[variant_id] = copied
 
 
 def uses_vanilla_helper_mode(a: dict) -> bool:
@@ -388,6 +452,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     table_compiler.PARAMS["air_count"] = int(a.get("airDodgeCount", 2))
     table_compiler.PARAMS["tumbler_value"] = float(a.get("tumblerHealPercent", 60))
     table_compiler.PARAMS["extra_values"] = a.get("gameplayExtraValues") or {}
+    table_compiler.PARAMS["moveset_changes"] = (a.get("moveset") or {}).get("changes") or []
     table_compiler.PARAMS["world_values"] = a.get("worldTweakValues") or {}
     table_compiler.PARAMS["harder_bosses"] = a.get("harderBosses") or {}
     table_compiler.PARAMS["harder_enemies"] = a.get("harderEnemies") or {}
@@ -429,6 +494,7 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             just_mult=float(a.get("forgivingJustMult", 1.5)),
             air_count=int(a.get("airDodgeCount", 2)),
             combat_transform_ids=build_specs.combat_transforms(a)
+            + build_specs.moveset_transforms(a)
             + [tid for tid in build_specs.enemy_tuning_transforms(a)
                if tid.endswith(".character") or tid.endswith(".skill")],
             world_extra_ids=world_ids,
@@ -500,6 +566,11 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
         ue4ss = stage / "ue4ss" / "Mods"
         ue4ss.mkdir(parents=True, exist_ok=True)
         vanilla_helper.compile_vanilla_helper(alpha, ue4ss)
+
+    # Assets cocinados seleccionados desde el catálogo. Se agregan al final
+    # para que los paks de tablas compilados tengan prioridad sobre las copias
+    # de Skill* que traen las variantes originales.
+    install_moveset_asset_bundles(a, paks_dir, paks_out, compilation_report)
 
     # Guia localizada.
     guide = build_install_guide(a, plan, paks_out, plan["needsHelper"])

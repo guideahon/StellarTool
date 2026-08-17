@@ -28,7 +28,8 @@ Antes de usar un comando:
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
 | Partidas | `save-to-json`, `save-from-json`, `fix-save` | Convierte partidas y repara CNS. |
-| Moveset Fusion/Scarlet/Raven | `moveset` | Lista e instala una variante precompilada, o quita la instalada por la tool. |
+| Moveset granular | `moveset-catalog` + `build` | Analiza tablas/assets, genera catálogo de cambios y compila las selecciones del Builder. |
+| Moveset legacy | `moveset` | Compatibilidad: lista/instala un bundle completo o desinstala lo instalado por la tool. |
 | Patches declarativos | `patch-validate`, `patch-preview`, `patch-apply`, `patch-export` | Valida, expande, revisa, aplica o exporta reglas TOML sin ejecutar código externo. |
 
 Las acciones de abrir carpetas, diálogos de archivo, temas, idioma y elementos
@@ -52,6 +53,7 @@ StellarTool.exe --headless status
 StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action list
 StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action install --select scarlet-goddess --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless moveset --action uninstall
+StellarTool.exe --headless moveset-catalog --mod "D:\Descargas\moveset" --out "C:\Temp\moveset-catalog.json" --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless patch-validate --input "C:\patches\CharacterTable.toml"
 StellarTool.exe --headless patch-preview --input "C:\patches\CharacterTable.toml" --baseline "C:\baseline"
 StellarTool.exe --headless patch-apply --input "C:\patches\CharacterTable.toml" --out "C:\salida" --baseline "C:\baseline"
@@ -83,11 +85,13 @@ Las operaciones disponibles son `set`, `add`, `multiply`, `clamp` (con
 Los cambios se convierten en `ChangeItem` y pasan por el mismo merge,
 verificación round-trip y reporte que un mod normal.
 
-`moveset` reconoce carpetas con un trío IoStore completo (`.pak`, `.ucas` y
-`.utoc`) y deriva la familia, tier y variante `aggro` de su nombre. `install`
-solo copia la variante elegida a `SB\Content\Paks\~mods`; rechaza colisiones y
-guarda un registro propio para que `uninstall` quite únicamente esos archivos.
-Los binarios originales nunca se agregan al repositorio ni se modifican.
+`moveset-catalog` reconoce carpetas con tríos IoStore completos, deriva familia,
+tier y `aggro`, y compara cada variante con el juego. El JSON resultante se
+guarda fuera del repositorio y se referencia desde `answers.moveset.catalog`;
+`answers.moveset.selectedChanges` contiene los IDs elegidos. El comando `build`
+aplica los cambios escalares, rechaza conflictos no resueltos y copia los
+bundles Zen de assets seleccionados sin modificar los archivos originales.
+`moveset` queda solo como compatibilidad para instalar una variante completa.
 
 `build --answers` también acepta `harderBosses` y `harderEnemies` como objetos
 independientes. Cada uno puede incluir `health`, `attack`, `size`, `removeShield`,

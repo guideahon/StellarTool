@@ -100,6 +100,7 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless reshade --action <list|save|restore|rename|delete|import|export>\n"
             "  StellarTool --headless live    --action <status|install|uninstall|reset|set>\n"
             "  StellarTool --headless moveset --mod <carpeta> --action <list|install|uninstall> [--select <variante>]\n"
+            "  StellarTool --headless moveset-catalog --mod <carpeta> --out <catalog.json> [--game <dir>]\n"
             "  StellarTool --headless patch-validate --input <patch.toml>\n"
             "  StellarTool --headless patch-preview --input <patch.toml> [--baseline <dir>]\n"
             "  StellarTool --headless patch-apply --input <patch.toml> --out <dir> [--baseline <dir>]\n"

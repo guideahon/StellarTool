@@ -4,6 +4,7 @@
 #include "models/ModListModel.h"
 #include "models/ChangeListModel.h"
 #include "models/ConflictModel.h"
+#include "models/MovesetChangeModel.h"
 
 #include <QObject>
 #include <QFutureWatcher>
@@ -45,6 +46,9 @@ class AppController : public QObject {
     Q_PROPERTY(st::ModListModel *modModel READ modModel CONSTANT)
     Q_PROPERTY(st::ChangeListModel *changeModel READ changeModel CONSTANT)
     Q_PROPERTY(st::ConflictModel *conflictModel READ conflictModel CONSTANT)
+    Q_PROPERTY(st::MovesetChangeModel *movesetChangeModel READ movesetChangeModel CONSTANT)
+    Q_PROPERTY(bool movesetAnalyzing READ movesetAnalyzing NOTIFY movesetAnalyzingChanged)
+    Q_PROPERTY(QString movesetCatalogPath READ movesetCatalogPath NOTIFY movesetCatalogChanged)
     Q_PROPERTY(bool analyzed READ analyzed NOTIFY analysisChanged)
     Q_PROPERTY(QString lastMergeResult READ lastMergeResult NOTIFY mergeFinished)
     Q_PROPERTY(bool lastMergeOk READ lastMergeOk NOTIFY mergeFinished)
@@ -79,6 +83,7 @@ public:
     ModListModel *modModel() { return &m_modModel; }
     ChangeListModel *changeModel() { return &m_changeModel; }
     ConflictModel *conflictModel() { return &m_conflictModel; }
+    MovesetChangeModel *movesetChangeModel() { return &m_movesetChangeModel; }
 
     Q_INVOKABLE void addMod(const QUrl &url);
     Q_INVOKABLE void removeMod(int row);
@@ -101,6 +106,9 @@ public:
     Q_INVOKABLE void runBuilder(const QString &answersJson, const QUrl &outDirUrl,
                                 bool installPaks = false, bool installHelper = false,
                                 const QString &gameDir = {});
+    Q_INVOKABLE void analyzeMovesets(const QUrl &sourceUrl, const QUrl &gameUrl = {});
+    bool movesetAnalyzing() const { return m_movesetAnalyzing; }
+    QString movesetCatalogPath() const { return m_movesetCatalogPath; }
 
     // Interpreta una línea "PROGRESS baseline <n> <Tabla>" del builder. Devuelve
     // false si la línea es cualquier otra cosa (salida normal del build). El
@@ -217,6 +225,9 @@ signals:
     void cnsIdFixerFinished(bool ok);
     void saveConverterFinished(bool ok, const QString &outputPath);
     void errorOccurred(const QString &message);
+    void movesetAnalyzingChanged();
+    void movesetCatalogChanged();
+    void movesetCatalogFinished(bool ok, const QString &message);
 
 private:
     void setBusy(bool b, const QString &status = {});
@@ -267,17 +278,20 @@ private:
     ModListModel m_modModel;
     ChangeListModel m_changeModel;
     ConflictModel m_conflictModel;
+    MovesetChangeModel m_movesetChangeModel;
 
     bool m_busy = false;
     bool m_analyzed = false;
     bool m_exportZip = true;
     bool m_lastMergeOk = false;
     bool m_downloadingUsmap = false;
+    bool m_movesetAnalyzing = false;
     QString m_statusText;
     QString m_lastMergeResult;
     QString m_lastCnsResult;
     QString m_cnsIdFixerReport;
     QString m_saveConverterResult;
+    QString m_movesetCatalogPath;
     QHash<QString, QStringList> m_usmapEnums;
     bool m_usmapEnumsLoaded = false;
     // pid del build en curso (0 = ninguno) y si el usuario lo canceló: los lee

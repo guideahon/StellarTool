@@ -243,5 +243,6 @@
   "builder_attack_speed": "Увеличить скорость атаки",
   "builder_move_speed": "Увеличить скорость движения",
   "builder_enemy_drops": "Увеличить добычу",
-  "builder_multiplier": "Множитель"
+  "builder_multiplier": "Множитель",
+  "builder_moveset_title": "Наборы движений и навыки", "builder_moveset_hint": "Анализируйте варианты и объединяйте отдельные изменения.", "builder_moveset_source": "Выбрать папку вариантов", "builder_moveset_source_placeholder": "Папка с вариантами .pak/.ucas/.utoc", "builder_moveset_analyze": "Анализировать", "builder_moveset_analyzing": "Анализ вариантов…", "builder_moveset_selected": "Выбрано изменений: %1", "builder_moveset_conflict": "эксклюзивный вариант", "builder_moveset_unsupported": "требуется проверка", "builder_moveset_analyzed": "Каталог готов (%1 изменений).", "err_moveset_source": "Выберите корректную папку вариантов.", "err_moveset_game": "Выберите корректную установку Stellar Blade.", "err_moveset_analysis": "Не удалось проанализировать набор движений."
 }

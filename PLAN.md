@@ -96,6 +96,9 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 - Detección de paks fantasma en `~mods`.
 - Historial persistente con "usar de plantilla".
 - CLI headless completo (`--headless build`).
+- Catálogo granular de movesets Zen: análisis contra vanilla, cambios por
+  propiedad/fila, grupos exclusivos, assets por bundle de variante y comando
+  `--headless moveset-catalog`.
 
 ### Mappings versionados ✅
 - Descarga de usmap por versión del juego desde el archivo de la comunidad.

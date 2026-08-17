@@ -112,6 +112,15 @@ def combat_transforms(a: dict) -> list[str]:
     return []
 
 
+def moveset_transforms(a: dict) -> list[str]:
+    """Tabla transforms seleccionados por el catálogo granular de movesets."""
+    changes = (a.get("moveset") or {}).get("changes") or []
+    tables = {c.get("table") for c in changes if c.get("kind") == "table"}
+    return [f"moveset.{table}" for table in (
+        "SkillActiveStepTable", "SkillResultTable", "SkillTable",
+        "SkillCommandTable", "CharacterMoveTable", "ProjectileTable") if table in tables]
+
+
 # Mundo/economia (tienda, drops, progresion, pesca). Van en su propio pak: son
 # tablas que ni el combate ni el outfit tocan.
 WORLD_PAK = "StellarSouls-World"
@@ -189,6 +198,7 @@ def combo_to_targets(a: dict):
         })
     if combat == "full":
         transforms = combat_transforms(a)
+        transforms += moveset_transforms(a)
         # Extras de CharacterTable van sobre el pak de combate.
         transforms += [f"extras.{e}" for e in ct_extras] + [f"extras.{e}" for e in sk_extras]
         if drone_scan:
