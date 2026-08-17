@@ -10,6 +10,7 @@ void runTestHeadless(int &failures, int argc, char **argv);
 void runTestOodle(int &failures, int argc, char **argv);
 void runTestLiveService(int &failures, int argc, char **argv);
 void runTestReShadePresetService(int &failures, int argc, char **argv);
+void runTestTomlPatch(int &failures, int argc, char **argv);
 
 int main(int argc, char **argv) {
     QCoreApplication app(argc, argv);
@@ -83,6 +84,13 @@ int main(int argc, char **argv) {
         char reshadeLog[] = "test_reshade.txt,txt";
         char *args[] = {arg0, argOut, reshadeLog};
         runTestReShadePresetService(failures, 3, args);
+    }
+    {
+        char arg0[] = "StellarToolTests";
+        char argOut[] = "-o";
+        char patchLog[] = "test_toml_patch.txt,txt";
+        char *args[] = {arg0, argOut, patchLog};
+        runTestTomlPatch(failures, 3, args);
     }
     return failures;
 }

@@ -52,7 +52,9 @@ void TestHeadless::everyCommandIsListed() {
         QStringLiteral("status"),  QStringLiteral("detect"),  QStringLiteral("uninstall"),
         QStringLiteral("fixids"),  QStringLiteral("presets"), QStringLiteral("save-to-json"),
         QStringLiteral("save-from-json"), QStringLiteral("fix-save"), QStringLiteral("reshade"),
-        QStringLiteral("live"), QStringLiteral("moveset")};
+        QStringLiteral("live"), QStringLiteral("moveset"),
+        QStringLiteral("patch-validate"), QStringLiteral("patch-preview"),
+        QStringLiteral("patch-apply"), QStringLiteral("patch-export")};
     for (const QString &name : expected) {
         QVERIFY2(commands.contains(name),
                  qPrintable(QStringLiteral("falta el comando %1").arg(name)));

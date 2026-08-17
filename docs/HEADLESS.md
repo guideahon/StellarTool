@@ -29,6 +29,7 @@ Antes de usar un comando:
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
 | Partidas | `save-to-json`, `save-from-json`, `fix-save` | Convierte partidas y repara CNS. |
 | Moveset Fusion/Scarlet/Raven | `moveset` | Lista e instala una variante precompilada, o quita la instalada por la tool. |
+| Patches declarativos | `patch-validate`, `patch-preview`, `patch-apply`, `patch-export` | Valida, expande, revisa, aplica o exporta reglas TOML sin ejecutar código externo. |
 
 Las acciones de abrir carpetas, diálogos de archivo, temas, idioma y elementos
 puramente visuales no tienen sentido headless; sus efectos sobre archivos o el
@@ -51,7 +52,36 @@ StellarTool.exe --headless status
 StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action list
 StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action install --select scarlet-goddess --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless moveset --action uninstall
+StellarTool.exe --headless patch-validate --input "C:\patches\CharacterTable.toml"
+StellarTool.exe --headless patch-preview --input "C:\patches\CharacterTable.toml" --baseline "C:\baseline"
+StellarTool.exe --headless patch-apply --input "C:\patches\CharacterTable.toml" --out "C:\salida" --baseline "C:\baseline"
+StellarTool.exe --headless patch-export --mod "C:\mods\a.pak" --out "C:\patches"
 ```
+
+`--input` también puede ser una carpeta `.stpatch` (o cualquier carpeta de
+patches) que contenga `manifest.toml` opcional y uno o más `.toml`. El manifest
+se reserva para metadatos; las reglas se aplican en orden alfabético. La
+sintaxis admite el formato literal heredado de automod y operaciones seguras:
+
+```toml
+[meta]
+table = "CharacterTable"
+game = "Stellar Blade"
+requires_game_version = "1.4.1"
+
+[Player]
+AttackSpeed = { op = "multiply", value = 1.5 }
+MaxBurstGauge = { op = "set", value = 1800, expect = 1600 }
+
+[row_regex:^Enemy_.*]
+MaxHP = { op = "multiply", value = 2 }
+```
+
+Las operaciones disponibles son `set`, `add`, `multiply`, `clamp` (con
+`min`/`max`) y `toggle`. No se ejecutan los scripts multilínea ni los
+`patchlets` de Scala/Python de automod. Regex solo selecciona nombres de fila.
+Los cambios se convierten en `ChangeItem` y pasan por el mismo merge,
+verificación round-trip y reporte que un mod normal.
 
 `moveset` reconoce carpetas con un trío IoStore completo (`.pak`, `.ucas` y
 `.utoc`) y deriva la familia, tier y variante `aggro` de su nombre. `install`

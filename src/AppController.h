@@ -168,7 +168,7 @@ public:
     Q_INVOKABLE void loadProject(const QUrl &fileUrl);
     // Exporta los cambios seleccionados como patches TOML legibles (uno por
     // tabla) en 'dirUrl'. Formato tipo automod: [Fila] / Prop = valor  # viejo.
-    Q_INVOKABLE void exportTomlPatches(const QUrl &dirUrl);
+    Q_INVOKABLE void exportTomlPatches(const QUrl &dirUrl, bool reveal = true);
     // Importa un patch TOML como un "mod" de cambios literales (row/prop=value).
     Q_INVOKABLE void importTomlPatch(const QUrl &fileUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;

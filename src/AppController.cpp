@@ -29,6 +29,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QUrl>
+#include <QRegularExpression>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -1823,7 +1824,33 @@ static QString tableBaseOf(const QString &tablePath) {
     return tablePath.section(QLatin1Char('/'), -1).section(QLatin1Char('.'), 0, 0);
 }
 
-void AppController::exportTomlPatches(const QUrl &dirUrl) {
+static bool patchValueAt(const QJsonValue &node, const QStringList &parts, int depth,
+                         QStringList *path, QJsonValue *value) {
+    if (depth >= parts.size()) { if (value) *value = node; return true; }
+    if (node.isArray()) {
+        const QJsonArray a = node.toArray();
+        for (const QJsonValue &entry : a) {
+            const QJsonObject o = entry.toObject();
+            if (o.value(QStringLiteral("Name")).toString() != parts.at(depth)) continue;
+            if (path) path->append(QStringLiteral("K:") + parts.at(depth));
+            const bool ok = patchValueAt(o.value(QStringLiteral("Value")), parts, depth + 1, path, value);
+            if (!ok && path) path->removeLast();
+            return ok;
+        }
+        return false;
+    }
+    if (node.isObject()) {
+        const QJsonObject o = node.toObject();
+        if (!o.contains(parts.at(depth))) return false;
+        if (path) path->append(QStringLiteral("K:") + parts.at(depth));
+        const bool ok = patchValueAt(o.value(parts.at(depth)), parts, depth + 1, path, value);
+        if (!ok && path) path->removeLast();
+        return ok;
+    }
+    return false;
+}
+
+void AppController::exportTomlPatches(const QUrl &dirUrl, bool reveal) {
     const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
     if (dir.isEmpty()) return;
     QDir().mkpath(dir);
@@ -1850,7 +1877,10 @@ void AppController::exportTomlPatches(const QUrl &dirUrl) {
         QFile f(dir + QLatin1Char('/') + t1.key() + QStringLiteral(".toml"));
         if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) continue;
         QTextStream ts(&f);
-        ts << "# " << t1.key() << " - Stellar Tool patch export\n\n";
+        ts << "# " << t1.key() << " - Stellar Tool patch export\n"
+              "[meta]\n"
+            << "table = \"" << t1.key() << "\"\n"
+              "game = \"Stellar Blade\"\n\n";
         for (auto r = t1.value().constBegin(); r != t1.value().constEnd(); ++r) {
             ts << '[' << r.key() << "]\n";
             for (const QString &l : r.value()) ts << l << '\n';
@@ -1859,7 +1889,7 @@ void AppController::exportTomlPatches(const QUrl &dirUrl) {
         f.close();
     }
     setStatus(t(QStringLiteral("toml_export_done")).arg(count).arg(byTable.size()));
-    openDir(dir);
+    if (reveal) openDir(dir);
 }
 
 void AppController::importTomlPatch(const QUrl &fileUrl) {
@@ -1871,32 +1901,78 @@ void AppController::importTomlPatch(const QUrl &fileUrl) {
     }
     const QString text = QString::fromUtf8(f.readAll());
     f.close();
-    const auto rows = TomlPatch::parse(text);
-    if (rows.isEmpty()) {
+    const TomlPatch::Document document = TomlPatch::parseDocument(text, path);
+    if (!document.errors.isEmpty()) {
+        emit errorOccurred(document.errors.join(QStringLiteral("\n")));
+        return;
+    }
+    if (document.rules.isEmpty()) {
         emit errorOccurred(t(QStringLiteral("toml_import_empty")));
         return;
     }
     const QFileInfo fi(path);
-    const QString tableBase = fi.completeBaseName();
+    const QString tableBase = document.table.isEmpty() ? fi.completeBaseName()
+        : QFileInfo(document.table).completeBaseName();
     // Ruta canónica de las DataTables de SB (igual que el import de mods Zen).
     const QString tablePath = QStringLiteral("SB/Content/Local/Data/") + tableBase
                               + QStringLiteral(".uasset");
     const QString modName = fi.fileName();
     const QString modId = shortHash(path);
 
+    QJsonObject baseRoot;
+    QString why;
+    const QString vanillaPath = vanillaUAssetJsonPath(tableBase, &why);
+    if (!vanillaPath.isEmpty()) {
+        QFile vf(vanillaPath);
+        if (vf.open(QIODevice::ReadOnly)) baseRoot = QJsonDocument::fromJson(vf.readAll()).object();
+    }
+    if (baseRoot.isEmpty()) baseRoot = m_baseline->tableFor(tablePath);
+    const QJsonObject normalized = baseRoot.isEmpty() ? QJsonObject() : normalizeDataTableDoc(baseRoot);
+    const QJsonArray baseRows = dataTableRows(normalized);
+    const bool needsBase = std::any_of(document.rules.cbegin(), document.rules.cend(), [](const TomlPatch::Rule &r) {
+        return !r.rowRegex.isEmpty() || r.operation != TomlPatch::Operation::Set;
+    });
+    if (needsBase && baseRows.isEmpty()) {
+        emit errorOccurred(QStringLiteral("El patch usa regex u operaciones, pero no hay baseline escribible para %1.").arg(tableBase));
+        return;
+    }
+
     int added = 0;
-    for (auto r = rows.constBegin(); r != rows.constEnd(); ++r) {
-        for (auto p = r.value().constBegin(); p != r.value().constEnd(); ++p) {
+    for (const TomlPatch::Rule &rule : document.rules) {
+        QRegularExpression rx;
+        if (!rule.rowRegex.isEmpty()) {
+            rx.setPattern(rule.rowRegex);
+            if (!rx.isValid()) { emit errorOccurred(QStringLiteral("Regex inválido en línea %1: %2").arg(rule.line).arg(rx.errorString())); return; }
+        }
+        if (!baseRows.isEmpty()) {
+            for (const QJsonValue &rv : baseRows) {
+                const QJsonObject row = rv.toObject(); const QString rowName = row.value(QStringLiteral("Name")).toString();
+                if ((!rule.row.isEmpty() && rowName != rule.row) || (!rule.rowRegex.isEmpty() && !rx.match(rowName).hasMatch())) continue;
+                QStringList propPath; QJsonValue oldValue;
+                if (!patchValueAt(row.value(QStringLiteral("Value")), rule.property.split('.'), 0, &propPath, &oldValue)) continue;
+                QJsonValue next; QString opError;
+                if (!rule.expected.isUndefined() && !jsonValueEquals(oldValue, rule.expected)) {
+                    emit errorOccurred(QStringLiteral("%1, fila %2, línea %3: el valor esperado no coincide").arg(rule.property, rowName).arg(rule.line, 0, 10)); return;
+                }
+                if (!TomlPatch::applyOperation(rule.operation, oldValue, rule.value, rule.minValue, rule.maxValue, &next, &opError)) {
+                    emit errorOccurred(QStringLiteral("%1, fila %2, línea %3: %4").arg(rule.property, rowName).arg(rule.line, 0, 10).arg(opError)); return;
+                }
+                ChangeItem c;
+                c.modId = modId; c.modName = modName; c.tablePath = tablePath; c.rowName = rowName;
+                c.type = ChangeItem::Modified; c.propPath = propPath; c.baseValue = oldValue; c.newValue = next; c.selected = true;
+                c.summaryCache = c.summary(m_i18n); m_items << c; ++added;
+            }
+        } else if (!rule.row.isEmpty() && rule.rowRegex.isEmpty() && rule.operation == TomlPatch::Operation::Set) {
             ChangeItem c;
             c.modId = modId;
             c.modName = modName;
             c.tablePath = tablePath;
-            c.rowName = r.key();
+            c.rowName = rule.row;
             c.type = ChangeItem::Modified;
             // Clave con puntos -> segmentos K: (path anidado).
-            for (const QString &seg : p.key().split(QLatin1Char('.'), Qt::SkipEmptyParts))
+            for (const QString &seg : rule.property.split(QLatin1Char('.'), Qt::SkipEmptyParts))
                 c.propPath << (QStringLiteral("K:") + seg);
-            c.newValue = p.value();
+            c.newValue = rule.value;
             c.clean = false;      // literal: se escribe tal cual (incluye strings)
             c.selected = true;
             c.summaryCache = c.summary(m_i18n);
@@ -1904,6 +1980,7 @@ void AppController::importTomlPatch(const QUrl &fileUrl) {
             ++added;
         }
     }
+    if (added == 0) { emit errorOccurred(QStringLiteral("El patch no encontró filas o propiedades aplicables en %1.").arg(tableBase)); return; }
     // Registrar un "mod" liviano para que aparezca en la lista y el merge lo use.
     ModPackage pkg;
     pkg.id = modId;

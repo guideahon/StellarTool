@@ -87,6 +87,12 @@ Los binarios externos no se versionan; `setup.bat` los baja de sus releases ofic
 
 Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
 
+También se pueden crear mods declarativos desde TOML. `patch-validate` revisa
+un archivo o bundle `.stpatch`, `patch-preview` muestra sus cambios,
+`patch-apply` genera un pak verificado y `patch-export` convierte cambios
+seleccionados en TOML. Se admiten `set`, `add`, `multiply`, `clamp`, `toggle` y
+selección segura de filas por regex; no se ejecuta código embebido.
+
 ### Diagnóstico de errores
 
 Si falla un Builder o un merge, la herramienta conserva un log en

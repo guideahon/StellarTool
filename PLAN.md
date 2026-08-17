@@ -45,7 +45,8 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 4.2. ConflictsPage: card por `ConflictGroup`: baseline (si hay) + valor de cada mod con radio; acciones masivas ("preferir Mod A en todo", "preferir Mod A solo en esta tabla"). Contador de pendientes.
 4.3. Edición manual: permitir tipear un valor custom que reemplaza a ambos.
 4.4. Edición masiva (×N, +, −, clamp… con regex de fila).
-4.5. Import/export de TOML patches (estilo automod).
+4.5. Import/export de TOML patches (estilo automod), operaciones declarativas,
+     regex segura, bundles `.stpatch` y comandos headless de validate/preview/apply/export.
 4.6. `ProjectStore`: guardar/cargar `.stproj` (rutas de mods, checks, resoluciones). Autosave.
 - **Acepta**: flujo completo de selección sin merge; reabrir proyecto restaura estado exacto.
 

@@ -5,6 +5,7 @@
 #include "core/SaveConverterService.h"
 #include "core/MovesetService.h"
 #include "core/GamePaths.h"
+#include "core/TomlPatch.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -26,6 +27,17 @@ static void out(const QString &s) {
     std::fflush(stdout);
 }
 
+static QStringList patchInputs(const QString &input) {
+    QFileInfo info(input);
+    if (!info.isDir()) return {input};
+    QStringList files;
+    const QString manifest = info.absoluteFilePath() + QLatin1String("/manifest.toml");
+    if (QFileInfo::exists(manifest)) files << manifest;
+    const QFileInfoList patches = QDir(info.absoluteFilePath()).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+    for (const QFileInfo &f : patches) if (f.fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) != 0) files << f.absoluteFilePath();
+    return files;
+}
+
 QStringList HeadlessRunner::knownCommands() {
     return {QStringLiteral("analyze"),  QStringLiteral("merge"),
             QStringLiteral("cns"),      QStringLiteral("replacer"),
@@ -35,7 +47,9 @@ QStringList HeadlessRunner::knownCommands() {
             QStringLiteral("presets"), QStringLiteral("save-to-json"),
             QStringLiteral("save-from-json"), QStringLiteral("fix-save"),
             QStringLiteral("reshade"), QStringLiteral("live"),
-            QStringLiteral("moveset")};
+            QStringLiteral("moveset"), QStringLiteral("patch-validate"),
+            QStringLiteral("patch-preview"), QStringLiteral("patch-apply"),
+            QStringLiteral("patch-export")};
 }
 
 bool HeadlessRunner::isKnownCommand(const QString &command) {
@@ -51,7 +65,14 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
         return fail(QStringLiteral("Comando desconocido: %1 (usar %2)")
                         .arg(command, knownCommands().join(QStringLiteral(" | "))));
 
-    if (command == QLatin1String("analyze") || command == QLatin1String("merge")) {
+    if (command == QLatin1String("patch-validate") || command == QLatin1String("patch-preview")
+        || command == QLatin1String("patch-apply")) {
+        if (o.input.isEmpty()) return fail(QStringLiteral("%1 necesita --input <patch.toml>").arg(command));
+        if ((command == QLatin1String("patch-apply")) && o.outDir.isEmpty())
+            return fail(QStringLiteral("patch-apply necesita --out <dir>"));
+    } else if (command == QLatin1String("patch-export")) {
+        if (o.mods.isEmpty() || o.outDir.isEmpty()) return fail(QStringLiteral("patch-export necesita --mod <ruta> y --out <dir>"));
+    } else if (command == QLatin1String("analyze") || command == QLatin1String("merge")) {
         if (o.mods.isEmpty()) return fail(QStringLiteral("Falta al menos un --mod <ruta>"));
         if (command == QLatin1String("merge") && o.outDir.isEmpty())
             return fail(QStringLiteral("merge necesita --out <dir>"));
@@ -120,9 +141,56 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
     if (command == QLatin1String("reshade")) return runReShade(o);
     if (command == QLatin1String("live")) return runLive(o);
     if (command == QLatin1String("moveset")) return runMoveset(o);
+    if (command.startsWith(QLatin1String("patch-"))) return runPatch(command, o);
     if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
         return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection);
     return run(command, o.mods, o.outDir, o.baselineDir, o.preferMod, o.rebuildBaseline);
+}
+
+int HeadlessRunner::runPatch(const QString &command, const Options &o) {
+    if (command == QLatin1String("patch-validate")) {
+        int total = 0;
+        for (const QString &input : patchInputs(o.input)) {
+            QFile f(input);
+            if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { out(QStringLiteral("[ERROR] No se pudo leer %1").arg(input)); return 2; }
+            const auto doc = TomlPatch::parseDocument(QString::fromUtf8(f.readAll()), input);
+            for (const QString &warning : doc.warnings) out(QStringLiteral("[WARN] ") + warning);
+            for (const QString &error : doc.errors) out(QStringLiteral("[ERROR] ") + error);
+            if (!doc.errors.isEmpty()) return 2;
+            total += doc.rules.size();
+            out(QStringLiteral("[OK] Patch válido: %1 regla(s)%2.").arg(doc.rules.size()).arg(doc.table.isEmpty() ? QString() : QStringLiteral(" · tabla %1").arg(doc.table)));
+        }
+        if (total == 0) return 2;
+        return 0;
+    }
+    if (command == QLatin1String("patch-export")) {
+        const int code = run(QStringLiteral("analyze"), o.mods, QString(), o.baselineDir, QString());
+        if (code != 0) return code;
+        m_controller->exportTomlPatches(QUrl::fromLocalFile(o.outDir), false);
+        out(QStringLiteral("[OK] Patches exportados en %1").arg(o.outDir));
+        return 0;
+    }
+    if (!o.baselineDir.isEmpty()) { m_controller->importBaseline(QUrl::fromLocalFile(o.baselineDir)); if (!waitIdle()) return 3; }
+    const QStringList inputs = patchInputs(o.input);
+    if (inputs.isEmpty()) { out(QStringLiteral("[ERROR] El bundle no contiene archivos TOML.")); return 2; }
+    for (const QString &input : inputs) {
+        if (QFileInfo(input).fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) == 0) continue;
+        QFile f(input);
+        if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { out(QStringLiteral("[ERROR] No se pudo leer %1").arg(input)); return 2; }
+        const auto doc = TomlPatch::parseDocument(QString::fromUtf8(f.readAll()), input);
+        if (!doc.errors.isEmpty()) { for (const QString &e : doc.errors) out(QStringLiteral("[ERROR] ") + e); return 2; }
+        m_controller->importTomlPatch(QUrl::fromLocalFile(input));
+    }
+    if (!m_controller->analyzed()) return 4;
+    out(QStringLiteral("== Patch: %1 cambio(s) ==").arg(m_controller->items().size()));
+    for (const auto &item : m_controller->items()) out(QStringLiteral("  %1").arg(item.summary()));
+    if (command == QLatin1String("patch-preview")) return 0;
+    m_controller->resolveAllByPriority();
+    QDir().mkpath(o.outDir);
+    m_controller->merge(QUrl::fromLocalFile(o.outDir));
+    if (!waitIdle()) return 3;
+    out(m_controller->lastMergeResult());
+    return m_controller->lastMergeOk() ? 0 : 5;
 }
 
 int HeadlessRunner::runMoveset(const Options &o) {

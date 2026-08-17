@@ -118,7 +118,7 @@ Claves de diseño:
 | `SaveConverterService` | fachada async para el conversor de partidas de lotress: `.sav` ↔ JSON y reparación CNS, ejecutado con el Python embebido del paquete Builder. |
 | `UsmapService` | descarga mappings versionados desde el archivo de la comunidad, lee enums del usmap, detecta versión del juego. |
 | `GamePaths` | autodetección de instalación Steam, normalización de ruta, gestión de stages temporales para CUE4Parse. |
-| `TomlPatch` | parser/serializador mínimo de patches TOML estilo automod (import/export de cambios). |
+| `TomlPatch` | parser/serializador seguro de patches TOML estilo automod: metadata, operaciones declarativas, regex de filas y bundles. Nunca ejecuta patchlets. |
 | `ProjectStore` | guarda/carga sesión (`.stproj` JSON): mods cargados, selecciones, resoluciones. |
 | `UpdateService` | autoactualización desde GitHub Releases: chequea, descarga, extrae y relanza. |
 | `AppController` | fachada QObject expuesta a QML (patrón LlamaCode). Modelos: `ModListModel`, `ChangeListModel` (por tabla, con roles para check/conflicto), `ConflictModel`. |
@@ -313,6 +313,10 @@ StellarTool --headless save-from-json --input <json> --out <sav>
 StellarTool --headless fix-save       --input <sav>
 StellarTool --headless reshade       --action <list|save|restore|rename|delete|import|export>
 StellarTool --headless live          --action <status|install|uninstall|reset|set>
+StellarTool --headless patch-validate --input <patch.toml|bundle.stpatch>
+StellarTool --headless patch-preview  --input <patch.toml|bundle.stpatch> [--baseline <dir>]
+StellarTool --headless patch-apply    --input <patch.toml|bundle.stpatch> --out <dir>
+StellarTool --headless patch-export   --mod <ruta>... --out <dir>
 ```
 
 Salida por stdout; exit code 0 = OK. `validate()` es testeable sin levantar la app entera.

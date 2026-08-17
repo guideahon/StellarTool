@@ -128,6 +128,7 @@ if (BUILD_TESTS)
         tests/TestCnsConverter.cpp
         tests/TestCnsIdFixer.cpp
         tests/TestHeadless.cpp
+        tests/TestTomlPatch.cpp
         tests/TestOodle.cpp
         tests/TestLiveService.cpp
         tests/TestReShadePresetService.cpp

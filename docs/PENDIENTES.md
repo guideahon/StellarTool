@@ -67,7 +67,8 @@ Todo esto se validó por compilación, arranque limpio de la app y/o tests
 unitarios, **no** ejercitándolo en la UI:
 
 - **Edición masiva** (×N, +, −, clamp… con regex de fila) — 0.3.0.
-- **Import / export de TOML** — 0.3.0.
+- **Import / export de TOML** — implementado; falta validación manual completa de
+  bundles reales de terceros.
 - **Descarga de usmap por versión** (Ajustes → Mappings) — 0.3.0. Nunca se
   ejecutó una descarga real contra el archivo de la comunidad.
 - **Traducciones**: las claves nuevas se agregaron a los 10 idiomas por script;
