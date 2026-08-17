@@ -82,6 +82,10 @@ MaxHP = { op = "multiply", value = 2 }
 Las operaciones disponibles son `set`, `add`, `multiply`, `clamp` (con
 `min`/`max`) y `toggle`. No se ejecutan los scripts multilínea ni los
 `patchlets` de Scala/Python de automod. Regex solo selecciona nombres de fila.
+Los arrays/objetos literales se pueden leer y se intentan escribir sobre la
+estructura original; si UAssetGUI no los verifica fielmente, la tabla se
+excluye del pak y el reporte lo detalla. Esto conserva la protección existente
+para mods Zen.
 Los cambios se convierten en `ChangeItem` y pasan por el mismo merge,
 verificación round-trip y reporte que un mod normal.
 

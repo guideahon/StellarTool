@@ -179,6 +179,7 @@ public:
     Q_INVOKABLE void exportTomlPatches(const QUrl &dirUrl, bool reveal = true);
     // Importa un patch TOML como un "mod" de cambios literales (row/prop=value).
     Q_INVOKABLE void importTomlPatch(const QUrl &fileUrl);
+    Q_INVOKABLE void importTomlBundle(const QUrl &dirUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;
     // Conversor nativo de outfits. mode: "cns" o "replacer".
     Q_INVOKABLE QStringList cnsReplacementNames() const;

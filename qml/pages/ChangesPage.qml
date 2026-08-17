@@ -61,6 +61,11 @@ Item {
                     onClicked: tomlImportDialog.open()
                 }
                 Button {
+                    text: I18n.s.toml_bundle_import
+                    enabled: !App.busy
+                    onClicked: tomlBundleDialog.open()
+                }
+                Button {
                     text: I18n.s.toml_export
                     enabled: App.analyzed
                     onClicked: tomlExportDialog.open()
@@ -194,8 +199,12 @@ Item {
 
     FileDialog {
         id: tomlImportDialog
-        nameFilters: ["TOML patch (*.toml)"]
+        nameFilters: [I18n.s.toml_filter]
         onAccepted: App.importTomlPatch(selectedFile)
+    }
+    FolderDialog {
+        id: tomlBundleDialog
+        onAccepted: App.importTomlBundle(selectedFolder)
     }
     FolderDialog {
         id: tomlExportDialog

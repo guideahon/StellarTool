@@ -2060,6 +2060,36 @@ void AppController::importTomlPatch(const QUrl &fileUrl) {
     setStatus(t(QStringLiteral("toml_import_done")).arg(added, 0, 10).arg(tableBase));
 }
 
+void AppController::importTomlBundle(const QUrl &dirUrl) {
+    const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
+    const QFileInfoList files = QDir(dir).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+    for (const QFileInfo &file : files) {
+        if (file.fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) == 0) continue;
+        QFile f(file.absoluteFilePath());
+        if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            emit errorOccurred(t(QStringLiteral("toml_import_read_fail")));
+            return;
+        }
+        const TomlPatch::Document document = TomlPatch::parseDocument(
+            QString::fromUtf8(f.readAll()), file.absoluteFilePath());
+        if (!document.errors.isEmpty()) {
+            emit errorOccurred(document.errors.join(QStringLiteral("\n")));
+            return;
+        }
+    }
+    int imported = 0;
+    for (const QFileInfo &file : files) {
+        if (file.fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) == 0) continue;
+        const int before = m_items.size();
+        importTomlPatch(QUrl::fromLocalFile(file.absoluteFilePath()));
+        if (m_items.size() > before) ++imported;
+    }
+    if (imported == 0)
+        emit errorOccurred(t(QStringLiteral("toml_bundle_empty")));
+    else
+        setStatus(t(QStringLiteral("toml_bundle_done")).arg(imported));
+}
+
 void AppController::loadProject(const QUrl &fileUrl) {
     if (m_busy) return;
     ProjectStore::ProjectState state;

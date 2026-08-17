@@ -6,6 +6,7 @@ class TestTomlPatch : public QObject {
 private slots:
     void parsesLiteralAndOperations();
     void parsesRegexRows();
+    void parsesLooseUassetArrays();
     void rejectsScriptsAndBadOperations();
     void appliesOperations();
 };
@@ -24,6 +25,14 @@ void TestTomlPatch::parsesRegexRows() {
     QVERIFY(d.errors.isEmpty());
     QCOMPARE(d.rules.size(), 1);
     QCOMPARE(d.rules.first().rowRegex, QStringLiteral("^Enemy_.*"));
+}
+
+void TestTomlPatch::parsesLooseUassetArrays() {
+    const auto d = st::TomlPatch::parseDocument(
+        "[Zone]\nEffects = [ { \"Name\" = \"2\", \"Value\" = \"P_Test\", \"IsZero\" = false } ]\n");
+    QVERIFY2(d.errors.isEmpty(), qPrintable(d.errors.join("; ")));
+    QVERIFY(d.rules.first().value.isArray());
+    QCOMPARE(d.rules.first().value.toArray().first().toObject().value("Value").toString(), QStringLiteral("P_Test"));
 }
 
 void TestTomlPatch::rejectsScriptsAndBadOperations() {

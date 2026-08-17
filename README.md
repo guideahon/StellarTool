@@ -92,7 +92,8 @@ También se pueden crear mods declarativos desde TOML. `patch-validate` revisa
 un archivo o bundle `.stpatch`, `patch-preview` muestra sus cambios,
 `patch-apply` genera un pak verificado y `patch-export` convierte cambios
 seleccionados en TOML. Se admiten `set`, `add`, `multiply`, `clamp`, `toggle` y
-selección segura de filas por regex; no se ejecuta código embebido.
+selección segura de filas por regex; la pestaña Cambios también permite
+importar el bundle desde una carpeta; no se ejecuta código embebido.
 
 ### Diagnóstico de errores
 

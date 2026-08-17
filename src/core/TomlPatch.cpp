@@ -1,5 +1,9 @@
 #include "TomlPatch.h"
 
+#include <QJsonDocument>
+#include <QJsonArray>
+#include <QJsonObject>
+
 namespace st { namespace TomlPatch {
 
 static QString stripQuotes(QString s) {
@@ -25,6 +29,20 @@ static QJsonValue scalar(const QString &raw, bool *ok) {
     const QString s = stripComment(raw).trimmed();
     if (s.isEmpty() || s.startsWith("'''") || s.startsWith("\"\"\"")) { *ok = false; return {}; }
     if (s.startsWith('"') || s.startsWith('\'')) return stripQuotes(s);
+    if (s.startsWith('[') || s.startsWith('{')) {
+        QString json; bool quoted = false; QChar quote;
+        for (int i = 0; i < s.size(); ++i) {
+            const QChar c = s.at(i);
+            if (quoted) { json += c; if (c == quote) quoted = false; continue; }
+            if (c == '"' || c == '\'') { quoted = true; quote = c; json += (c == '\'' ? '"' : c); continue; }
+            if (c == '=') { json += ':'; continue; }
+            json += c;
+        }
+        QJsonParseError parseError;
+        const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8(), &parseError);
+        if (!doc.isNull()) return doc.isArray() ? QJsonValue(doc.array()) : QJsonValue(doc.object());
+        *ok = false; return {};
+    }
     if (s == "true") return true;
     if (s == "false") return false;
     bool number = false; const double d = s.toDouble(&number);
@@ -51,7 +69,12 @@ static bool parseRuleValue(const QString &raw, Rule *rule, QString *error) {
     const QString s = stripComment(raw).trimmed();
     if (s.startsWith('{')) {
         bool fieldsOk = false; const auto fields = inlineFields(s, &fieldsOk);
-        if (!fieldsOk || !fields.contains("op")) { if (error) *error = "objeto de operación inválido"; return false; }
+        if (!fieldsOk) { if (error) *error = "objeto TOML inválido"; return false; }
+        if (!fields.contains("op")) {
+            bool literalOk = false; rule->operation = Operation::Set; rule->value = scalar(s, &literalOk);
+            if (!literalOk && error) *error = "objeto literal inválido";
+            return literalOk;
+        }
         const QString op = stripQuotes(fields.value("op")).toLower();
         if (op == "set") rule->operation = Operation::Set; else if (op == "add") rule->operation = Operation::Add;
         else if (op == "multiply" || op == "mul") rule->operation = Operation::Multiply; else if (op == "clamp") rule->operation = Operation::Clamp;

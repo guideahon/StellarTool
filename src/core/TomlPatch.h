@@ -23,7 +23,7 @@ struct Rule {
     QJsonValue value;
     QJsonValue minValue;
     QJsonValue maxValue;
-    QJsonValue expected;
+    QJsonValue expected{QJsonValue::Undefined};
     int line = 0;
 };
 
