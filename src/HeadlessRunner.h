@@ -28,6 +28,7 @@ class AppController;
 //   StellarTool --headless fix-save       --input <sav>
 //   StellarTool --headless reshade        --action <list|save|restore|rename|delete|import|export>
 //   StellarTool --headless live           --action <status|install|uninstall|reset|set>
+//   StellarTool --headless moveset        --mod <carpeta> --action <list|install|uninstall>
 //
 // Salida por stdout; exit code 0 = OK.
 class HeadlessRunner : public QObject {
@@ -96,6 +97,7 @@ public:
     int runSave(const QString &command, const Options &options);
     int runReShade(const Options &options);
     int runLive(const Options &options);
+    int runMoveset(const Options &options);
 
 private:
     bool waitIdle();   // procesa el event loop hasta que controller no esté busy

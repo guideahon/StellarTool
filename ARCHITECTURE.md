@@ -276,6 +276,16 @@ CMake + Qt 6.4+ (Core, Quick, Concurrent, Widgets, Multimedia, Network), C++17, 
 
 ## 9. Modo headless (CLI)
 
+### Catálogo de movesets precompilados
+
+`MovesetService` inspecciona carpetas externas buscando tríos IoStore completos
+(`.pak/.ucas/.utoc`) y clasifica sus nombres en familia (`fusion`, `scarlet`,
+`raven`), tier y variante `aggro`. No interpreta el contenido binario ni copia
+los archivos al repo. La instalación explícita copia el trío a `~mods`, rechaza
+colisiones con archivos existentes y guarda un manifiesto en
+`%LOCALAPPDATA%/StellarTool/moveset_install.json`; la desinstalación usa solo
+ese manifiesto.
+
 El contrato completo para agentes y automatizaciones, incluida la matriz por
 sección, precondiciones, efectos y códigos de salida, está en
 [docs/HEADLESS.md](docs/HEADLESS.md). La regla de arquitectura es que cada

@@ -3,6 +3,8 @@
 #include "core/LiveService.h"
 #include "core/ReShadePresetService.h"
 #include "core/SaveConverterService.h"
+#include "core/MovesetService.h"
+#include "core/GamePaths.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -32,7 +34,8 @@ QStringList HeadlessRunner::knownCommands() {
             QStringLiteral("uninstall"), QStringLiteral("fixids"),
             QStringLiteral("presets"), QStringLiteral("save-to-json"),
             QStringLiteral("save-from-json"), QStringLiteral("fix-save"),
-            QStringLiteral("reshade"), QStringLiteral("live")};
+            QStringLiteral("reshade"), QStringLiteral("live"),
+            QStringLiteral("moveset")};
 }
 
 bool HeadlessRunner::isKnownCommand(const QString &command) {
@@ -86,6 +89,15 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
         if (o.action.isEmpty()) return fail(QStringLiteral("live necesita --action <status|install|uninstall|reset|set>"));
         if (o.action == QLatin1String("set") && o.fov < 0 && o.speed < 0 && o.jump < 0 && !o.fovEnabledSet)
             return fail(QStringLiteral("live set necesita --fov, --speed, --jump o --fov-enabled/--no-fov"));
+    } else if (command == QLatin1String("moveset")) {
+        if (o.action.isEmpty()) return fail(QStringLiteral("moveset necesita --action <list|install|uninstall>"));
+        if (o.action != QLatin1String("list") && o.action != QLatin1String("install")
+            && o.action != QLatin1String("uninstall"))
+            return fail(QStringLiteral("moveset action invalida: %1").arg(o.action));
+        if (o.action != QLatin1String("uninstall") && o.mods.isEmpty())
+            return fail(QStringLiteral("moveset %1 necesita --mod <carpeta>").arg(o.action));
+        if (o.action == QLatin1String("install") && o.selection.isEmpty())
+            return fail(QStringLiteral("moveset install necesita --select <variante>"));
     }
     return true;
 }
@@ -107,9 +119,37 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
         || command == QLatin1String("fix-save")) return runSave(command, o);
     if (command == QLatin1String("reshade")) return runReShade(o);
     if (command == QLatin1String("live")) return runLive(o);
+    if (command == QLatin1String("moveset")) return runMoveset(o);
     if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
         return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection);
     return run(command, o.mods, o.outDir, o.baselineDir, o.preferMod, o.rebuildBaseline);
+}
+
+int HeadlessRunner::runMoveset(const Options &o) {
+    if (o.action == QLatin1String("uninstall")) {
+        QString error;
+        if (!MovesetService::uninstall(&error)) { out(QStringLiteral("[ERROR] ") + error); return 5; }
+        out(QStringLiteral("[OK] Moveset desinstalado."));
+        return 0;
+    }
+    QString error;
+    const QList<MovesetService::Variant> variants = MovesetService::scan(o.mods.first(), &error);
+    if (variants.isEmpty()) { out(QStringLiteral("[ERROR] ") + error); return 4; }
+    if (o.action == QLatin1String("list")) {
+        for (const auto &v : variants) out(MovesetService::describe(v));
+        return 0;
+    }
+    const QString wanted = o.selection.trimmed().toLower();
+    for (const auto &v : variants) {
+        if (v.id != wanted) continue;
+        const QString game = GamePaths::gameRoot();
+        if (game.isEmpty()) { out(QStringLiteral("[ERROR] No hay juego configurado; usar --game <dir>.")); return 2; }
+        if (!MovesetService::installVariant(v, game, &error)) { out(QStringLiteral("[ERROR] ") + error); return 5; }
+        out(QStringLiteral("[OK] Variante instalada: %1").arg(v.id));
+        return 0;
+    }
+    out(QStringLiteral("[ERROR] Variante no encontrada: %1").arg(o.selection));
+    return 2;
 }
 
 HeadlessRunner::HeadlessRunner(AppController *controller, QObject *parent)

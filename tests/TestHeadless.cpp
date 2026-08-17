@@ -1,8 +1,10 @@
 #include <QtTest>
 
 #include "HeadlessRunner.h"
+#include "core/MovesetService.h"
 
 #include <QFile>
+#include <QDir>
 #include <QTemporaryDir>
 
 // El CLI headless es la unica via para automatizar la app (CI, scripts, usuarios
@@ -24,6 +26,7 @@ private slots:
     void serviceCommandsNeedTheirArguments();
     void commandsWithoutArgumentsValidate();
     void answersAcceptInlineJsonFileAndPreset();
+    void movesetCatalogRecognizesFamiliesAndAggro();
 };
 
 namespace {
@@ -49,12 +52,30 @@ void TestHeadless::everyCommandIsListed() {
         QStringLiteral("status"),  QStringLiteral("detect"),  QStringLiteral("uninstall"),
         QStringLiteral("fixids"),  QStringLiteral("presets"), QStringLiteral("save-to-json"),
         QStringLiteral("save-from-json"), QStringLiteral("fix-save"), QStringLiteral("reshade"),
-        QStringLiteral("live")};
+        QStringLiteral("live"), QStringLiteral("moveset")};
     for (const QString &name : expected) {
         QVERIFY2(commands.contains(name),
                  qPrintable(QStringLiteral("falta el comando %1").arg(name)));
         QVERIFY(st::HeadlessRunner::isKnownCommand(name));
     }
+}
+
+void TestHeadless::movesetCatalogRecognizesFamiliesAndAggro() {
+    QTemporaryDir root;
+    QVERIFY(root.isValid());
+    const QString dir = root.path() + QStringLiteral("/aggro-scarlet-goddess");
+    QVERIFY(QDir().mkpath(dir));
+    for (const QString &ext : {QStringLiteral("pak"), QStringLiteral("ucas"), QStringLiteral("utoc")}) {
+        QFile f(dir + QStringLiteral("/moveset_P.") + ext);
+        QVERIFY(f.open(QIODevice::WriteOnly));
+        f.write("fixture");
+    }
+    QString error;
+    const auto variants = st::MovesetService::scan(root.path(), &error);
+    QCOMPARE(variants.size(), 1);
+    QCOMPARE(variants.first().id, QStringLiteral("aggro-scarlet-goddess"));
+    QCOMPARE(variants.first().family, QStringLiteral("scarlet"));
+    QVERIFY(variants.first().aggro);
 }
 
 void TestHeadless::unknownCommandIsRejected() {

@@ -98,7 +98,8 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless save-from-json --input <json> --out <sav>\n"
             "  StellarTool --headless fix-save       --input <sav>\n"
             "  StellarTool --headless reshade --action <list|save|restore|rename|delete|import|export>\n"
-            "  StellarTool --headless live    --action <status|install|uninstall|reset|set>"));
+            "  StellarTool --headless live    --action <status|install|uninstall|reset|set>\n"
+            "  StellarTool --headless moveset --mod <carpeta> --action <list|install|uninstall> [--select <variante>]"));
         parser.addHelpOption();
         parser.addVersionOption();
         parser.addOption({QStringLiteral("headless"), QStringLiteral("Modo sin UI")});

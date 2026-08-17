@@ -23,6 +23,7 @@ set(CORE_SOURCES
     src/core/GamePaths.cpp
     src/core/LiveService.cpp
     src/core/ReShadePresetService.cpp
+    src/core/MovesetService.cpp
     src/core/UsmapService.cpp
     src/core/BaselineManager.cpp
     src/core/ModImporter.cpp
@@ -48,6 +49,7 @@ set(CORE_HEADERS
     src/core/GamePaths.h
     src/core/LiveService.h
     src/core/ReShadePresetService.h
+    src/core/MovesetService.h
     src/core/UsmapService.h
     src/core/BaselineManager.h
     src/core/ModImporter.h

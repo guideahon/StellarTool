@@ -28,6 +28,7 @@ Antes de usar un comando:
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
 | Partidas | `save-to-json`, `save-from-json`, `fix-save` | Convierte partidas y repara CNS. |
+| Moveset Fusion/Scarlet/Raven | `moveset` | Lista e instala una variante precompilada, o quita la instalada por la tool. |
 
 Las acciones de abrir carpetas, diálogos de archivo, temas, idioma y elementos
 puramente visuales no tienen sentido headless; sus efectos sobre archivos o el
@@ -47,7 +48,16 @@ StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" 
 StellarTool.exe --headless baseline --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless detect
 StellarTool.exe --headless status
+StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action list
+StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action install --select scarlet-goddess --game "C:\Steam\steamapps\common\StellarBlade"
+StellarTool.exe --headless moveset --action uninstall
 ```
+
+`moveset` reconoce carpetas con un trío IoStore completo (`.pak`, `.ucas` y
+`.utoc`) y deriva la familia, tier y variante `aggro` de su nombre. `install`
+solo copia la variante elegida a `SB\Content\Paks\~mods`; rechaza colisiones y
+guarda un registro propio para que `uninstall` quite únicamente esos archivos.
+Los binarios originales nunca se agregan al repositorio ni se modifican.
 
 `build --answers` también acepta `harderBosses` y `harderEnemies` como objetos
 independientes. Cada uno puede incluir `health`, `attack`, `size`, `removeShield`,

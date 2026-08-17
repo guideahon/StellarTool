@@ -29,6 +29,9 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   `.sav` a JSON, vuelve de JSON a `.sav` y ofrece la reparación CNS que elimina
   `AutoLoadCNS` y `CamPosition`. Al sobrescribir una partida se conserva el
   backup automático en `Backup/`. Fuente: [CNSSaveConverter](https://github.com/lotress/CNSSaveConverter).
+- **Movesets Fusion/Scarlet/Raven** reconoce variantes precompiladas con sus
+  tiers `queen/goddess/godqueen/godempress` y variantes `aggro`, las lista y
+  permite instalarlas de forma no destructiva desde el modo headless.
 
 Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
 Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)
