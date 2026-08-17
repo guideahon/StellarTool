@@ -136,6 +136,7 @@
   "toml_import": "TOML 패치 가져오기...",
   "toml_bundle_import": ".stpatch 번들 가져오기...",
   "toml_filter": "TOML 패치 (*.toml)",
+  "stpatch_filter": "Stellar 패치 번들 (*.stpatch *.zip)",
   "toml_bundle_empty": "번들에 적용 가능한 TOML 패치가 없습니다.",
   "toml_bundle_done": "TOML 패치 %1개를 가져왔습니다.",
   "toml_export_empty": "내보낼 선택된 스칼라 변경이 없습니다.",

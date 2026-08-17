@@ -882,9 +882,9 @@ QString AppController::runMerge(const QString &outDir) {
 
         // Aplica, escribe el JSON, genera el uasset y verifica el round-trip.
         // Devuelve vacío si salió bien, o el motivo del fallo.
-        auto tryBuild = [&](MergeEngine::Result &res) -> QString {
+        auto tryBuild = [&](MergeEngine::Result &res, const QList<ChangeItem> &itemsToApply) -> QString {
             base = vanilla;
-            res = MergeEngine::applyToTable(base, it.value());
+            res = MergeEngine::applyToTable(base, itemsToApply);
             if (!res.ok) return res.error;
             if (res.applied == 0) return {};   // no se escribe nada (ver abajo)
             // RowAdded clean se reconstruye después del saneamiento inicial
@@ -933,7 +933,25 @@ QString AppController::runMerge(const QString &outDir) {
         };
 
         MergeEngine::Result res;
-        const QString buildErr = tryBuild(res);
+        QString buildErr = tryBuild(res, it.value());
+        int omittedComplex = 0;
+        if (!buildErr.isEmpty()) {
+            // A table may mix safe scalar changes with arrays/objects from a
+            // Zen/CUE4Parse export. Retry only the scalar leaves: this keeps
+            // the useful part of the patch while preserving the hard
+            // round-trip guard for complex values.
+            QList<ChangeItem> scalarItems;
+            for (const ChangeItem &candidate : it.value()) {
+                const bool scalar = candidate.type == ChangeItem::Modified
+                    && !candidate.newValue.isArray() && !candidate.newValue.isObject();
+                if (scalar) scalarItems << candidate;
+                else ++omittedComplex;
+            }
+            if (!scalarItems.isEmpty()) {
+                verifyDiff.clear();
+                buildErr = tryBuild(res, scalarItems);
+            }
+        }
         if (!buildErr.isEmpty()) {
             // Una tabla problemática no debe abortar ni invalidar las demás.
             // Se elimina cualquier salida parcial y se deja fuera del contenedor;
@@ -949,9 +967,12 @@ QString AppController::runMerge(const QString &outDir) {
                 report << QStringLiteral("    first difference: %1").arg(verifyDiff);
             continue;
         }
-        m_lastSkipped += res.skipped;
+        m_lastSkipped += res.skipped + omittedComplex;
         report << QStringLiteral("  %1: %2 applied, %3 skipped")
-                      .arg(tableBase).arg(res.applied).arg(res.skipped);
+                      .arg(tableBase).arg(res.applied).arg(res.skipped + omittedComplex);
+        if (omittedComplex > 0)
+            report << QStringLiteral("    -> %1 complex array/object change(s) omitted; scalar changes verified")
+                          .arg(omittedComplex);
 
         // Nada aplicado = la tabla quedaría idéntica a vanilla. Como el pak
         // mergeado carga con máxima prioridad (zzz_), escribirla PISARÍA con
@@ -2061,8 +2082,27 @@ void AppController::importTomlPatch(const QUrl &fileUrl) {
 }
 
 void AppController::importTomlBundle(const QUrl &dirUrl) {
-    const QString dir = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
-    const QFileInfoList files = QDir(dir).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+    const QString input = dirUrl.isLocalFile() ? dirUrl.toLocalFile() : dirUrl.toString();
+    QString dir = input;
+    const QFileInfo inputInfo(input);
+    if (inputInfo.isFile() && (inputInfo.suffix().compare(QStringLiteral("stpatch"), Qt::CaseInsensitive) == 0
+        || inputInfo.suffix().compare(QStringLiteral("zip"), Qt::CaseInsensitive) == 0)) {
+        dir = workRoot() + QStringLiteral("/patch-bundles/") + shortHash(input);
+        QDir(dir).removeRecursively();
+        QString extractError;
+        if (!m_pak->extractZip(input, dir, &extractError)) {
+            emit errorOccurred(QStringLiteral("No se pudo extraer el bundle: %1").arg(extractError));
+            return;
+        }
+    }
+    QFileInfoList files = QDir(dir).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+    if (files.isEmpty()) {
+        const QFileInfoList children = QDir(dir).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+        if (children.size() == 1) {
+            dir = children.first().absoluteFilePath();
+            files = QDir(dir).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+        }
+    }
     for (const QFileInfo &file : files) {
         if (file.fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) == 0) continue;
         QFile f(file.absoluteFilePath());

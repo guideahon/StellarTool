@@ -136,6 +136,7 @@
   "toml_import": "Importer un patch TOML...",
   "toml_bundle_import": "Importer un bundle .stpatch...",
   "toml_filter": "Patch TOML (*.toml)",
+  "stpatch_filter": "Bundle de patch Stellar (*.stpatch *.zip)",
   "toml_bundle_empty": "Le bundle ne contient aucun patch TOML applicable.",
   "toml_bundle_done": "%1 fichier(s) TOML importé(s).",
   "toml_export_empty": "Aucune modification scalaire sélectionnée à exporter.",

@@ -7,6 +7,7 @@ private slots:
     void parsesLiteralAndOperations();
     void parsesRegexRows();
     void parsesLooseUassetArrays();
+    void parsesManifestMetadata();
     void rejectsScriptsAndBadOperations();
     void appliesOperations();
 };
@@ -33,6 +34,16 @@ void TestTomlPatch::parsesLooseUassetArrays() {
     QVERIFY2(d.errors.isEmpty(), qPrintable(d.errors.join("; ")));
     QVERIFY(d.rules.first().value.isArray());
     QCOMPARE(d.rules.first().value.toArray().first().toObject().value("Value").toString(), QStringLiteral("P_Test"));
+}
+
+void TestTomlPatch::parsesManifestMetadata() {
+    const auto d = st::TomlPatch::parseDocument(
+        "[meta]\nname = \"Demo\"\ngame = \"Stellar Blade\"\nrequires_game_version = \"1.4.1\"\ndependencies = [\"base\"]\nincompatibilities = [\"other\"]\n", "manifest.toml");
+    QVERIFY(d.errors.isEmpty());
+    QCOMPARE(d.name, QStringLiteral("Demo"));
+    QCOMPARE(d.gameVersion, QStringLiteral("1.4.1"));
+    QCOMPARE(d.dependencies, QStringList{QStringLiteral("base")});
+    QCOMPARE(d.incompatibilities, QStringList{QStringLiteral("other")});
 }
 
 void TestTomlPatch::rejectsScriptsAndBadOperations() {

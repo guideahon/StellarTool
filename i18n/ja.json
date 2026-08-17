@@ -136,6 +136,7 @@
   "toml_import": "TOML パッチをインポート...",
   "toml_bundle_import": ".stpatch バンドルをインポート...",
   "toml_filter": "TOML パッチ (*.toml)",
+  "stpatch_filter": "Stellar パッチバンドル (*.stpatch *.zip)",
   "toml_bundle_empty": "適用可能な TOML パッチがありません。",
   "toml_bundle_done": "%1 個の TOML パッチをインポートしました。",
   "toml_export_empty": "エクスポートできる選択済みのスカラー変更がありません。",

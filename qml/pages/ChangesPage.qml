@@ -202,9 +202,10 @@ Item {
         nameFilters: [I18n.s.toml_filter]
         onAccepted: App.importTomlPatch(selectedFile)
     }
-    FolderDialog {
+    FileDialog {
         id: tomlBundleDialog
-        onAccepted: App.importTomlBundle(selectedFolder)
+        nameFilters: [I18n.s.stpatch_filter]
+        onAccepted: App.importTomlBundle(selectedFile)
     }
     FolderDialog {
         id: tomlExportDialog

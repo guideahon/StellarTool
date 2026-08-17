@@ -136,6 +136,7 @@
   "toml_import": "导入 TOML 补丁...",
   "toml_bundle_import": "导入 .stpatch 包...",
   "toml_filter": "TOML 补丁 (*.toml)",
+  "stpatch_filter": "Stellar 补丁包 (*.stpatch *.zip)",
   "toml_bundle_empty": "包中没有可应用的 TOML 补丁。",
   "toml_bundle_done": "已导入 %1 个 TOML 补丁文件。",
   "toml_export_empty": "没有可导出的已选标量改动。",

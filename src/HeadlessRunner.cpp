@@ -6,6 +6,7 @@
 #include "core/MovesetService.h"
 #include "core/GamePaths.h"
 #include "core/TomlPatch.h"
+#include "core/PakService.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -17,6 +18,7 @@
 #include <QJsonObject>
 #include <QTimer>
 #include <QUrl>
+#include <QTemporaryDir>
 
 #include <cstdio>
 
@@ -30,10 +32,15 @@ static void out(const QString &s) {
 static QStringList patchInputs(const QString &input) {
     QFileInfo info(input);
     if (!info.isDir()) return {input};
+    const QFileInfoList directToms = QDir(info.absoluteFilePath()).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+    if (directToms.isEmpty()) {
+        const QFileInfoList children = QDir(info.absoluteFilePath()).entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
+        if (children.size() == 1) return patchInputs(children.first().absoluteFilePath());
+    }
     QStringList files;
     const QString manifest = info.absoluteFilePath() + QLatin1String("/manifest.toml");
     if (QFileInfo::exists(manifest)) files << manifest;
-    const QFileInfoList patches = QDir(info.absoluteFilePath()).entryInfoList({QStringLiteral("*.toml")}, QDir::Files, QDir::Name);
+    const QFileInfoList patches = directToms;
     for (const QFileInfo &f : patches) if (f.fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) != 0) files << f.absoluteFilePath();
     return files;
 }
@@ -152,15 +159,45 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
 }
 
 int HeadlessRunner::runPatch(const QString &command, const Options &o) {
+    QTemporaryDir extracted;
+    QString patchRoot = o.input;
+    const QFileInfo inputInfo(o.input);
+    if (inputInfo.isFile() && (inputInfo.suffix().compare(QStringLiteral("stpatch"), Qt::CaseInsensitive) == 0
+        || inputInfo.suffix().compare(QStringLiteral("zip"), Qt::CaseInsensitive) == 0)) {
+        QString extractError;
+        PakService pak;
+        if (!extracted.isValid() || !pak.extractZip(o.input, extracted.path(), &extractError)) {
+            out(QStringLiteral("[ERROR] No se pudo extraer el bundle: %1").arg(extractError));
+            return 2;
+        }
+        patchRoot = extracted.path();
+    }
+    const auto compatible = [this](const TomlPatch::Document &doc, const QString &source) {
+        if (!doc.game.isEmpty() && doc.game.compare(QStringLiteral("Stellar Blade"), Qt::CaseInsensitive) != 0) {
+            out(QStringLiteral("[ERROR] %1: el patch declara otro juego: %2").arg(source, doc.game));
+            return false;
+        }
+        const QString detected = m_controller->detectedGameVersion();
+        if (!doc.gameVersion.isEmpty() && !detected.isEmpty() && doc.gameVersion != detected) {
+            out(QStringLiteral("[ERROR] %1: requiere juego %2, detectado %3").arg(source, doc.gameVersion, detected));
+            return false;
+        }
+        for (const QString &dep : doc.dependencies)
+            out(QStringLiteral("[INFO] dependencia declarada: %1").arg(dep));
+        for (const QString &bad : doc.incompatibilities)
+            out(QStringLiteral("[WARN] incompatibilidad declarada: %1").arg(bad));
+        return true;
+    };
     if (command == QLatin1String("patch-validate")) {
         int total = 0;
-        for (const QString &input : patchInputs(o.input)) {
+        for (const QString &input : patchInputs(patchRoot)) {
             QFile f(input);
             if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { out(QStringLiteral("[ERROR] No se pudo leer %1").arg(input)); return 2; }
             const auto doc = TomlPatch::parseDocument(QString::fromUtf8(f.readAll()), input);
             for (const QString &warning : doc.warnings) out(QStringLiteral("[WARN] ") + warning);
             for (const QString &error : doc.errors) out(QStringLiteral("[ERROR] ") + error);
             if (!doc.errors.isEmpty()) return 2;
+            if (!compatible(doc, input)) return 2;
             total += doc.rules.size();
             out(QStringLiteral("[OK] Patch válido: %1 regla(s)%2.").arg(doc.rules.size()).arg(doc.table.isEmpty() ? QString() : QStringLiteral(" · tabla %1").arg(doc.table)));
         }
@@ -175,7 +212,7 @@ int HeadlessRunner::runPatch(const QString &command, const Options &o) {
         return 0;
     }
     if (!o.baselineDir.isEmpty()) { m_controller->importBaseline(QUrl::fromLocalFile(o.baselineDir)); if (!waitIdle()) return 3; }
-    const QStringList inputs = patchInputs(o.input);
+    const QStringList inputs = patchInputs(patchRoot);
     if (inputs.isEmpty()) { out(QStringLiteral("[ERROR] El bundle no contiene archivos TOML.")); return 2; }
     for (const QString &input : inputs) {
         if (QFileInfo(input).fileName().compare(QStringLiteral("manifest.toml"), Qt::CaseInsensitive) == 0) continue;
@@ -183,6 +220,7 @@ int HeadlessRunner::runPatch(const QString &command, const Options &o) {
         if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) { out(QStringLiteral("[ERROR] No se pudo leer %1").arg(input)); return 2; }
         const auto doc = TomlPatch::parseDocument(QString::fromUtf8(f.readAll()), input);
         if (!doc.errors.isEmpty()) { for (const QString &e : doc.errors) out(QStringLiteral("[ERROR] ") + e); return 2; }
+        if (!compatible(doc, input)) return 2;
         m_controller->importTomlPatch(QUrl::fromLocalFile(input));
     }
     if (!m_controller->analyzed()) return 4;

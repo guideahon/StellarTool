@@ -60,9 +60,11 @@ StellarTool.exe --headless patch-apply --input "C:\patches\CharacterTable.toml" 
 StellarTool.exe --headless patch-export --mod "C:\mods\a.pak" --out "C:\patches"
 ```
 
-`--input` también puede ser una carpeta `.stpatch` (o cualquier carpeta de
-patches) que contenga `manifest.toml` opcional y uno o más `.toml`. El manifest
-se reserva para metadatos; las reglas se aplican en orden alfabético. La
+`--input` también puede ser una carpeta `.stpatch` o un archivo comprimido
+`.stpatch`/`.zip` que contenga `manifest.toml` opcional y uno o más `.toml`.
+El manifest declara `game`, `requires_game_version`, `dependencies` e
+`incompatibilities`; se valida el juego y la versión detectada. Las reglas se
+aplican en orden alfabético. La
 sintaxis admite el formato literal heredado de automod y operaciones seguras:
 
 ```toml

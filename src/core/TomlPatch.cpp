@@ -128,6 +128,13 @@ Document parseDocument(const QString &text, const QString &sourceName) {
         if (section.compare("meta", Qt::CaseInsensitive) == 0) {
             bool ok = false; const QJsonValue v = scalar(value, &ok); if (!ok) { doc.errors << QString("%1:%2: metadata inválida").arg(sourceName).arg(i + 1); continue; }
             if (key == "table") doc.table = v.toString(); else if (key == "game") doc.game = v.toString(); else if (key == "game_version" || key == "requires_game_version") doc.gameVersion = v.toString(); else if (key == "name") doc.name = v.toString(); else if (key == "author") doc.author = v.toString();
+            else if (key == "dependencies" && v.isArray()) {
+                for (const QJsonValue &item : v.toArray())
+                    if (item.isString()) doc.dependencies << item.toString();
+            } else if ((key == "incompatibilities" || key == "incompatible_with") && v.isArray()) {
+                for (const QJsonValue &item : v.toArray())
+                    if (item.isString()) doc.incompatibilities << item.toString();
+            }
             continue;
         }
         if (currentRow.isEmpty()) { doc.warnings << QString("%1:%2: propiedad fuera de una fila").arg(sourceName).arg(i + 1); continue; }
@@ -135,7 +142,9 @@ Document parseDocument(const QString &text, const QString &sourceName) {
         QString err; if (!parseRuleValue(value, &rule, &err)) { doc.errors << QString("%1:%2: %3").arg(sourceName).arg(i + 1).arg(err); continue; }
         doc.rules << rule;
     }
-    if (doc.rules.isEmpty() && doc.errors.isEmpty()) doc.errors << QString("%1: no hay reglas").arg(sourceName);
+    if (doc.rules.isEmpty() && doc.errors.isEmpty()
+        && !sourceName.endsWith(QStringLiteral("manifest.toml"), Qt::CaseInsensitive))
+        doc.errors << QString("%1: no hay reglas").arg(sourceName);
     return doc;
 }
 

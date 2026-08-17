@@ -136,6 +136,7 @@
   "toml_import": "Импорт TOML-патча...",
   "toml_bundle_import": "Импортировать пакет .stpatch...",
   "toml_filter": "TOML-патч (*.toml)",
+  "stpatch_filter": "Пакет патча Stellar (*.stpatch *.zip)",
   "toml_bundle_empty": "В пакете нет применимых TOML-патчей.",
   "toml_bundle_done": "Импортировано TOML-файлов: %1.",
   "toml_export_empty": "Нет выбранных скалярных изменений для экспорта.",
