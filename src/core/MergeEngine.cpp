@@ -317,6 +317,25 @@ static void collectFNames(const QJsonValue &v, QStringList &out) {
         for (const QJsonValue &e : v.toArray()) collectFNames(e, out);
 }
 
+// EnumPropertyData needs its EnumType FName resolved even when the enum value
+// itself is not part of a touched row. Some Stellar Blade tables omit that
+// enum type from NameMap; UAssetAPI then throws a NullReferenceException while
+// writing the otherwise valid DataTable.
+static void collectEnumTypes(const QJsonValue &v, QStringList &out) {
+    if (v.isObject()) {
+        const QJsonObject o = v.toObject();
+        if (o.value(QLatin1String("$type")).toString()
+                .contains(QLatin1String("EnumPropertyData"))) {
+            const QString enumType = o.value(QLatin1String("EnumType")).toString();
+            if (!enumType.isEmpty()) out << enumType;
+        }
+        for (auto it = o.begin(); it != o.end(); ++it) collectEnumTypes(it.value(), out);
+        return;
+    }
+    if (v.isArray())
+        for (const QJsonValue &e : v.toArray()) collectEnumTypes(e, out);
+}
+
 // Agrega al NameMap del asset los FName de las filas tocadas que aún no estén.
 // Sin esto UAssetAPI los trata como "dummy FName" y al escribir tira
 // DummyFNameSerializationException: UAssetGUI muere sin generar el uasset y sin
@@ -330,6 +349,7 @@ static void registerFNames(QJsonObject &root, const QJsonArray &rows,
     for (const QJsonValue &r : rows) {
         if (touchedRows.contains(r.toObject().value(QLatin1String("Name")).toString()))
             collectFNames(r, used);
+        collectEnumTypes(r, used);
     }
     if (used.isEmpty()) return;
     QJsonArray nameMap = root.value(QLatin1String("NameMap")).toArray();
@@ -397,6 +417,50 @@ int MergeEngine::rewriteNumberedEnums(QJsonObject &root,
     const int n = rewriteEnumsIn(rows, nameMap, enums);
     if (n > 0) root = withDataTableRows(root, rows.toArray());
     return n;
+}
+
+static int fillArrayTypesIn(QJsonValue &value,
+                            const QHash<QString, QString> &arrayTypes) {
+    if (value.isArray()) {
+        QJsonArray array = value.toArray();
+        int changed = 0;
+        for (int i = 0; i < array.size(); ++i) {
+            QJsonValue child = array.at(i);
+            changed += fillArrayTypesIn(child, arrayTypes);
+            array.replace(i, child);
+        }
+        value = array;
+        return changed;
+    }
+    if (!value.isObject()) return 0;
+    QJsonObject object = value.toObject();
+    int changed = 0;
+    for (auto it = object.begin(); it != object.end(); ++it) {
+        QJsonValue child = it.value();
+        changed += fillArrayTypesIn(child, arrayTypes);
+        it.value() = child;
+    }
+    if (object.value(QLatin1String("$type")).toString()
+            .contains(QLatin1String("ArrayPropertyData"))
+        && object.value(QLatin1String("ArrayType")).isNull()
+        && object.value(QLatin1String("Value")).toArray().isEmpty()) {
+        const QString type = arrayTypes.value(object.value(QLatin1String("Name")).toString());
+        if (!type.isEmpty()) {
+            object.insert(QLatin1String("ArrayType"), type);
+            ++changed;
+        }
+    }
+    value = object;
+    return changed;
+}
+
+int MergeEngine::fillMissingArrayTypes(QJsonObject &root,
+                                       const QHash<QString, QString> &arrayTypes) {
+    if (arrayTypes.isEmpty()) return 0;
+    QJsonValue value(root);
+    const int changed = fillArrayTypesIn(value, arrayTypes);
+    root = value.toObject();
+    return changed;
 }
 
 bool MergeEngine::applyPath(QJsonValue &node, const QStringList &path, int depth,

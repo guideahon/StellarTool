@@ -1,6 +1,7 @@
 #include <QtTest>
 #include "core/MergeEngine.h"
 #include "core/TableDiffEngine.h"
+#include "core/UsmapService.h"
 #include "Fixtures.h"
 
 using namespace st;
@@ -18,6 +19,7 @@ private slots:
     void writesOverUAssetGuiFloatZero();
     void cleanEmptyNameArrayMerge();
     void cleanRepeatedNameArrayKeepsAllEntries();
+    void loadsEmptyArrayTypesFromUsmap();
     void cleanRowAddedNormalizesNestedEmptyFNames();
     void cleanModifiedClearedFNameBecomesNull();
     void numberedEnumsRewrittenAsByte();
@@ -163,10 +165,14 @@ void TestMergeEngine::cleanStringEnumMerge() {
 // si no, UAssetAPI lo trata como dummy y al escribir tira
 // DummyFNameSerializationException (UAssetGUI muere sin generar el uasset).
 void TestMergeEngine::newFNamesRegisteredInNameMap() {
+    QJsonObject enumProp = prop(QStringLiteral("Mode"), QStringLiteral("Mode_Active"),
+                                QStringLiteral("EnumPropertyData"));
+    enumProp.insert(QStringLiteral("EnumType"), QStringLiteral("MissingEnumType"));
     QJsonObject base = table({
         row(QStringLiteral("Skill1"), {
             prop(QStringLiteral("Alias"), QStringLiteral("OldName"),
                  QStringLiteral("NamePropertyData")),
+            enumProp,
         }),
     });
     base.insert(QStringLiteral("NameMap"),
@@ -176,6 +182,7 @@ void TestMergeEngine::newFNamesRegisteredInNameMap() {
         row(QStringLiteral("Skill1"), {
             prop(QStringLiteral("Alias"), QStringLiteral("BrandNewName"),
                  QStringLiteral("NamePropertyData")),
+            enumProp,
         }),
     });
     auto items = TableDiffEngine::diffTable(base, mod, QStringLiteral("t.uasset"),
@@ -190,6 +197,7 @@ void TestMergeEngine::newFNamesRegisteredInNameMap() {
     QVERIFY2(names.contains(QStringLiteral("BrandNewName")),
              qPrintable(names.join(QLatin1Char(','))));
     QVERIFY(names.contains(QStringLiteral("OldName"))); // no se pierden los previos
+    QVERIFY(names.contains(QStringLiteral("MissingEnumType")));
 }
 
 // UAssetGUI serializa el float cero como el string "+0": escribir un numero
@@ -288,6 +296,14 @@ void TestMergeEngine::cleanRepeatedNameArrayKeepsAllEntries() {
              QStringLiteral("New1"));
     QCOMPARE(written.at(2).toObject().value(QStringLiteral("Value")).toString(),
              QStringLiteral("New2"));
+}
+
+void TestMergeEngine::loadsEmptyArrayTypesFromUsmap() {
+    const auto types = UsmapService::loadArrayTypes(QStringLiteral("tools/StellarBlade.usmap"));
+    QCOMPARE(types.value(QStringLiteral("CheckActiveEffectAliasArray")),
+             QStringLiteral("NameProperty"));
+    QCOMPARE(types.value(QStringLiteral("DualSenseTriggerEffectStateConditions")),
+             QStringLiteral("EnumProperty"));
 }
 
 void TestMergeEngine::cleanRowAddedNormalizesNestedEmptyFNames() {

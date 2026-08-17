@@ -865,10 +865,15 @@ QString AppController::runMerge(const QString &outDir) {
             return t(QStringLiteral("err_no_write_base")).arg(gamePath, verr);
         }
 
-        // Antes de tocar nada: sanear los enums con FName numerado que vienen
-        // así de vanilla. Si quedan como están, UAssetGUI no puede reescribir
-        // la tabla y se pierde entera (pasa con CharacterStanceTable).
-        MergeEngine::rewriteNumberedEnums(base, usmapEnums());
+        // Antes de tocar nada, completar la metadata que UAssetGUI necesita
+        // para escribir tablas Zen: los tipos de arrays vacíos. Los enums se
+        // conservan como EnumPropertyData; convertirlos a BytePropertyData
+        // altera el header unversioned de ciertas DataTables (SkillCommandTable
+        // vuelve a leerse con un índice de schema inválido). registerFNames,
+        // invocado por applyToTable, agrega los FName/EnumType faltantes sin
+        // cambiar el tipo declarado por el usmap.
+        MergeEngine::fillMissingArrayTypes(
+            base, UsmapService::loadArrayTypes(UAssetService::usmapPath()));
 
         const QString mergedJson = jsonDir + QLatin1Char('/')
             + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
@@ -890,7 +895,8 @@ QString AppController::runMerge(const QString &outDir) {
             // RowAdded clean se reconstruye después del saneamiento inicial
             // de la tabla vanilla; canonicalizar también las filas nuevas
             // antes de serializar evita que sus enums vuelvan como null.
-            MergeEngine::rewriteNumberedEnums(base, usmapEnums());
+            MergeEngine::fillMissingArrayTypes(
+                base, UsmapService::loadArrayTypes(UAssetService::usmapPath()));
             QFile jf(mergedJson);
             if (!jf.open(QIODevice::WriteOnly))
                 return tr("No se pudo escribir %1").arg(mergedJson);
@@ -905,10 +911,6 @@ QString AppController::runMerge(const QString &outDir) {
             if (!vf.open(QIODevice::ReadOnly))
                 return tr("Verificación: no se pudo leer %1").arg(verifyJson);
             QJsonObject verifyRoot = QJsonDocument::fromJson(vf.readAll()).object();
-            // UAssetGUI vuelve a leer los enums de FName numerado expandidos
-            // ("Valor_3"); del lado escrito son el índice numérico. Pasar la
-            // relectura por la misma reescritura deja ambos lados comparables.
-            MergeEngine::rewriteNumberedEnums(verifyRoot, usmapEnums());
             // Comparar por VALORES (normalizado): UAssetGUI puede reordenar la
             // metadata de serialización sin cambiar el contenido real.
             // Comparar contra el JSON que realmente se entregó a UAssetGUI.

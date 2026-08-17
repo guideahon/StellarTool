@@ -110,7 +110,7 @@ Claves de diseño:
 | `BaselineManager` | cache de tablas vanilla en `%LOCALAPPDATA%/StellarTool/baseline/`, extracción bajo demanda desde el juego (CUE4Parse) o importación. Detecta staleness y tablas ausentes. |
 | `ModImporter` | orquesta ingesta: extrae, convierte, clasifica assets, produce `ModPackage`. Maneja mods legacy y Zen (con fallback a CUE4Parse). Corre en `QtConcurrent` con progreso. |
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
-| `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Rewrites enums numerados. |
+| `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Conserva los tipos declarados por el usmap y completa FNames/tipos de arrays vacíos antes de escribir. |
 | `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. |
 | `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta conflictos de `Package_Id`. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
@@ -252,12 +252,13 @@ exportación CUE4Parse incompleta y se bloquean sus borrados.
 
 ### Enums numerados (`FName_3`)
 
-UE guarda `"Valor_3"` como el FName `"Valor"` con número, y UAssetGUI lo lee
-expandido pero no sabe volver a escribirlo: el uasset no se genera y la tabla
-entera queda fuera del merge. `MergeEngine::rewriteNumberedEnums` usa el usmap
-para canonicalizar los valores conocidos como `ByteProperty` numérica (el índice
-dentro del enum), incluso si el nombre ya está en el `NameMap`: UAssetGUI puede
-releer un byte como texto (`0` → `Equal`) y ambas formas deben compararse igual.
+UE puede mostrar `"Valor_3"` como un FName numerado. La conversión a
+`BytePropertyData` existe como utilidad de diagnóstico, pero no se aplica de
+forma global: en DataTables Zen con schemas densos cambia el header unversioned
+y puede hacer que UAssetGUI lea las filas con un índice de schema inválido.
+El camino de escritura conserva `EnumPropertyData`, agrega los `EnumType` que
+falten al `NameMap` y deja que el `.usmap` resuelva el enum. La prueba real con
+`SkillCommandTable` demostró 25 cambios aplicados y round-trip completo.
 
 ### Trampa al depurar: instancias colgadas de UAssetGUI
 

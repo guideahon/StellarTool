@@ -28,6 +28,12 @@ public:
     // devuelve vacío y quien llama sigue sin el dato.
     static QHash<QString, QStringList> loadEnums(const QString &usmapPath);
 
+    // Lee el tipo de elemento de las propiedades ArrayProperty del mapping:
+    // nombre de propiedad -> tipo UProperty (por ejemplo NameProperty).
+    // Es necesario para arrays vacíos, cuyo JSON no contiene ningún elemento
+    // del que UAssetAPI pueda inferir el tipo.
+    static QHash<QString, QString> loadArrayTypes(const QString &usmapPath);
+
     // Descarga async el usmap para 'version' (ej "1.4.1"). Al terminar emite
     // finished(). Guarda en <AppData>/mappings/StellarBlade_<version>.usmap.
     void downloadForVersion(const QString &version);

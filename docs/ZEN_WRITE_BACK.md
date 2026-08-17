@@ -102,10 +102,11 @@ Para mods Zen se escriben y verifican:
   de otra fila que sí la tenga (`addPropFromTemplate`).
 - **Arrays y objetos**: se reconstruyen con `fillTemplate` a partir del valor
   vanilla como molde. Medido: `SkillCommandTable` 28 → 35 aplicados.
-- **Enums conocidos**: se canonicalizan por ordinal usando el usmap, también
-  en filas nuevas. UAssetGUI puede convertir un byte de vuelta a texto al
-  releerlo (`0` → `Equal`); comparar contra el JSON serializado evita excluir
-  falsamente la tabla en ese caso.
+- **Enums conocidos**: se conservan como `EnumPropertyData` y se completan sus
+  `EnumType`/FNames desde el usmap. La conversión global a `BytePropertyData`
+  parecía resolver algunos FNames numerados, pero rompe el header unversioned
+  de DataTables Zen densas; ahora queda como utilidad de diagnóstico, no como
+  pase automático.
 
 Red de seguridad: cada tabla se verifica con round-trip real
 (`fromjson` → `tojson` → comparar normalizado). Si no cierra, la tabla se
@@ -172,8 +173,20 @@ El umbral del 25% evita convertir una exportación truncada en borrados masivos.
 
 ### Arrays con base vacía — escalares implementados
 Si vanilla tiene `[]`, ahora se sintetizan los wrappers escalares desde el
-`ArrayType` del propio `ArrayPropertyData`. `StructProperty` sigue requiriendo
-un layout de plantilla.
+`ArrayType` leído del usmap cuando UAssetGUI no lo conserva. Esto cubre también
+los arrays `NameProperty` y enum de `SkillCommandTable`. `StructProperty`
+sigue requiriendo un layout de plantilla.
+
+### SkillCommandTable — resuelto
+
+UAssetGUI fallaba por dos motivos encadenados: algunos `EnumType` no estaban en
+el `NameMap`, y cuatro arrays vacíos perdían su tipo (`ArrayType=null`). El
+primer arreglo habilitó la escritura; el segundo permite que UAssetAPI
+reconstruya los arrays. La prueba real del parche de automod terminó con **25
+aplicados, 0 salteados**, `fromjson` + `tojson` verificados y pak/zip generados.
+La prueba también demostró que aplicar `rewriteNumberedEnums` globalmente
+provoca `Failed to find a valid property for schema index 123 in the class
+DataTable`; por eso la ruta normal conserva el tipo enum original.
 
 ## Callejones sin salida / notas
 

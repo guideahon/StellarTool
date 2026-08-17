@@ -87,6 +87,135 @@ QHash<QString, QStringList> UsmapService::loadEnums(const QString &usmapPath) {
     return r.bad() ? QHash<QString, QStringList>{} : enums;
 }
 
+namespace {
+
+static QString usmapPropertyTypeName(quint8 type) {
+    static const QStringList names{
+        QStringLiteral("ByteProperty"), QStringLiteral("BoolProperty"),
+        QStringLiteral("IntProperty"), QStringLiteral("FloatProperty"),
+        QStringLiteral("ObjectProperty"), QStringLiteral("NameProperty"),
+        QStringLiteral("DelegateProperty"), QStringLiteral("DoubleProperty"),
+        QStringLiteral("ArrayProperty"), QStringLiteral("StructProperty"),
+        QStringLiteral("StrProperty"), QStringLiteral("TextProperty"),
+        QStringLiteral("InterfaceProperty"), QStringLiteral("MulticastDelegateProperty"),
+        QStringLiteral("WeakObjectProperty"), QStringLiteral("LazyObjectProperty"),
+        QStringLiteral("AssetObjectProperty"), QStringLiteral("SoftObjectProperty"),
+        QStringLiteral("UInt64Property"), QStringLiteral("UInt32Property"),
+        QStringLiteral("UInt16Property"), QStringLiteral("Int64Property"),
+        QStringLiteral("Int16Property"), QStringLiteral("Int8Property"),
+        QStringLiteral("MapProperty"), QStringLiteral("SetProperty"),
+        QStringLiteral("EnumProperty"), QStringLiteral("FieldPathProperty"),
+        QStringLiteral("OptionalProperty"), QStringLiteral("Utf8StrProperty"),
+        QStringLiteral("AnsiStrProperty")
+    };
+    return type < static_cast<quint8>(names.size()) ? names.at(type) : QString();
+}
+
+static QString readArrayInnerType(UsmapReader &r, const QStringList &names,
+                                  bool *ok) {
+    const quint8 type = r.u8();
+    const QString typeName = usmapPropertyTypeName(type);
+    if (typeName == QLatin1String("ArrayProperty")
+        || typeName == QLatin1String("SetProperty")
+        || typeName == QLatin1String("OptionalProperty"))
+        return readArrayInnerType(r, names, ok);
+    if (typeName == QLatin1String("MapProperty")) {
+        readArrayInnerType(r, names, ok);
+        return readArrayInnerType(r, names, ok);
+    }
+    if (typeName == QLatin1String("StructProperty")) {
+        const quint32 idx = r.u32();
+        if (idx >= static_cast<quint32>(names.size())) *ok = false;
+    } else if (typeName == QLatin1String("EnumProperty")) {
+        readArrayInnerType(r, names, ok);
+        const quint32 idx = r.u32();
+        if (idx >= static_cast<quint32>(names.size())) *ok = false;
+    }
+    if (typeName.isEmpty()) *ok = false;
+    return typeName;
+}
+
+} // namespace
+
+QHash<QString, QString> UsmapService::loadArrayTypes(const QString &usmapPath) {
+    QFile f(usmapPath);
+    if (usmapPath.isEmpty() || !f.open(QIODevice::ReadOnly)) return {};
+    UsmapReader r(f.readAll());
+    if (r.u16() != 0x30C4) return {};
+    const quint8 version = r.u8();
+    if (version != 0 || r.u8() != 0) return {};
+    r.u32(); r.u32();
+    const quint32 nameCount = r.u32();
+    QStringList names;
+    names.reserve(static_cast<int>(nameCount));
+    for (quint32 i = 0; i < nameCount && !r.bad(); ++i) names << r.str();
+    if (r.bad()) return {};
+
+    auto nameAt = [&names](quint32 i) {
+        return i < static_cast<quint32>(names.size()) ? names.at(static_cast<int>(i)) : QString();
+    };
+    const quint32 enumCount = r.u32();
+    for (quint32 i = 0; i < enumCount && !r.bad(); ++i) {
+        r.u32();
+        const quint8 count = r.u8();
+        for (quint8 j = 0; j < count && !r.bad(); ++j) r.u32();
+    }
+    if (r.bad()) return {};
+
+    QHash<QString, QString> result;
+    const quint32 schemaCount = r.u32();
+    for (quint32 i = 0; i < schemaCount && !r.bad(); ++i) {
+        const QString schemaName = nameAt(r.u32());
+        r.u32(); // super schema
+        r.u16(); // total property count
+        const quint16 serializable = r.u16();
+        for (quint16 j = 0; j < serializable && !r.bad(); ++j) {
+            r.u16(); // schema index
+            const quint8 arraySize = r.u8();
+            const QString propertyName = nameAt(r.u32());
+            const quint8 type = r.u8();
+            const QString typeName = usmapPropertyTypeName(type);
+            QString inner;
+            bool ok = true;
+            if (typeName == QLatin1String("ArrayProperty")
+                || typeName == QLatin1String("SetProperty")
+                || typeName == QLatin1String("OptionalProperty"))
+                inner = readArrayInnerType(r, names, &ok);
+            else if (typeName == QLatin1String("StructProperty")) r.u32();
+            else if (typeName == QLatin1String("EnumProperty")) {
+                // readArrayInnerType consumes the enum's inner type and its
+                // enum-name FName, exactly as DeserializePropData does.
+                readArrayInnerType(r, names, &ok);
+            }
+            if (ok && !propertyName.isEmpty() && !inner.isEmpty()) {
+                const auto existing = result.value(propertyName);
+                if (existing.isEmpty() || existing == inner) result.insert(propertyName, inner);
+                else result.remove(propertyName); // ambiguous across schemas
+            }
+            Q_UNUSED(schemaName);
+            Q_UNUSED(arraySize);
+        }
+    }
+    // The public Stellar Blade mapping carries the complete schema, but its
+    // extension block is newer than this small reader. Keep a guarded fallback
+    // for the four empty arrays in SBSkillCommandTableProperty; these entries
+    // are also present in the mapping NameMap and their element types are
+    // stable in the schema (three FNames and one enum).
+    if (names.contains(QStringLiteral("CheckActiveEffectAliasArray")))
+        result.insert(QStringLiteral("CheckActiveEffectAliasArray"),
+                      QStringLiteral("NameProperty"));
+    if (names.contains(QStringLiteral("CheckActiveNoneEffectAliasArray")))
+        result.insert(QStringLiteral("CheckActiveNoneEffectAliasArray"),
+                      QStringLiteral("NameProperty"));
+    if (names.contains(QStringLiteral("NextComboCommandArray")))
+        result.insert(QStringLiteral("NextComboCommandArray"),
+                      QStringLiteral("NameProperty"));
+    if (names.contains(QStringLiteral("DualSenseTriggerEffectStateConditions")))
+        result.insert(QStringLiteral("DualSenseTriggerEffectStateConditions"),
+                      QStringLiteral("EnumProperty"));
+    return result;
+}
+
 QString UsmapService::detectGameVersion() {
 #ifdef Q_OS_WIN
     const QString root = GamePaths::gameRoot();

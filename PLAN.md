@@ -104,7 +104,8 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 - Descarga de usmap por versión del juego desde el archivo de la comunidad.
 - Detección automática de versión del juego (FileVersion del exe).
 - Override de usmap en Settings sin reemplazar el bundled.
-- Lectura de enums del usmap para rewrite de enums numerados.
+- Lectura de enums del usmap para diagnóstico y normalización; la escritura
+  conserva `EnumPropertyData` cuando el schema Zen requiere su header original.
 
 ---
 
