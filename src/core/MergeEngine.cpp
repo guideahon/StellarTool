@@ -344,7 +344,7 @@ static int rewriteEnumsIn(QJsonValue &value, const QSet<QString> &nameMap,
 
     const QJsonValue v = obj.value(QLatin1String("Value"));
     if (obj.value(QLatin1String("$type")).toString().contains(QLatin1String("EnumPropertyData"))
-        && v.isString() && !nameMap.contains(v.toString())) {
+        && v.isString()) {
         const QStringList values = enums.value(obj.value(QLatin1String("EnumType")).toString());
         const int ordinal = values.indexOf(v.toString());
         if (ordinal >= 0) {

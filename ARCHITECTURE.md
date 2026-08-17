@@ -254,9 +254,10 @@ exportación CUE4Parse incompleta y se bloquean sus borrados.
 
 UE guarda `"Valor_3"` como el FName `"Valor"` con número, y UAssetGUI lo lee
 expandido pero no sabe volver a escribirlo: el uasset no se genera y la tabla
-entera queda fuera del merge. `MergeEngine::rewriteNumberedEnums` los detecta
-por no estar en el NameMap del asset y los reescribe como `ByteProperty`
-numérica (el índice dentro del enum), forma que sí round-tripea al mismo valor.
+entera queda fuera del merge. `MergeEngine::rewriteNumberedEnums` usa el usmap
+para canonicalizar los valores conocidos como `ByteProperty` numérica (el índice
+dentro del enum), incluso si el nombre ya está en el `NameMap`: UAssetGUI puede
+releer un byte como texto (`0` → `Equal`) y ambas formas deben compararse igual.
 
 ### Trampa al depurar: instancias colgadas de UAssetGUI
 

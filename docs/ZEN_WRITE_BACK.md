@@ -102,6 +102,10 @@ Para mods Zen se escriben y verifican:
   de otra fila que sí la tenga (`addPropFromTemplate`).
 - **Arrays y objetos**: se reconstruyen con `fillTemplate` a partir del valor
   vanilla como molde. Medido: `SkillCommandTable` 28 → 35 aplicados.
+- **Enums conocidos**: se canonicalizan por ordinal usando el usmap, también
+  en filas nuevas. UAssetGUI puede convertir un byte de vuelta a texto al
+  releerlo (`0` → `Equal`); comparar contra el JSON serializado evita excluir
+  falsamente la tabla en ese caso.
 
 Red de seguridad: cada tabla se verifica con round-trip real
 (`fromjson` → `tojson` → comparar normalizado). Si no cierra, la tabla se

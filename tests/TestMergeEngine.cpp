@@ -330,7 +330,7 @@ void TestMergeEngine::numberedEnumsRewrittenAsByte() {
         {QStringLiteral("ESBActorCombatType"), {QStringLiteral("ESBCombatType_Melee")}},
     };
 
-    QCOMPARE(MergeEngine::rewriteNumberedEnums(root, enums), 1);
+    QCOMPARE(MergeEngine::rewriteNumberedEnums(root, enums), 2);
     const QJsonArray props = dataTableRows(root).first().toObject()
                                  .value(QStringLiteral("Value")).toArray();
     const QJsonObject rewritten = props.at(0).toObject();
@@ -338,9 +338,13 @@ void TestMergeEngine::numberedEnumsRewrittenAsByte() {
                 .contains(QStringLiteral("BytePropertyData")));
     QCOMPARE(rewritten.value(QStringLiteral("Value")).toInt(), 2);
     QVERIFY(!rewritten.contains(QStringLiteral("EnumType")));
-    // El enum cuyo valor sí está en el NameMap se deja intacto.
-    QCOMPARE(props.at(1).toObject().value(QStringLiteral("Value")).toString(),
-             QStringLiteral("ESBCombatType_Melee"));
+    // Los enums conocidos se canonicalizan al ordinal, aunque el nombre ya
+    // esté en el NameMap: UAssetGUI puede releer un ByteProperty como enum
+    // textual (p. ej. 0 -> "Equal") y ambos deben compararse igual.
+    const QJsonObject normalRewritten = props.at(1).toObject();
+    QVERIFY(normalRewritten.value(QStringLiteral("$type")).toString()
+                .contains(QStringLiteral("BytePropertyData")));
+    QCOMPARE(normalRewritten.value(QStringLiteral("Value")).toInt(), 0);
     // Sin enums del usmap no se toca nada.
     QJsonObject untouched = table({row(QStringLiteral("Eve"), {numbered})});
     QCOMPARE(MergeEngine::rewriteNumberedEnums(untouched, {}), 0);

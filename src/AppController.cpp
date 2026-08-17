@@ -35,6 +35,42 @@
 #endif
 
 namespace {
+// Devuelve el primer punto divergente sin volcar una EffectTable completa.
+// El detalle queda en merge_report.txt para que una exclusión sea accionable.
+QString firstJsonDifference(const QJsonValue &a, const QJsonValue &b,
+                            const QString &path = QStringLiteral("root")) {
+    if (a.isDouble() && b.isDouble()) {
+        const double x = a.toDouble(), y = b.toDouble();
+        const double scale = (std::abs(x) > std::abs(y)) ? std::abs(x) : std::abs(y);
+        if (x == y || std::abs(x - y) <= scale * 1e-6) return {};
+    } else if (a.isArray() && b.isArray()) {
+        const QJsonArray aa = a.toArray(), ba = b.toArray();
+        if (aa.size() != ba.size())
+            return QStringLiteral("%1 length %2 vs %3").arg(path).arg(aa.size()).arg(ba.size());
+        for (int i = 0; i < aa.size(); ++i) {
+            const QString diff = firstJsonDifference(aa.at(i), ba.at(i),
+                                                     QStringLiteral("%1[%2]").arg(path).arg(i));
+            if (!diff.isEmpty()) return diff;
+        }
+        return {};
+    } else if (a.isObject() && b.isObject()) {
+        const QJsonObject ao = a.toObject(), bo = b.toObject();
+        if (ao.size() != bo.size())
+            return QStringLiteral("%1 object size %2 vs %3").arg(path).arg(ao.size()).arg(bo.size());
+        for (auto it = ao.begin(); it != ao.end(); ++it) {
+            if (!bo.contains(it.key())) return QStringLiteral("%1 missing key %2").arg(path, it.key());
+            const QString diff = firstJsonDifference(it.value(), bo.value(it.key()),
+                                                     QStringLiteral("%1.%2").arg(path, it.key()));
+            if (!diff.isEmpty()) return diff;
+        }
+        return {};
+    } else if (a == b) {
+        return {};
+    }
+    return QStringLiteral("%1: type %2=%3 vs type %4=%5")
+        .arg(path).arg(int(a.type())).arg(a.toString()).arg(int(b.type())).arg(b.toString());
+}
+
 // Enlaza src->dst con hardlink (instantáneo, mismo volumen). NUNCA copia: los
 // contenedores del juego pesan ~100 GB y una copia llenaría el disco (o
 // quedaría a medias) en vez de fallar rápido. Windows: QFile::link crearía un
@@ -833,6 +869,7 @@ QString AppController::runMerge(const QString &outDir) {
             + QString(gamePath).replace(QLatin1Char('/'), QLatin1Char('_')) + QStringLiteral(".json");
         const QString outUasset = contentDir + QLatin1Char('/') + gamePath;
         const QJsonObject vanilla = base;   // base prístina para el reintento
+        QString verifyDiff;
 
         QMetaObject::invokeMethod(this, [this, gamePath] {
             setStatus(t(QStringLiteral("core_generating")).arg(QFileInfo(gamePath).fileName()));
@@ -845,6 +882,10 @@ QString AppController::runMerge(const QString &outDir) {
             res = MergeEngine::applyToTable(base, it.value());
             if (!res.ok) return res.error;
             if (res.applied == 0) return {};   // no se escribe nada (ver abajo)
+            // RowAdded clean se reconstruye después del saneamiento inicial
+            // de la tabla vanilla; canonicalizar también las filas nuevas
+            // antes de serializar evita que sus enums vuelvan como null.
+            MergeEngine::rewriteNumberedEnums(base, usmapEnums());
             QFile jf(mergedJson);
             if (!jf.open(QIODevice::WriteOnly))
                 return tr("No se pudo escribir %1").arg(mergedJson);
@@ -865,9 +906,24 @@ QString AppController::runMerge(const QString &outDir) {
             MergeEngine::rewriteNumberedEnums(verifyRoot, usmapEnums());
             // Comparar por VALORES (normalizado): UAssetGUI puede reordenar la
             // metadata de serialización sin cambiar el contenido real.
-            if (!jsonValueEquals(dataTableRows(normalizeDataTableDoc(base)),
-                                 dataTableRows(normalizeDataTableDoc(verifyRoot))))
+            // Comparar contra el JSON que realmente se entregó a UAssetGUI.
+            // QJsonDocument puede serializar Undefined dentro de arrays como
+            // null (o descartar una clave); comparar contra `base` en memoria
+            // producía falsos negativos aunque el JSON escrito y su relectura
+            // fueran idénticos.
+            QFile ef(mergedJson);
+            if (!ef.open(QIODevice::ReadOnly))
+                return tr("Verificación: no se pudo releer %1").arg(mergedJson);
+            const QJsonObject serializedBase =
+                QJsonDocument::fromJson(ef.readAll()).object();
+            const QJsonArray expectedRows =
+                dataTableRows(normalizeDataTableDoc(serializedBase));
+            const QJsonArray actualRows = dataTableRows(normalizeDataTableDoc(verifyRoot));
+            if (!jsonValueEquals(expectedRows, actualRows)) {
+                verifyDiff = firstJsonDifference(expectedRows, actualRows,
+                                                 QStringLiteral("DataTable.Data"));
                 return tr("no round-tripea fiel");
+            }
             return {};
         };
 
@@ -884,6 +940,8 @@ QString AppController::runMerge(const QString &outDir) {
             m_lastFailedTables << tableBase;
             report << QStringLiteral("  %1: EXCLUDED — verification failed: %2")
                           .arg(tableBase, buildErr);
+            if (!verifyDiff.isEmpty())
+                report << QStringLiteral("    first difference: %1").arg(verifyDiff);
             continue;
         }
         m_lastSkipped += res.skipped;
