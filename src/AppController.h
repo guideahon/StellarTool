@@ -73,6 +73,9 @@ public:
     bool analyzed() const { return m_analyzed; }
     QString lastMergeResult() const { return m_lastMergeResult; }
     bool lastMergeOk() const { return m_lastMergeOk; }
+    // Convierte el sufijo de descarga de Nexus en un enlace para el reporte.
+    // Se expone como helper puro para poder fijar variantes "for1-4-1" en tests.
+    static QString nexusModUrlForReport(const QString &modName);
     bool exportZip() const { return m_exportZip; }
     bool cancellable() const { return m_buildPid.load() != 0; }
     // Mata el árbol del build en curso (python + repak/retoc hijos). No-op si

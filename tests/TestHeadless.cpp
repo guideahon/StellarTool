@@ -1,5 +1,6 @@
 #include <QtTest>
 
+#include "AppController.h"
 #include "HeadlessRunner.h"
 #include "core/MovesetService.h"
 
@@ -28,6 +29,7 @@ private slots:
     void answersAcceptInlineJsonFileAndPreset();
     void movesetCatalogRecognizesFamiliesAndAggro();
     void movesetCatalogNeedsSourceAndOutput();
+    void nexusReportLinkHandlesForVersionNames();
 };
 
 namespace {
@@ -87,6 +89,16 @@ void TestHeadless::movesetCatalogNeedsSourceAndOutput() {
     QVERIFY(!validationError(QStringLiteral("moveset-catalog"), o).isEmpty());
     o.outDir = QStringLiteral("catalog.json");
     QVERIFY(validationError(QStringLiteral("moveset-catalog"), o).isEmpty());
+}
+
+void TestHeadless::nexusReportLinkHandlesForVersionNames() {
+    QCOMPARE(st::AppController::nexusModUrlForReport(
+                 QStringLiteral("10GaugeHp100TachyGaugeRegen-1264-1-4-1-1759931592")),
+             QStringLiteral("https://www.nexusmods.com/stellarblade/mods/1264"));
+    QCOMPARE(st::AppController::nexusModUrlForReport(
+                 QStringLiteral("SoEasyMode-1264-for1-4-1-1759923018")),
+             QStringLiteral("https://www.nexusmods.com/stellarblade/mods/1264"));
+    QVERIFY(st::AppController::nexusModUrlForReport(QStringLiteral("renamed-mod")).isEmpty());
 }
 
 void TestHeadless::unknownCommandIsRejected() {

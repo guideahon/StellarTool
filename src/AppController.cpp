@@ -93,7 +93,8 @@ bool hardLink(const QString &src, const QString &dst) {
 // mod. Si el archivo fue renombrado, simplemente no agregamos un enlace.
 QString nexusModUrl(const QString &modName) {
     static const QRegularExpression suffix(
-        QStringLiteral("-(\\d+)-\\d+(?:-\\d+)*$"));
+        QStringLiteral("-(\\d+)-(?:for)?\\d+(?:-\\d+)*$"),
+        QRegularExpression::CaseInsensitiveOption);
     const QRegularExpressionMatch match = suffix.match(modName);
     if (!match.hasMatch()) return {};
     return QStringLiteral("https://www.nexusmods.com/stellarblade/mods/%1")
@@ -315,6 +316,10 @@ QString AppController::t(const QString &key) const {
 }
 
 AppController::~AppController() = default;
+
+QString AppController::nexusModUrlForReport(const QString &modName) {
+    return nexusModUrl(modName);
+}
 
 bool AppController::hasBaseline() const { return m_baseline->hasBaseline(); }
 bool AppController::baselineStale() const {
@@ -973,7 +978,7 @@ QString AppController::runMerge(const QString &outDir) {
         }
         if (!modTables.isEmpty())
             report << QStringLiteral("   Tables:") << modTables;
-        const QString nexusUrl = nexusModUrl(m.name);
+        const QString nexusUrl = nexusModUrlForReport(m.name);
         if (!nexusUrl.isEmpty())
             report << QStringLiteral("   [%1](%1)").arg(nexusUrl);
     }
