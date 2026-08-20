@@ -21,5 +21,7 @@ Antes de cada release en Nexus Mods:
      Ya está `stellartool_screenshot_easymerge.png`; sumar Cambios con diffs
      vanilla→mod, Conflictos lado a lado, Merge OK, e idealmente un GIF del flujo.
 7. **Permissions**: open source MIT, enlazar el repo. Permitir uso libre con crédito.
-8. **Changelog**: sincronizar con los tags/commits del repo.
+8. **Título y changelog**: usar `upload_texts/title_<version>.txt` como título
+   de la publicación y `upload_texts/changelog_<version>.txt` como changelog;
+   ambos deben sincronizarse con los tags/commits del repo.
 9. Actualizar `Nexus_Description*.md/txt` en el repo si la descripción cambia.

@@ -1,0 +1,16 @@
+Version 0.6.7
+
+Fixed: Zen/IoStore merge reports now show the result per source mod and per
+table. A table that fails round-trip verification is reported as excluded,
+including the verification reason, while the source mod remains enabled so it
+can still be used on its own.
+
+Fixed: Nexus links in merge_report.txt now recognize both common variant name
+formats, including names with "for" before the game version. All variants of
+Nexus mod 1264 now link to /mods/1264 instead of an incorrect mod ID.
+
+Verified against the six Stellar Blade Zen variants supplied for mod 1264:
+all six complete successfully and produce a verified
+zzz_StellarTool_Merged_P.pak/.ucas/.utoc output without an excluded table.
+
+Everything from 0.6.6 is included.
