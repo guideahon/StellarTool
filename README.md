@@ -84,7 +84,7 @@ Los binarios externos no se versionan; `setup.bat` los baja de sus releases ofic
 2. Opcional: **Importar baseline** — carpeta con JSONs de tablas vanilla (dump de UAssetGUI/FModel) para ver "antes → después". Sin baseline la tool funciona igual, comparando solo entre mods.
 3. **Analizar cambios** → pestaña **Cambios**: check por cambio, filtro por texto o solo conflictos, todo/nada por tabla.
 4. **Conflictos**: elegí el ganador por cada uno (o "preferir mod X en todo").
-5. **Merge**: elegí destino (idealmente `steamapps\common\StellarBlade\SB\Content\Paks\~mods`) y generá el pak. La tool verifica el resultado reconvirtiendo cada tabla. Los mods originales no se tocan: acordate de sacarlos de `~mods` para que no pisen el merge (el prefijo `zzz` le da prioridad de carga igualmente).
+5. **Merge**: elegí destino (idealmente `steamapps\common\StellarBlade\SB\Content\Paks\~mods`) y generá el pak. La tool verifica el resultado reconvirtiendo cada tabla. Los mods originales no se tocan: revisá `merge_report.txt` antes de desactivarlos. Si una tabla queda excluida o no escrita, mantené habilitado el mod que la cambia; el prefijo `zzz` da prioridad de carga al merge para las tablas que sí entraron.
 
 Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
 

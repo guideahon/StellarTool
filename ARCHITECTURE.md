@@ -185,7 +185,7 @@ pipeline de merge). Ver §11.
   descartar los que llegan mientras hay otra importación en curso perdía mods en
   silencio.
 - Una tabla sin cambios aplicados **no se emite** al pak (pisaría al mod de origen con vanilla).
-- Una tabla que falla la verificación **no cancela las demás**: se excluye, se registra en `merge_report.txt` y se avisa que el mod de origen debe permanecer habilitado para esa tabla.
+- Una tabla que falla la verificación **no cancela las demás**: se excluye, se registra debajo del mod que la aporta en `merge_report.txt` y se avisa que esos orígenes deben permanecer habilitados para esa tabla. El reporte incluye el estado aplicado/salteado por tabla y, cuando el nombre conserva el formato de descarga de Nexus, un enlace al mod.
 
 ---
 

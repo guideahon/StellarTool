@@ -86,6 +86,30 @@ bool hardLink(const QString &src, const QString &dst) {
     return QFile::link(src, dst);
 #endif
 }
+
+// Nexus usa nombres de descarga con la forma <nombre>-<mod id>-<version>-<file
+// id>. Cuando el nombre conserva ese sufijo podemos dejar un enlace accionable
+// en merge_report.txt sin inventar metadata ni inspeccionar el contenido del
+// mod. Si el archivo fue renombrado, simplemente no agregamos un enlace.
+QString nexusModUrl(const QString &modName) {
+    static const QRegularExpression suffix(
+        QStringLiteral("-(\\d+)-\\d+(?:-\\d+)*$"));
+    const QRegularExpressionMatch match = suffix.match(modName);
+    if (!match.hasMatch()) return {};
+    return QStringLiteral("https://www.nexusmods.com/stellarblade/mods/%1")
+        .arg(match.captured(1));
+}
+
+struct MergeTableReport {
+    QString name;
+    QStringList modIds;
+    int applied = 0;
+    int skipped = 0;
+    bool excluded = false;
+    bool notWritten = false;
+    QString failure;
+    QString firstDifference;
+};
 }
 
 namespace st {
@@ -687,6 +711,7 @@ static bool copyAssetWithCompanions(const QString &srcRoot, const QString &gameP
 
 QString AppController::runMerge(const QString &outDir) {
     m_lastSkipped = 0;
+    m_lastProtectedModIds.clear();
     // Reporte legible del merge (se escribe junto al pak y dentro del zip).
     QStringList report;
     report << QStringLiteral("Stellar Tool merge report — %1")
@@ -700,99 +725,13 @@ QString AppController::runMerge(const QString &outDir) {
         ++itemsByMod[c.modId];
         if (c.selected) ++selectedByMod[c.modId];
     }
-    for (const auto &m : m_mods) {
-        const int total = itemsByMod.value(m.id);
-        const int sel = selectedByMod.value(m.id);
-        QString note;
-        if (total == 0)
-            note = QStringLiteral("  <- NO readable changes (unreadable Zen pak, "
-                                  "or identical to vanilla)");
-        else if (sel == 0)
-            note = QStringLiteral("  <- nothing selected: this mod contributes NOTHING "
-                                  "to the merge");
-        report << QStringLiteral("  %1. %2  [%3]").arg(m.loadOrder + 1).arg(m.name, m.sourcePath)
-               << QStringLiteral("     %1 changes, %2 selected%3").arg(total).arg(sel).arg(note);
-    }
-    // Un mod Zen puede traer animaciones/AnimBP/mallas además de tablas. Esos
-    // assets no se pueden reescribir, así que el pak mergeado lleva SOLO sus
-    // tablas: si el usuario desinstala el mod original (como dice el readme),
-    // las tablas quedan pero el contenido que referencian desaparece.
-    {
-        QStringList lines;
-        for (const auto &m : m_mods) {
-            if (m.zenAssetsNotMerged.isEmpty()) continue;
-            QStringList shown = m.zenAssetsNotMerged.mid(0, 8);
-            if (m.zenAssetsNotMerged.size() > shown.size())
-                shown << QStringLiteral("... (+%1)").arg(m.zenAssetsNotMerged.size() - shown.size());
-            lines << QStringLiteral("  %1: %2 non-table assets (%3)")
-                         .arg(m.name)
-                         .arg(m.zenAssetsNotMerged.size())
-                         .arg(shown.join(QStringLiteral(", ")));
-        }
-        if (!lines.isEmpty()) {
-            report << QString()
-                   << QStringLiteral("Assets NOT merged (Zen mods: animations, blueprints, meshes):")
-                   << lines
-                   << QStringLiteral("  Only DataTables can be rewritten, so the merged pak carries "
-                                     "the tables of these mods but not the rest.")
-                   << QStringLiteral("  Their original paks are copied UNCHANGED into the installable "
-                                     "zip, next to the merged one: install both.")
-                   << QStringLiteral("  The merged pak loads last (zzz_) and still wins on the tables.");
-        }
-    }
-    if (!m_groups.isEmpty()) {
-        report << QString() << QStringLiteral("Conflicts (%1):").arg(m_groups.size());
-        for (const auto &g : m_groups) {
-            QString winner, line;
-            for (int idx : g.itemIndexes)
-                if (m_items.at(idx).modId == g.resolvedModId) winner = m_items.at(idx).modName;
-            const auto &first = m_items.at(g.itemIndexes.first());
-            line = first.summaryCache.isEmpty() ? first.summary() : first.summaryCache;
-            report << QStringLiteral("  %1 -> %2").arg(line, winner);
-        }
-    }
-    // Tablas que tienen cambios pero ninguno seleccionado: no llegan al bucle de
-    // abajo, asi que sin esta seccion desaparecen del reporte sin explicacion
-    // (es lo que se veia como "la tabla del mod no entro en el merge").
-    {
-        struct TableTally { int total = 0, selected = 0, dups = 0, lostConflict = 0; QString path; };
-        QMap<QString, TableTally> tally;
-        QHash<int, QString> resolvedBy;
-        for (const ConflictGroup &g : m_groups)
-            if (!g.resolvedModId.isEmpty()) resolvedBy.insert(g.id, g.resolvedModId);
-        for (const ChangeItem &c : m_items) {
-            if (c.type == ChangeItem::AssetReplaced) continue;
-            TableTally &t = tally[c.tablePath.toLower()];
-            t.path = c.tablePath;
-            ++t.total;
-            if (c.selected) { ++t.selected; continue; }
-            if (c.dup) ++t.dups;
-            else if (c.conflictGroup >= 0 && resolvedBy.contains(c.conflictGroup)
-                     && resolvedBy.value(c.conflictGroup) != c.modId)
-                ++t.lostConflict;
-        }
-        QStringList lines;
-        for (const TableTally &t : tally) {
-            if (t.selected > 0 || t.total == 0) continue;
-            const int unticked = t.total - t.dups - t.lostConflict;
-            lines << QStringLiteral("  %1: %2 changes, none selected "
-                                    "(%3 lost a conflict, %4 duplicate of another mod, %5 unticked)")
-                         .arg(QFileInfo(t.path).completeBaseName())
-                         .arg(t.total).arg(t.lostConflict).arg(t.dups).arg(unticked);
-        }
-        if (!lines.isEmpty()) {
-            report << QString()
-                   << QStringLiteral("Tables left out (changes exist but none selected):")
-                   << lines
-                   << QStringLiteral("  These tables are NOT in the merged pak. Keep the mod that "
-                                     "owns them enabled, or tick their changes.");
-        }
-    }
-
-    report << QString() << QStringLiteral("Tables:");
+    // El bloque Tables se agrega después de la verificación, cuando ya
+    // conocemos si cada tabla se escribió, se salteó o quedó excluida.
     // Tablas cuyos cambios se saltearon por completo: no se emiten (ver abajo).
     m_lastDroppedTables.clear();
     m_lastFailedTables.clear();
+
+    QMap<QString, MergeTableReport> tableReports;
 
     const QString mergeRoot = workRoot() + QStringLiteral("/merged");
     QDir(mergeRoot).removeRecursively();
@@ -839,6 +778,12 @@ QString AppController::runMerge(const QString &outDir) {
     for (auto it = byTable.begin(); it != byTable.end(); ++it) {
         const QString gamePath = tableGamePath.value(it.key());
         const QString tableBase = QFileInfo(gamePath).completeBaseName();
+        MergeTableReport &tableReport = tableReports[it.key()];
+        tableReport.name = tableBase;
+        for (const ChangeItem &item : it.value()) {
+            if (!tableReport.modIds.contains(item.modId))
+                tableReport.modIds << item.modId;
+        }
 
         // Base de ESCRITURA: UAssetGUI real (round-trippable). Prioridad:
         //  a) tabla vanilla real del juego (retoc to-legacy + tojson)
@@ -963,18 +908,20 @@ QString AppController::runMerge(const QString &outDir) {
             QFile::remove(stem + QStringLiteral(".uexp"));
             QFile::remove(stem + QStringLiteral(".ubulk"));
             m_lastFailedTables << tableBase;
-            report << QStringLiteral("  %1: EXCLUDED — verification failed: %2")
-                          .arg(tableBase, buildErr);
-            if (!verifyDiff.isEmpty())
-                report << QStringLiteral("    first difference: %1").arg(verifyDiff);
+            for (const QString &modId : tableReport.modIds)
+                if (!m_lastProtectedModIds.contains(modId)) m_lastProtectedModIds << modId;
+            tableReport.excluded = true;
+            tableReport.failure = buildErr;
+            tableReport.firstDifference = verifyDiff;
             continue;
         }
         m_lastSkipped += res.skipped + omittedComplex;
-        report << QStringLiteral("  %1: %2 applied, %3 skipped")
-                      .arg(tableBase).arg(res.applied).arg(res.skipped + omittedComplex);
+        tableReport.applied = res.applied;
+        tableReport.skipped = res.skipped + omittedComplex;
         if (omittedComplex > 0)
-            report << QStringLiteral("    -> %1 complex array/object change(s) omitted; scalar changes verified")
-                          .arg(omittedComplex);
+            tableReport.failure = QStringLiteral(
+                "%1 complex array/object change(s) omitted; scalar changes verified")
+                .arg(omittedComplex);
 
         // Nada aplicado = la tabla quedaría idéntica a vanilla. Como el pak
         // mergeado carga con máxima prioridad (zzz_), escribirla PISARÍA con
@@ -982,8 +929,126 @@ QString AppController::runMerge(const QString &outDir) {
         // así el mod de origen sigue mandando en esa tabla.
         if (res.applied == 0) {
             m_lastDroppedTables << tableBase;
-            report << QStringLiteral("    -> not written (would have been vanilla, "
-                                     "overriding the source mod)");
+            tableReport.notWritten = true;
+            for (const QString &modId : tableReport.modIds)
+                if (!m_lastProtectedModIds.contains(modId)) m_lastProtectedModIds << modId;
+        }
+    }
+
+    // El reporte está organizado por mod para que el usuario pueda identificar
+    // exactamente qué origen debe seguir habilitado cuando una tabla no entra
+    // al pak. Las líneas de tabla usan el resultado global de esa tabla, que es
+    // el que determina qué terminó en el contenedor final.
+    for (const auto &m : m_mods) {
+        const int total = itemsByMod.value(m.id);
+        const int sel = selectedByMod.value(m.id);
+        QString note;
+        if (total == 0)
+            note = QStringLiteral("  <- NO readable changes (unreadable Zen pak, "
+                                  "or identical to vanilla)");
+        else if (sel == 0)
+            note = QStringLiteral("  <- nothing selected: this mod contributes NOTHING "
+                                  "to the merge");
+        report << QStringLiteral("  %1. %2  [%3]").arg(m.loadOrder + 1).arg(m.name, m.sourcePath)
+               << QStringLiteral("   %1 changes, %2 selected%3").arg(total).arg(sel).arg(note);
+        QStringList modTables;
+        for (auto it = tableReports.cbegin(); it != tableReports.cend(); ++it) {
+            const MergeTableReport &table = it.value();
+            if (!table.modIds.contains(m.id)) continue;
+            if (table.excluded) {
+                modTables << QStringLiteral("   %1: EXCLUDED — verification failed: %2")
+                                 .arg(table.name, table.failure);
+                if (!table.firstDifference.isEmpty())
+                    modTables << QStringLiteral("     first difference: %1")
+                                     .arg(table.firstDifference);
+            } else {
+                modTables << QStringLiteral("   %1: %2 applied, %3 skipped")
+                                 .arg(table.name).arg(table.applied).arg(table.skipped);
+                if (table.notWritten)
+                    modTables << QStringLiteral("     -> not written (would have been vanilla, "
+                                                "overriding the source mod)");
+                if (!table.failure.isEmpty())
+                    modTables << QStringLiteral("     -> %1").arg(table.failure);
+            }
+        }
+        if (!modTables.isEmpty())
+            report << QStringLiteral("   Tables:") << modTables;
+        const QString nexusUrl = nexusModUrl(m.name);
+        if (!nexusUrl.isEmpty())
+            report << QStringLiteral("   [%1](%1)").arg(nexusUrl);
+    }
+
+    // Un mod Zen puede traer animaciones/AnimBP/mallas además de tablas. Esos
+    // assets no se pueden reescribir, así que el pak mergeado lleva SOLO sus
+    // tablas y el zip incluye los contenedores originales sin modificar.
+    {
+        QStringList lines;
+        for (const auto &m : m_mods) {
+            if (m.zenAssetsNotMerged.isEmpty()) continue;
+            QStringList shown = m.zenAssetsNotMerged.mid(0, 8);
+            if (m.zenAssetsNotMerged.size() > shown.size())
+                shown << QStringLiteral("... (+%1)").arg(m.zenAssetsNotMerged.size() - shown.size());
+            lines << QStringLiteral("  %1: %2 non-table assets (%3)")
+                         .arg(m.name)
+                         .arg(m.zenAssetsNotMerged.size())
+                         .arg(shown.join(QStringLiteral(", ")));
+        }
+        if (!lines.isEmpty()) {
+            report << QString()
+                   << QStringLiteral("Assets NOT merged (Zen mods: animations, blueprints, meshes):")
+                   << lines
+                   << QStringLiteral("  Only DataTables can be rewritten, so the merged pak carries "
+                                     "the tables of these mods but not the rest.")
+                   << QStringLiteral("  Their original paks are copied UNCHANGED into the installable "
+                                     "zip, next to the merged one: install both.")
+                   << QStringLiteral("  The merged pak loads last (zzz_) and still wins on the tables.");
+        }
+    }
+    if (!m_groups.isEmpty()) {
+        report << QString() << QStringLiteral("Conflicts (%1):").arg(m_groups.size());
+        for (const auto &g : m_groups) {
+            QString winner, line;
+            for (int idx : g.itemIndexes)
+                if (m_items.at(idx).modId == g.resolvedModId) winner = m_items.at(idx).modName;
+            const auto &first = m_items.at(g.itemIndexes.first());
+            line = first.summaryCache.isEmpty() ? first.summary() : first.summaryCache;
+            report << QStringLiteral("  %1 -> %2").arg(line, winner);
+        }
+    }
+    // Tablas que tienen cambios pero ninguno seleccionado no llegan a byTable,
+    // así que se mantienen en un bloque explícito del reporte.
+    {
+        struct TableTally { int total = 0, selected = 0, dups = 0, lostConflict = 0; QString path; };
+        QMap<QString, TableTally> tally;
+        QHash<int, QString> resolvedBy;
+        for (const ConflictGroup &g : m_groups)
+            if (!g.resolvedModId.isEmpty()) resolvedBy.insert(g.id, g.resolvedModId);
+        for (const ChangeItem &c : m_items) {
+            if (c.type == ChangeItem::AssetReplaced) continue;
+            TableTally &t = tally[c.tablePath.toLower()];
+            t.path = c.tablePath;
+            ++t.total;
+            if (c.selected) { ++t.selected; continue; }
+            if (c.dup) ++t.dups;
+            else if (c.conflictGroup >= 0 && resolvedBy.contains(c.conflictGroup)
+                     && resolvedBy.value(c.conflictGroup) != c.modId)
+                ++t.lostConflict;
+        }
+        QStringList lines;
+        for (const TableTally &t : tally) {
+            if (t.selected > 0 || t.total == 0) continue;
+            const int unticked = t.total - t.dups - t.lostConflict;
+            lines << QStringLiteral("  %1: %2 changes, none selected "
+                                    "(%3 lost a conflict, %4 duplicate of another mod, %5 unticked)")
+                         .arg(QFileInfo(t.path).completeBaseName())
+                         .arg(t.total).arg(t.lostConflict).arg(t.dups).arg(unticked);
+        }
+        if (!lines.isEmpty()) {
+            report << QString()
+                   << QStringLiteral("Tables left out (changes exist but none selected):")
+                   << lines
+                   << QStringLiteral("  These tables are NOT in the merged pak. Keep the mod that "
+                                     "owns them enabled, or tick their changes.");
         }
     }
 
@@ -1058,7 +1123,8 @@ QString AppController::runMerge(const QString &outDir) {
                             "Instalacion manual: copiar el contenido de Paks\\ a\n"
                             "  steamapps\\common\\StellarBlade\\SB\\Content\\Paks\\~mods\n"
                             "O instalar este zip directamente con tu mod manager (Vortex, etc.).\n"
-                            "Desactiva los mods de origen para que no pisen el merge.\n")
+                            "Revisa merge_report.txt antes de desactivar los mods de origen.\n"
+                            "Mantén habilitado cualquier mod asociado a una tabla excluida o no escrita.\n")
                              .arg(QDateTime::currentDateTime().toString(Qt::ISODate),
                                   modNames.join(QLatin1Char('\n')))
                              .arg(selectedCount)
@@ -1188,7 +1254,7 @@ static bool sourceInMods(const QString &sourcePath) {
 int AppController::disableableSourceCount() const {
     int n = 0;
     for (const auto &m : m_mods)
-        if (sourceInMods(m.sourcePath)) ++n;
+        if (sourceInMods(m.sourcePath) && !m_lastProtectedModIds.contains(m.id)) ++n;
     return n;
 }
 
@@ -1198,6 +1264,10 @@ int AppController::disableSourceMods() {
     int moved = 0;
     for (const auto &m : m_mods) {
         if (!sourceInMods(m.sourcePath)) continue;
+        // Una tabla excluida o no escrita todavía depende del pak de origen.
+        // No ofrecer ni ejecutar la desactivación de ese mod evita que el
+        // usuario deje el merge aparentemente instalado pero sin esa tabla.
+        if (m_lastProtectedModIds.contains(m.id)) continue;
         const QFileInfo fi(m.sourcePath);
         // Mover el archivo/carpeta y sus compañeros de contenedor (.ucas/.utoc/.sig).
         QStringList toMove;

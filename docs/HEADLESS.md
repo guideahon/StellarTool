@@ -90,6 +90,10 @@ excluye del pak y el reporte lo detalla. Esto conserva la protección existente
 para mods Zen.
 Los cambios se convierten en `ChangeItem` y pasan por el mismo merge,
 verificación round-trip y reporte que un mod normal.
+`merge_report.txt` agrupa cada tabla debajo del mod que la aporta, muestra
+`applied`/`skipped` o el motivo `EXCLUDED`, y agrega un enlace de Nexus cuando
+el nombre del archivo conserva el ID de mod. No se deben desactivar los mods
+asociados a tablas excluidas o no escritas.
 
 `moveset-catalog` reconoce carpetas con tríos IoStore completos, deriva familia,
 tier y `aggro`, y compara cada variante con el juego. El JSON resultante se

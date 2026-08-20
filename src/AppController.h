@@ -301,6 +301,7 @@ private:
     std::atomic<bool> m_buildCancelled{false};
     QStringList m_lastDroppedTables;  // tablas no emitidas (0 cambios aplicados)
     QStringList m_lastFailedTables;   // tablas excluidas por fallar la verificación
+    QStringList m_lastProtectedModIds; // orígenes que deben seguir habilitados
     int m_lastSkipped = 0;
 };
 
