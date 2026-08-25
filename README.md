@@ -122,7 +122,8 @@ bosses** y **Harder enemies**, con sliders para vida, ataque, tamaño y XP, más
 checkboxes para quitar escudo e inmunidad al stagger. Se compila sobre los
 arquetipos nativos de `CharacterTable`/`SkillTable`; el XP sólo modifica campos
 XP/EXP presentes en `RewardGroupTable` y el `build_manifest.json` deja el
-conteo aplicado.
+conteo aplicado. Cada grupo permanece contraído hasta activarlo y cada ajuste
+numérico combina checkbox, botón **Vanilla** y slider con campo numérico.
 También incluye sliders para regeneración y reducción de escudo, stamina,
 regeneración de stamina, velocidad de ataque, velocidad de movimiento y drops.
 Los perfiles **Glass cannon**, **Attrition** y **Endurance** preseleccionan

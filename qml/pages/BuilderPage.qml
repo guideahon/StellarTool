@@ -1126,16 +1126,31 @@ Item {
                         RegionRow { id: dedaRow; label: "Eidos 9 / DEDA" }
                         RegionRow { id: seRow; label: "Spire 4" }
 
-                        ColumnLayout {
-                            Layout.fillWidth: true; spacing: 6
-                            visible: root.anyMiniBossRegion()
-                            FieldLabel { text: I18n.s.builder_miniboss_traits || "Mini-boss attributes"; font.bold: true }
-                            CheckBox { id: mbHealth; checked:true; text: I18n.s.builder_mb_health || "Increase health" }
-                            NumericEditor { id: mbHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "miniBossConfig.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 450; visible: mbHealth.checked; factor: 100 }
-                            CheckBox { id: mbAttack; checked:true; text: I18n.s.builder_mb_attack || "Increase attack" }
-                            NumericEditor { id: mbAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "miniBossConfig.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 160; visible: mbAttack.checked; factor: 100 }
-                            CheckBox { id: mbScale; checked:true; text: I18n.s.builder_mb_scale || "Increase size" }
-                            NumericEditor { id: mbScaleValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "miniBossConfig.scaleMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 160; visible: mbScale.checked; factor: 100 }
+                            ColumnLayout {
+                                Layout.fillWidth: true; spacing: 6
+                                visible: root.anyMiniBossRegion()
+                                FieldLabel { text: I18n.s.builder_miniboss_traits || "Mini-boss attributes"; font.bold: true }
+                            QuantifiedExtra {
+                                id: mbHealth
+                                checked: true
+                                text: I18n.s.builder_mb_health || "Increase health"
+                                onVanillaRequested: { checked = false; mbHealthValue.scaledValue = 100 }
+                                NumericEditor { id: mbHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "miniBossConfig.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 450; factor: 100 }
+                            }
+                            QuantifiedExtra {
+                                id: mbAttack
+                                checked: true
+                                text: I18n.s.builder_mb_attack || "Increase attack"
+                                onVanillaRequested: { checked = false; mbAttackValue.scaledValue = 100 }
+                                NumericEditor { id: mbAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "miniBossConfig.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 160; factor: 100 }
+                            }
+                            QuantifiedExtra {
+                                id: mbScale
+                                checked: true
+                                text: I18n.s.builder_mb_scale || "Increase size"
+                                onVanillaRequested: { checked = false; mbScaleValue.scaledValue = 100 }
+                                NumericEditor { id: mbScaleValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "miniBossConfig.scaleMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 160; factor: 100 }
+                            }
                             CheckBox { id: mbShield; checked:true; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
                             CheckBox { id: mbRewards; checked:true; text: I18n.s.builder_mb_rewards || "Add NG+ rewards and drops" }
                             CheckBox { id: mbXp; checked:true; text: I18n.s.builder_mb_xp || "Increase XP" }
@@ -1216,63 +1231,159 @@ Item {
                                     Button { text: I18n.s.builder_profile_glass || "Glass cannon"; onClicked: root.setDifficultyProfile("glassCannon") }
                                     Button { text: I18n.s.builder_profile_attrition || "Attrition"; onClicked: root.setDifficultyProfile("attrition") }
                                     Button { text: I18n.s.builder_profile_endurance || "Endurance"; onClicked: root.setDifficultyProfile("endurance") }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true; spacing: 3
-                                    CheckBox { id: hardBosses; text: I18n.s.builder_harder_bosses || "Harder bosses" }
-                                    CheckBox { id: bossHealth; enabled: hardBosses.checked; text: I18n.s.builder_mb_health || "Increase health" }
-                                    NumericEditor { id: bossHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "harderBosses.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 200; visible: hardBosses.checked && bossHealth.checked; factor: 100 }
-                                    CheckBox { id: bossAttack; enabled: hardBosses.checked; text: I18n.s.builder_mb_attack || "Increase attack" }
-                                    NumericEditor { id: bossAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "harderBosses.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardBosses.checked && bossAttack.checked; factor: 100 }
-                                    CheckBox { id: bossSize; enabled: hardBosses.checked; text: I18n.s.builder_mb_scale || "Increase size" }
-                                    NumericEditor { id: bossSizeValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "harderBosses.sizeMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 120; visible: hardBosses.checked && bossSize.checked; factor: 100 }
-                                    CheckBox { id: bossShield; enabled: hardBosses.checked; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
-                                    CheckBox { id: bossXp; enabled: hardBosses.checked; text: I18n.s.builder_mb_xp || "Increase XP" }
-                                    NumericEditor { id: bossXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderBosses.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; visible: hardBosses.checked && bossXp.checked; factor: 100 }
-                                    CheckBox { id: bossStagger; enabled: hardBosses.checked; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
-                                    CheckBox { id: bossShieldRegen; enabled: hardBosses.checked; text: I18n.s.builder_shield_regen || "Increase shield regeneration" }
-                                    NumericEditor { id: bossShieldRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.shieldRegenMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardBosses.checked && bossShieldRegen.checked; factor: 100 }
-                                    CheckBox { id: bossShieldReduction; enabled: hardBosses.checked; text: I18n.s.builder_shield_reduction || "Increase shield damage reduction" }
-                                    NumericEditor { id: bossShieldReductionValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.shieldDamageReductionMultiplier"; minimum: 100; maximum: 200; step: 10; scaledValue: 125; visible: hardBosses.checked && bossShieldReduction.checked; factor: 100 }
-                                    CheckBox { id: bossStamina; enabled: hardBosses.checked; text: I18n.s.builder_stamina || "Increase stamina" }
-                                    NumericEditor { id: bossStaminaValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.staminaMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardBosses.checked && bossStamina.checked; factor: 100 }
-                                    CheckBox { id: bossStaminaRegen; enabled: hardBosses.checked; text: I18n.s.builder_stamina_regen || "Increase stamina regeneration" }
-                                    NumericEditor { id: bossStaminaRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.staminaRegenMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 125; visible: hardBosses.checked && bossStaminaRegen.checked; factor: 100 }
-                                    CheckBox { id: bossAttackSpeed; enabled: hardBosses.checked; text: I18n.s.builder_attack_speed || "Increase attack speed" }
-                                    NumericEditor { id: bossAttackSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.attackSpeedMultiplier"; minimum: 100; maximum: 250; step: 5; scaledValue: 115; visible: hardBosses.checked && bossAttackSpeed.checked; factor: 100 }
-                                    CheckBox { id: bossMoveSpeed; enabled: hardBosses.checked; text: I18n.s.builder_move_speed || "Increase movement speed" }
-                                    NumericEditor { id: bossMoveSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.moveSpeedMultiplier"; minimum: 100; maximum: 300; step: 5; scaledValue: 125; visible: hardBosses.checked && bossMoveSpeed.checked; factor: 100 }
-                                    CheckBox { id: bossDrops; enabled: hardBosses.checked; text: I18n.s.builder_enemy_drops || "Increase drops" }
-                                    NumericEditor { id: bossDropValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.dropMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 150; visible: hardBosses.checked && bossDrops.checked; factor: 100 }
-                                }
-                                ColumnLayout {
-                                    Layout.fillWidth: true; spacing: 3
-                                    CheckBox { id: hardEnemies; text: I18n.s.builder_harder_enemies || "Harder enemies" }
-                                    CheckBox { id: enemyHealth; enabled: hardEnemies.checked; text: I18n.s.builder_mb_health || "Increase health" }
-                                    NumericEditor { id: enemyHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "harderEnemies.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 200; visible: hardEnemies.checked && enemyHealth.checked; factor: 100 }
-                                    CheckBox { id: enemyAttack; enabled: hardEnemies.checked; text: I18n.s.builder_mb_attack || "Increase attack" }
-                                    NumericEditor { id: enemyAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "harderEnemies.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyAttack.checked; factor: 100 }
-                                    CheckBox { id: enemySize; enabled: hardEnemies.checked; text: I18n.s.builder_mb_scale || "Increase size" }
-                                    NumericEditor { id: enemySizeValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "harderEnemies.sizeMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 120; visible: hardEnemies.checked && enemySize.checked; factor: 100 }
-                                    CheckBox { id: enemyShield; enabled: hardEnemies.checked; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
-                                    CheckBox { id: enemyXp; enabled: hardEnemies.checked; text: I18n.s.builder_mb_xp || "Increase XP" }
-                                    NumericEditor { id: enemyXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderEnemies.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; visible: hardEnemies.checked && enemyXp.checked; factor: 100 }
-                                    CheckBox { id: enemyStagger; enabled: hardEnemies.checked; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
-                                    CheckBox { id: enemyShieldRegen; enabled: hardEnemies.checked; text: I18n.s.builder_shield_regen || "Increase shield regeneration" }
-                                    NumericEditor { id: enemyShieldRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.shieldRegenMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyShieldRegen.checked; factor: 100 }
-                                    CheckBox { id: enemyShieldReduction; enabled: hardEnemies.checked; text: I18n.s.builder_shield_reduction || "Increase shield damage reduction" }
-                                    NumericEditor { id: enemyShieldReductionValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.shieldDamageReductionMultiplier"; minimum: 100; maximum: 200; step: 10; scaledValue: 125; visible: hardEnemies.checked && enemyShieldReduction.checked; factor: 100 }
-                                    CheckBox { id: enemyStamina; enabled: hardEnemies.checked; text: I18n.s.builder_stamina || "Increase stamina" }
-                                    NumericEditor { id: enemyStaminaValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.staminaMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyStamina.checked; factor: 100 }
-                                    CheckBox { id: enemyStaminaRegen; enabled: hardEnemies.checked; text: I18n.s.builder_stamina_regen || "Increase stamina regeneration" }
-                                    NumericEditor { id: enemyStaminaRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.staminaRegenMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 125; visible: hardEnemies.checked && enemyStaminaRegen.checked; factor: 100 }
-                                    CheckBox { id: enemyAttackSpeed; enabled: hardEnemies.checked; text: I18n.s.builder_attack_speed || "Increase attack speed" }
-                                    NumericEditor { id: enemyAttackSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.attackSpeedMultiplier"; minimum: 100; maximum: 250; step: 5; scaledValue: 115; visible: hardEnemies.checked && enemyAttackSpeed.checked; factor: 100 }
-                                    CheckBox { id: enemyMoveSpeed; enabled: hardEnemies.checked; text: I18n.s.builder_move_speed || "Increase movement speed" }
-                                    NumericEditor { id: enemyMoveSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.moveSpeedMultiplier"; minimum: 100; maximum: 300; step: 5; scaledValue: 125; visible: hardEnemies.checked && enemyMoveSpeed.checked; factor: 100 }
-                                    CheckBox { id: enemyDrops; enabled: hardEnemies.checked; text: I18n.s.builder_enemy_drops || "Increase drops" }
-                                    NumericEditor { id: enemyDropValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.dropMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 150; visible: hardEnemies.checked && enemyDrops.checked; factor: 100 }
-                                }
+                                 }
+                                 ColumnLayout {
+                                     Layout.fillWidth: true; spacing: 3
+                                     CheckBox { id: hardBosses; text: I18n.s.builder_harder_bosses || "Harder bosses" }
+                                     ColumnLayout {
+                                         Layout.fillWidth: true; spacing: 3
+                                         visible: hardBosses.checked
+                                     QuantifiedExtra {
+                                         id: bossHealth
+                                         text: I18n.s.builder_mb_health || "Increase health"
+                                         onVanillaRequested: { checked = false; bossHealthValue.scaledValue = 100 }
+                                         NumericEditor { id: bossHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "harderBosses.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 200; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossAttack
+                                         text: I18n.s.builder_mb_attack || "Increase attack"
+                                         onVanillaRequested: { checked = false; bossAttackValue.scaledValue = 100 }
+                                         NumericEditor { id: bossAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "harderBosses.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossSize
+                                         text: I18n.s.builder_mb_scale || "Increase size"
+                                         onVanillaRequested: { checked = false; bossSizeValue.scaledValue = 100 }
+                                         NumericEditor { id: bossSizeValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "harderBosses.sizeMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 120; factor: 100 }
+                                     }
+                                     CheckBox { id: bossShield; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
+                                     QuantifiedExtra {
+                                         id: bossXp
+                                         text: I18n.s.builder_mb_xp || "Increase XP"
+                                         onVanillaRequested: { checked = false; bossXpValue.scaledValue = 100 }
+                                         NumericEditor { id: bossXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderBosses.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; factor: 100 }
+                                     }
+                                     CheckBox { id: bossStagger; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
+                                     QuantifiedExtra {
+                                         id: bossShieldRegen
+                                         text: I18n.s.builder_shield_regen || "Increase shield regeneration"
+                                         onVanillaRequested: { checked = false; bossShieldRegenValue.scaledValue = 100 }
+                                         NumericEditor { id: bossShieldRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.shieldRegenMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossShieldReduction
+                                         text: I18n.s.builder_shield_reduction || "Increase shield damage reduction"
+                                         onVanillaRequested: { checked = false; bossShieldReductionValue.scaledValue = 100 }
+                                         NumericEditor { id: bossShieldReductionValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.shieldDamageReductionMultiplier"; minimum: 100; maximum: 200; step: 10; scaledValue: 125; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossStamina
+                                         text: I18n.s.builder_stamina || "Increase stamina"
+                                         onVanillaRequested: { checked = false; bossStaminaValue.scaledValue = 100 }
+                                         NumericEditor { id: bossStaminaValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.staminaMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossStaminaRegen
+                                         text: I18n.s.builder_stamina_regen || "Increase stamina regeneration"
+                                         onVanillaRequested: { checked = false; bossStaminaRegenValue.scaledValue = 100 }
+                                         NumericEditor { id: bossStaminaRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.staminaRegenMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 125; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossAttackSpeed
+                                         text: I18n.s.builder_attack_speed || "Increase attack speed"
+                                         onVanillaRequested: { checked = false; bossAttackSpeedValue.scaledValue = 100 }
+                                         NumericEditor { id: bossAttackSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.attackSpeedMultiplier"; minimum: 100; maximum: 250; step: 5; scaledValue: 115; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossMoveSpeed
+                                         text: I18n.s.builder_move_speed || "Increase movement speed"
+                                         onVanillaRequested: { checked = false; bossMoveSpeedValue.scaledValue = 100 }
+                                         NumericEditor { id: bossMoveSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.moveSpeedMultiplier"; minimum: 100; maximum: 300; step: 5; scaledValue: 125; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: bossDrops
+                                         text: I18n.s.builder_enemy_drops || "Increase drops"
+                                         onVanillaRequested: { checked = false; bossDropValue.scaledValue = 100 }
+                                         NumericEditor { id: bossDropValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderBosses.dropMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     }
+                                 }
+                                 ColumnLayout {
+                                     Layout.fillWidth: true; spacing: 3
+                                     CheckBox { id: hardEnemies; text: I18n.s.builder_harder_enemies || "Harder enemies" }
+                                     ColumnLayout {
+                                         Layout.fillWidth: true; spacing: 3
+                                         visible: hardEnemies.checked
+                                     QuantifiedExtra {
+                                         id: enemyHealth
+                                         text: I18n.s.builder_mb_health || "Increase health"
+                                         onVanillaRequested: { checked = false; enemyHealthValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyHealthValue; label: I18n.s.builder_enemy_health_multiplier || "Health multiplier"; technicalName: "harderEnemies.healthMultiplier"; minimum: 100; maximum: 600; step: 10; scaledValue: 200; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyAttack
+                                         text: I18n.s.builder_mb_attack || "Increase attack"
+                                         onVanillaRequested: { checked = false; enemyAttackValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyAttackValue; label: I18n.s.builder_enemy_attack_multiplier || "Attack multiplier"; technicalName: "harderEnemies.attackMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemySize
+                                         text: I18n.s.builder_mb_scale || "Increase size"
+                                         onVanillaRequested: { checked = false; enemySizeValue.scaledValue = 100 }
+                                         NumericEditor { id: enemySizeValue; label: I18n.s.builder_enemy_size_multiplier || "Size multiplier"; technicalName: "harderEnemies.sizeMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 120; factor: 100 }
+                                     }
+                                     CheckBox { id: enemyShield; text: I18n.s.builder_mb_remove_shield || "Remove shield" }
+                                     QuantifiedExtra {
+                                         id: enemyXp
+                                         text: I18n.s.builder_mb_xp || "Increase XP"
+                                         onVanillaRequested: { checked = false; enemyXpValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyXpValue; label: I18n.s.builder_enemy_xp_multiplier || "XP multiplier"; technicalName: "harderEnemies.xpMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 200; factor: 100 }
+                                     }
+                                     CheckBox { id: enemyStagger; text: I18n.s.builder_mb_stagger || "Stagger immunity (no stun-lock)" }
+                                     QuantifiedExtra {
+                                         id: enemyShieldRegen
+                                         text: I18n.s.builder_shield_regen || "Increase shield regeneration"
+                                         onVanillaRequested: { checked = false; enemyShieldRegenValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyShieldRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.shieldRegenMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyShieldReduction
+                                         text: I18n.s.builder_shield_reduction || "Increase shield damage reduction"
+                                         onVanillaRequested: { checked = false; enemyShieldReductionValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyShieldReductionValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.shieldDamageReductionMultiplier"; minimum: 100; maximum: 200; step: 10; scaledValue: 125; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyStamina
+                                         text: I18n.s.builder_stamina || "Increase stamina"
+                                         onVanillaRequested: { checked = false; enemyStaminaValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyStaminaValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.staminaMultiplier"; minimum: 100; maximum: 400; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyStaminaRegen
+                                         text: I18n.s.builder_stamina_regen || "Increase stamina regeneration"
+                                         onVanillaRequested: { checked = false; enemyStaminaRegenValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyStaminaRegenValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.staminaRegenMultiplier"; minimum: 100; maximum: 300; step: 10; scaledValue: 125; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyAttackSpeed
+                                         text: I18n.s.builder_attack_speed || "Increase attack speed"
+                                         onVanillaRequested: { checked = false; enemyAttackSpeedValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyAttackSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.attackSpeedMultiplier"; minimum: 100; maximum: 250; step: 5; scaledValue: 115; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyMoveSpeed
+                                         text: I18n.s.builder_move_speed || "Increase movement speed"
+                                         onVanillaRequested: { checked = false; enemyMoveSpeedValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyMoveSpeedValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.moveSpeedMultiplier"; minimum: 100; maximum: 300; step: 5; scaledValue: 125; factor: 100 }
+                                     }
+                                     QuantifiedExtra {
+                                         id: enemyDrops
+                                         text: I18n.s.builder_enemy_drops || "Increase drops"
+                                         onVanillaRequested: { checked = false; enemyDropValue.scaledValue = 100 }
+                                         NumericEditor { id: enemyDropValue; label: I18n.s.builder_multiplier || "Multiplier"; technicalName: "harderEnemies.dropMultiplier"; minimum: 100; maximum: 500; step: 10; scaledValue: 150; factor: 100 }
+                                     }
+                                     }
+                                 }
 
                                 // Extras de gameplay (BETA)
                             RowLayout {

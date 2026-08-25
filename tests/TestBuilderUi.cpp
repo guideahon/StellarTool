@@ -18,6 +18,7 @@ class TestBuilderUi : public QObject {
 
 private slots:
     void itemLabelsAreLocalized();
+    void difficultyOptionsUseCheckAndSlider();
     void gameRootAcceptsSubfoldersAndParent();
     void cnsConverterUsesThemedCombos();
     void presetFilesRoundTrip();
@@ -183,6 +184,37 @@ void TestBuilderUi::itemLabelsAreLocalized() {
     QVERIFY(!source.contains("label: \"StackConsumable"));
     QVERIFY(source.contains("technicalName: \"StackBullet1\""));
     QVERIFY(source.contains("technicalName: \"StackConsumable7\""));
+}
+
+// Las opciones de dificultad cuantitativas no deben volver a renderizarse como
+// un CheckBox separado de su editor: esa forma era la que dejaba dos listas
+// visualmente iguales y obligaba a buscar el valor en la fila siguiente.
+void TestBuilderUi::difficultyOptionsUseCheckAndSlider() {
+    const QString sourceDir = QString::fromUtf8(ST_SOURCE_DIR);
+    QFile qml(sourceDir + QStringLiteral("/qml/pages/BuilderPage.qml"));
+    QVERIFY(qml.open(QIODevice::ReadOnly));
+    const QByteArray source = qml.readAll();
+
+    const QList<QByteArray> quantitativeOptions = {
+        "bossHealth", "bossAttack", "bossSize", "bossXp",
+        "bossShieldRegen", "bossShieldReduction", "bossStamina",
+        "bossStaminaRegen", "bossAttackSpeed", "bossMoveSpeed", "bossDrops",
+        "enemyHealth", "enemyAttack", "enemySize", "enemyXp",
+        "enemyShieldRegen", "enemyShieldReduction", "enemyStamina",
+        "enemyStaminaRegen", "enemyAttackSpeed", "enemyMoveSpeed", "enemyDrops",
+        "mbHealth", "mbAttack", "mbScale"
+    };
+    for (const QByteArray &id : quantitativeOptions) {
+        const QByteArray checkBoxId = QByteArray("CheckBox { id: ") + id;
+        QVERIFY2(!source.contains(checkBoxId), qPrintable(
+            QStringLiteral("still uses a standalone CheckBox: ") + QString::fromLatin1(id)));
+        QVERIFY2(source.contains(QByteArray("id: ") + id), qPrintable(
+            QStringLiteral("missing quantified option: ") + QString::fromLatin1(id)));
+    }
+    QVERIFY(source.contains("visible: hardBosses.checked"));
+    QVERIFY(source.contains("visible: hardEnemies.checked"));
+    QVERIFY(source.contains("onVanillaRequested: { checked = false; bossHealthValue.scaledValue = 100 }"));
+    QVERIFY(source.contains("onVanillaRequested: { checked = false; enemyHealthValue.scaledValue = 100 }"));
 }
 
 // El picker de carpeta del juego tiene que perdonar lo que el usuario elige:

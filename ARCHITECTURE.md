@@ -150,6 +150,11 @@ selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
 solamente los subconjuntos elegidos desde las bases autoritativas del mod. El
 idioma de la guía de instalación se toma de `I18n.language`; no se configura
 por separado dentro del Builder.
+Las configuraciones independientes de bosses y enemigos normales se muestran
+en grupos separados, contraídos mientras están desactivados. Los ajustes
+numéricos reutilizan el patrón QML `QuantifiedExtra` (check, Vanilla, slider y
+valor editable), mientras que los cambios puramente booleanos conservan un
+CheckBox simple.
 
 Los presets nombrados guardan el mismo objeto de respuestas completo en
 `QSettings` (`builder/presets`), mientras el historial de builds sigue viviendo
