@@ -409,7 +409,159 @@ MGPU Bridge sería otra arquitectura: ReShade captura el frame y crea un
 dispositivo en una segunda GPU para ejecutar allí el pase NR. No forma parte
 automáticamente de `dlssg_for_sm86` ni de `dlssg_sm86`.
 
-## 6. Diferencia con los archivos descargados
+## 6. Proyecto `rakanki911/DLSS5-Swapper`
+
+### Qué es y qué no es
+
+[`DLSS5-Swapper`](https://github.com/rakanki911/DLSS5-Swapper) es un
+**instalador y administrador de rutas** para DLSS 5/Neural Rendering. No es por
+sí mismo el modelo `nvngx_dlssnr.dll`, no reemplaza a OptiScaler, no es
+`dlssg_for_sm86` y no convierte MFG en DLSS-NR. El programa detecta el juego,
+elige una ruta compatible y coloca los componentes que vienen de sus proyectos
+originales.
+
+Sus rutas principales son:
+
+- Juegos con DLSS nativo: ReShade/RenoDX o OptiScaler, según compatibilidad.
+- Juegos sin DLSS compatible: `DLSS5-Feeder`, que construye una entrada
+  aproximada para el add-on neural.
+- Emuladores y juegos antiguos: ReShade/Feeder, con puentes como dgVoodoo2
+  cuando corresponde.
+- Instalación manual de add-ons: la página **Custom add-ons** queda disponible
+  aparte de las rutas integradas.
+
+Por eso Swapper es una capa de gestión por encima de DLSS-NR. El resultado
+final sigue dependiendo del add-on neural, del runtime y de la ruta elegida.
+
+### Biblioteca, instalación y reversión
+
+El programa puede encontrar juegos de Steam, Epic, GOG, carpetas modernas de
+Xbox Game Pass, emuladores y carpetas agregadas manualmente. La biblioteca
+permite filtrar por API, estado/versión de DLSS y add-ons, abrir o copiar la
+carpeta del juego, cambiar la portada, restaurar originales y ocultar entradas.
+
+Cada instalación conserva backups, historial, manifest y logs. También puede
+generar un diagnóstico con el log de instalación, los logs de ReShade y
+Feeder, el manifest y los datos del driver para revisarlo antes de guardarlo o
+adjuntarlo a un reporte.
+
+Esto es especialmente relevante para Stellar Blade porque está dentro de
+`C:\Program Files (x86)\Steam\...`: Windows puede devolver `EPERM` al escribir
+allí. Swapper indica que hay que ejecutarlo como administrador o mover el juego
+a una ubicación con permisos de escritura.
+
+La reversión no debe confundirse con borrar archivos a mano:
+
+1. Abrir el juego con sus procesos cerrados.
+2. Usar **Restore originals**.
+3. Revisar el historial/manifest para confirmar qué instaló la aplicación.
+4. Recién entonces desinstalar la ruta o retirar restos que el manifest no
+   registre.
+
+El propio README advierte que el desinstalador no toca las carpetas del juego y
+que hay que restaurar los originales primero. Esto explica por qué cancelar un
+instalador gráfico puede dejar `dxgi.dll`, `ReShade.ini` o logs en el directorio
+del juego si no se ejecuta la restauración.
+
+### Overlay F8 y controles en vivo
+
+Swapper incluye un overlay propio que se abre con `F8` y permite mover los
+sliders reales de Neural Rendering mientras se juega. Sin embargo, la función
+no está disponible para todas las rutas:
+
+- Compatible con `DLSS5-Feeder` y RenoDX v4.7.
+- Requiere juego DirectX 11/12 de 64 bits con soporte de add-ons de ReShade.
+- No debe asumirse que el overlay controla una instalación OptiScaler; el
+  README limita explícitamente esta función a Feeder y RenoDX v4.7.
+- El tamaño del overlay se recuerda por juego.
+
+El override de API gráfica es opcional y por juego; el modo automático es el
+predeterminado y la detección no debería sobrescribirse solo porque se abrió la
+aplicación.
+
+### Multipass
+
+La versión actual también ofrece una ruta de **multipass neural rendering** que
+puede ejecutar el pase neural hasta diez veces por frame. Es una función
+distinta de MFG:
+
+- Multipass repite el procesamiento neural sobre el frame.
+- MFG genera cuadros intermedios.
+- El costo de multipass puede crecer mucho y no debe activarse durante el
+  diagnóstico inicial de Stellar Blade.
+- La ruta está pensada para DX12, DX11 y DX9 de 64 bits, incluso en juegos sin
+  DLSS propio, mientras que el Feeder se encarga de crear la entrada necesaria.
+
+### Compatibilidad declarada
+
+Según el README del proyecto:
+
+| Ruta | Compatibilidad indicada |
+|---|---|
+| ReShade / Feeder | RTX 20/30/40/50; el runtime modificado puede ampliar la compatibilidad según su autor |
+| OptiScaler | Juegos de 64 bits con DLSS nativo; el modelo incluido está orientado a RTX 50 y una GPU antigua requiere aportar un `nvngx_dlssnr.dll` modificado |
+| DirectX 12 | DLSS nativo, Feeder u OptiScaler elegible |
+| DirectX 11 | Feeder para 32/64 bits y algunos juegos OptiScaler |
+| DirectX 9 | Feeder para 32/64 bits |
+| DirectX 8 | 32 bits mediante dgVoodoo2 → DX11 → Feeder |
+| Vulkan/OpenGL | ReShade/Feeder; algunos juegos Vulkan también pueden usar OptiScaler |
+| DirectX 10 | No hay Feeder directo; usar DX11 si el juego lo permite |
+
+Para la ruta OptiScaler, Swapper indica que el modelo neural incluido funciona
+en Blackwell/RTX 50 y que para una tarjeta anterior el usuario debe aportar la
+DLL modificada; la aplicación no la sobrescribe. El README recomienda el driver
+616.56 para esa ruta, pero eso no equivale a una garantía de estabilidad en una
+RTX 3090.
+
+### Funciones de comunidad de la versión 2.2.7
+
+La versión 2.2.7 añade información comunitaria orientada a escoger una ruta
+antes de instalar:
+
+- Filtrar reportes por la GPU del usuario.
+- Abrir un juego mostrando primero los reportes de esa misma GPU.
+- Ver solo juegos instalados en **My games**.
+- Mostrar la experiencia comunitaria directamente encima del botón de
+  instalación.
+- Ver los propios reportes, ordenar por fecha/cantidad de reportes/nombre y
+  recibir avisos de respuestas, menciones y reacciones.
+
+Esto puede ayudar a buscar reportes de Stellar Blade con RTX 3090, pero un
+reporte comunitario no sustituye el log local ni confirma que una ruta sea
+segura para todas las versiones del juego, driver y add-on.
+
+### Seguridad y límites
+
+- El programa advierte sobre anti-cheat; la inyección puede causar crashes o
+  sanciones. No debe usarse en juegos online protegidos.
+- Feeder necesita runtimes de Visual C++; en juegos de 32 bits también el
+  runtime x86.
+- Los componentes pueden descargarse en el primer uso.
+- Linux/Proton figura como fuente comunitaria experimental; la release de
+  Windows no incluye binarios Linux.
+- El README recomienda mantener backups porque mods existentes pueden entrar en
+  conflicto y la compatibilidad no está garantizada.
+
+### Dónde encaja respecto de las otras tecnologías
+
+```text
+DLSS5-Swapper
+    ├─ instala/gestiona → ReShade + RenoDX/DLSS-NR
+    ├─ instala/gestiona → DLSS5-Feeder + DLSS-NR
+    ├─ instala/gestiona → OptiScaler + DLSS-NR
+    ├─ ofrece multipass neural
+    └─ no es, por sí mismo:
+          ├─ dlssg_for_sm86 (MFG para RTX 20/30)
+          ├─ MGPU Bridge (NR en una segunda GPU)
+          └─ nvngx_dlssnr.dll (modelo/runtime neural)
+```
+
+Para Stellar Blade, que usa DX12 y DLSS nativo, la ruta natural a evaluar es
+OptiScaler o ReShade/RenoDX; el Feeder no debería ser necesario para crear una
+entrada sintética. El overlay F8 no es prueba de que OptiScaler esté activo,
+porque sus controles documentados están limitados a Feeder y RenoDX.
+
+## 7. Diferencia con los archivos descargados
 
 En `D:\Descargas\MFG Bridge` quedaron tres archivos comprimidos titulados
 “Nvidia Mfg Bridge” y un archivo `renodx-mfgunlock.addon64`. Por sus nombres,
@@ -431,7 +583,7 @@ Antes de instalar cualquier archivo con “Bridge” en el nombre hay que mirar
 qué función anuncia el README del proyecto y qué add-on contiene. “MFG Bridge”
 y “MGPU Bridge” no son sinónimos.
 
-## 7. Estado de Stellar Blade en este equipo
+## 8. Estado de Stellar Blade en este equipo
 
 Después de las pruebas, el juego quedó sin los artefactos de NR/ReShade que se
 habían instalado en `SB\Binaries\Win64`:
@@ -449,7 +601,7 @@ La instalación de MGPU Bridge, si se decide probar, debe hacerse como una ruta
 separada y reversible. No conviene combinarla con OptiScaler-DLSSNR ni con el
 MFG unlocker en el primer intento.
 
-## 8. Orden recomendado para una prueba futura
+## 9. Orden recomendado para una prueba futura
 
 1. Confirmar que hay dos monitores extendidos y que cada GPU puede manejar uno.
 2. Elegir una sola ruta neural: MGPU Bridge + ReShade, sin OptiScaler.
