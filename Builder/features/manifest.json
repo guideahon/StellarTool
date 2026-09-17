@@ -19,7 +19,7 @@
           "transforms": [
             "combat.skill.full",
             "combat.skillResult.turretNoStagger",
-            "combat.perfectDodgeNoLock"
+            "combat.perfectDodge"
           ]
         },
         {
@@ -28,7 +28,7 @@
           "transforms": [
             "combat.skill.firstRunMidpoint",
             "combat.skillResult.turretHalfStun",
-            "combat.perfectDodgeNoLock"
+            "combat.perfectDodge"
           ],
           "note": "Half-strength: numeric midpoint vanilla<->full (build_first_run_variant.py)."
         }

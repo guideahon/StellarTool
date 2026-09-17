@@ -1216,6 +1216,30 @@ def test_granular_combat_targets_are_independent():
     assert "combat.antiSpamSkill" not in transforms
 
 
+def test_perfect_dodge_restores_no_lock_on_aliases():
+    """Selecting the option must preserve the three vanilla perfect dodges."""
+    import table_compiler as tc
+
+    vanilla = tc.load_table("SkillTable", "vanilla")
+    full = tc.load_table("SkillTable", "full")
+    vanilla_rows = {r["Name"]: r for r in tc.rows(vanilla)}
+    full_rows = {r["Name"]: r for r in tc.rows(full)}
+
+    # The regression fixture is the real failure mode: the full combat table
+    # has the no-lock-on aliases cleared while vanilla still contains them.
+    for name in tc._PERFECT_DODGE_ROWS:
+        assert tc.get(full_rows[name], "JustSkillActiveAlias") is None
+        assert tc.get(vanilla_rows[name], "JustSkillActiveAlias")
+
+    result, report = tc.apply_transforms(
+        "SkillTable", ["combat.perfectDodge"], base="full")
+    result_rows = {r["Name"]: r for r in tc.rows(result)}
+    for name in tc._PERFECT_DODGE_ROWS:
+        assert tc.get(result_rows[name], "JustSkillActiveAlias") == tc.get(
+            vanilla_rows[name], "JustSkillActiveAlias")
+    assert report["combat.perfectDodge"] == 3
+
+
 def test_granular_combat_overlaps_use_one_economy_option():
     import build_specs
     a = bc.normalize({

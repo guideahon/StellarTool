@@ -306,12 +306,39 @@ _skill_feature("combat.eveDamage", "eveDamage",
 _skill_feature("combat.enemyDamage", "enemyDamage",
                lambda r: not str(r.get("Name", "")).startswith("P_Eve_")
                and not _is_boss_skill(r))
-_skill_feature("combat.perfectDodge", "perfectDodge",
-               lambda r: r.get("Name") in {
-                   "P_Eve_Sword_Normal_Evade2_1", "P_Eve_Tachy_Normal_Evade1_1",
-                   "P_Eve_Fusion_Normal_Evade1_1",
-               },
-               lambda _r, p: p["Name"] == "JustSkillActiveAlias")
+_PERFECT_DODGE_ROWS = {
+    "P_Eve_Sword_Normal_Evade2_1",
+    "P_Eve_Tachy_Normal_Evade1_1",
+    "P_Eve_Fusion_Normal_Evade1_1",
+}
+
+
+@transform("combat.perfectDodge", table="SkillTable", base="vanilla", needs_vanilla=True)
+def _perfect_dodge(doc, vanilla):
+    """Restore the just-dodge aliases for the three no-lock-on evades.
+
+    The shipped Stellar Souls combat table intentionally clears these aliases.
+    The old generic feature transform copied that cleared value back into the
+    vanilla document, so selecting the option removed perfect dodge instead of
+    enabling it.  Keep this transform explicit and source it from vanilla so it
+    also works when a caller composes it over the full combat table.
+    """
+    source = vanilla or doc
+    source_rows = {r["Name"]: r for r in rows(source)}
+    applied = 0
+    for row in rows(doc):
+        if row.get("Name") not in _PERFECT_DODGE_ROWS:
+            continue
+        source_row = source_rows.get(row["Name"])
+        source_prop = prop(source_row, "JustSkillActiveAlias") if source_row else None
+        target_prop = prop(row, "JustSkillActiveAlias")
+        if source_prop is None or target_prop is None:
+            continue
+        value = source_prop.get("Value")
+        if target_prop.get("Value") != value:
+            setv(row, "JustSkillActiveAlias", value)
+            applied += 1
+    doc.setdefault("_report", {})["combat.perfectDodge"] = applied
 
 
 @transform("combat.antiSpamSkill", table="SkillTable", base="vanilla")

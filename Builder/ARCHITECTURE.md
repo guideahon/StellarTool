@@ -75,6 +75,9 @@ Viven en `Builder/base_tables/` (JSON UAssetAPI extraídos con retoc). Necesaria
   en el mismo pak combinado que el mini-boss, aunque no haya mini-bosses.
 - **Sub-tweaks combat**: gauge Beta, burst, tachy, blaster cell, turret stagger,
   perfect dodge sin lock-on, tumbler heal, execution immunity. (defaults sanos.)
+  El transform `combat.perfectDodge` restaura desde vanilla los tres
+  `JustSkillActiveAlias` de las evasiones sin lock-on; la tabla de combate Full
+  los deja vacíos, por lo que no puede usarse como fuente para esta opción.
 - **Bosses vanilla inmunes al stagger** (extra `bossStaggerImmunity`): sube
   `HitDefenseLevel` a 5 en los `ActorType_BossMonster` de la tabla (77 filas), lo
   que apaga las reacciones `HitLevelResult*`. Los clones `_MB`/`_OW` quedan afuera:
