@@ -202,7 +202,214 @@ Puede coexistir con NR en algunos juegos, pero añade otra capa de hooks,
 buffers y sincronización. Durante el diagnóstico de NR conviene dejarlo
 desactivado y probarlo después, una variable por vez.
 
-## 4. Diferencia con los archivos descargados
+## 4. Proyecto `sdli1995/dlssg_for_sm86`
+
+### Qué aporta
+
+[`dlssg_for_sm86`](https://github.com/sdli1995/dlssg_for_sm86) es el proyecto
+específico para hacer funcionar **DLSS-G Frame Generation** en GPUs RTX 30
+(SM86) y RTX 20 (SM75). Su función es Frame Generation; no implementa
+DLSS-NR, no hace upscaling y no es un puente MGPU.
+
+La versión 0.3.1 usa una ruta de proxy en vez de crear un host NGX propio. El
+proxy deja que el juego siga haciendo sus llamadas NGX habituales y carga un
+runtime NVIDIA integrado sin modificar. El cambio se hizo porque el modo
+“native” anterior tenía problemas de compatibilidad difíciles de corregir en
+algunos juegos.
+
+### Archivos y punto de entrada
+
+La instalación standalone normalmente usa:
+
+```text
+<directorio del EXE del juego>\version.dll
+<directorio del EXE del juego>\dlssg_sm86.ini
+<directorio del EXE del juego>\dlssg_sm86\logs\
+```
+
+`version.dll` es el proxy que intercepta la ruta de DLSS-G. Si un juego no
+carga ese nombre, el proyecto incluye alternativas como `winmm.dll`,
+`dxgi.dll` o `dbghelp.dll`; se debe elegir una sola según el DLL proxy que
+admita ese juego y respaldar cualquier archivo existente.
+
+Esto es importante para Stellar Blade: `version.dll` es una ranura diferente
+de `dwmapi.dll`, que suele utilizar UE4SS, y también es distinta del
+`dxgi.dll` que usan OptiScaler o ReShade. Aun así, hay que verificar que otro
+mod no use ya `version.dll`.
+
+### Requisitos declarados
+
+- Windows 10/11 x64.
+- DirectX 12.
+- RTX 30/SM86 o RTX 20/SM75.
+- Driver NVIDIA con NGX, NVAPI y CUDA disponibles.
+- El proyecto reporta pruebas con drivers 591.86 y 610.74; para el cubin
+  optimizado indica aproximadamente R580 o posterior, con fallback a PTX en
+  drivers más viejos.
+- No requiere CUDA Toolkit ni Python.
+
+El proyecto fue validado en una RTX 3080 Ti y desarrollado también sobre una
+RTX 3070; declara que una RTX 2080 Ti puede funcionar, aunque sin mediciones de
+calidad o rendimiento equivalentes. Por arquitectura, las RTX 3090 pertenecen
+al mismo grupo Ampere/SM86, pero eso no convierte automáticamente a Stellar
+Blade en un juego compatible: todavía importan su plugin Streamline, su ruta de
+DLSS-G y el proxy elegido.
+
+### Configuración 4X y 6X
+
+En el INI de fábrica los dos controles decisivos son:
+
+```ini
+[FrameGeneration]
+Optimized=1
+MaxGeneratedFrames=3
+```
+
+- `Optimized=1` usa el conjunto de kernels optimizados del proyecto; el README
+  indica que conserva el resultado del kernel original y reduce el tiempo de
+  cálculo.
+- `MaxGeneratedFrames=3` corresponde a 4X.
+- `MaxGeneratedFrames=5` permite hasta 6X únicamente en la variante 310.9 y
+  solo si el juego/plugin lo soporta.
+
+El 6X no se puede forzar de manera universal. Si el juego trae un plugin viejo
+que solo reserva la cola interna para 4X, subir el límite puede producir que
+Frame Generation no funcione o que el juego se cierre. La documentación del
+proyecto recomienda 4X en esos casos. Por eso, para una primera prueba en
+Stellar Blade conviene empezar con 2X o 4X y dejar 6X para después de confirmar
+que el plugin nativo del juego lo admite.
+
+### Memoria y rendimiento
+
+El incremento de VRAM de Frame Generation depende principalmente de la
+resolución de salida, no de la multiplicidad: 2X y 6X consumen aproximadamente
+la misma memoria del propio generador. Las referencias del proyecto son, por
+ejemplo, unos 350 MiB a 1080p, 540 MiB a 1440p y 810 MiB a 4K, sin contar el
+juego ni las texturas de entrada.
+
+Los benchmarks publicados miden milisegundos de GPU del grupo de frames, no
+FPS finales. El propio proyecto propone estimar:
+
+```text
+T_base  = 1000 / FPS_sin_FG
+T_group ≈ T_base + T_FG
+FPS_out ≈ 1000 × multiplicador / T_group
+```
+
+La cifra real depende de la carga del juego, CPU, sincronización, límite de
+FPS y monitor. MFG puede elevar el contador, pero la tasa de frames reales o
+la latencia no suben en la misma proporción.
+
+### Diagnóstico y desinstalación
+
+Los logs se escriben en:
+
+```text
+dlssg_sm86\logs\loader_<PID>.jsonl
+dlssg_sm86\logs\backend_<PID>.jsonl
+```
+
+Para comprobar si el hook está activo hay que buscar en el backend una
+instalación con `route active=true`. Si falla, el proyecto puede registrar una
+incompatibilidad de driver/runtime y retroceder a la ruta original.
+
+Para desinstalarlo, con el juego cerrado, se restaura el `version.dll` original
+o se retira el proxy instalado y se elimina `dlssg_sm86.ini` y su carpeta de
+logs. El backup del proxy es obligatorio si el juego ya tenía un `version.dll`.
+
+## 5. Proyecto `ShyVortex/dlss-unlocked`
+
+### Qué es
+
+[`dlss-unlocked`](https://github.com/ShyVortex/dlss-unlocked) es un paquete e
+instalador que reúne varias piezas, no un único algoritmo. Su objetivo es
+ofrecer en juegos DX12 compatibles:
+
+- DLSS-G Frame Generation.
+- MFG 2X/3X/4X y, según el juego/runtime, variantes superiores.
+- DLSS-NR y mejoras Pre-SR Multipass.
+- Bridges y módulos auxiliares para DLSS, FSR3, XeSS y Streamline.
+
+La parte que habilita MFG en RTX 20/30 es precisamente el trabajo de
+`sdli1995/dlssg_for_sm86`, incluido dentro del paquete. La parte de DLSS-NR
+proviene de la variante OptiScaler-DLSSNR-PreSR-Multipass y de los forwarders
+correspondientes. Por lo tanto, **DLSS Unlocked combina los proyectos; no
+reemplaza la diferencia entre ellos**.
+
+### Qué instala
+
+El formato standalone del proyecto describe una estructura similar a:
+
+```text
+<directorio del EXE del juego>\dxgi.dll
+<directorio del EXE del juego>\OptiScaler.ini
+<directorio del EXE del juego>\nvngx_dlssnr.dll
+<directorio del EXE del juego>\nvngx.dll_dlssnr.dll
+<directorio del EXE del juego>\OptiScaler\
+<directorio del EXE del juego>\OptiScaler\dlssg_sm86\
+<directorio del EXE del juego>\OptiScaler\streamline\
+```
+
+En ese diseño:
+
+- `dxgi.dll` es la entrada principal de OptiScaler.
+- `OptiScaler.ini` controla upscaling, frame generation, NR y bridges.
+- `nvngx_dlssnr.dll` es el runtime neural parcheado/comunitario cuando se usa
+  RTX 20/30/40.
+- `OptiScaler\dlssg_sm86\` contiene el desbloqueo MFG para Turing/Ampere.
+- `OptiScaler\streamline\` contiene el runtime de NVIDIA Streamline que el
+  paquete necesita para las rutas DLSS-G/MFG.
+
+Por eso una sola instalación puede mostrar opciones de NR y MFG, pero ambas
+pueden estar ejecutándose sobre la misma GPU. **DLSS Unlocked no es MGPU
+Bridge**: no mueve automáticamente DLSS-NR a la segunda RTX 3090.
+
+### Requisitos y límites
+
+El README requiere un juego que soporte nativamente DLSS Upscaling y DLSS Frame
+Generation. Para que MFG aparezca o funcione desde las opciones propias del
+juego, el juego también debe tener soporte nativo para esa función. El paquete
+puede traducir ciertas llamadas Streamline a DLSS FG o FSR3, pero eso es una
+ruta distinta de ejecutar NR.
+
+En RTX 20/30 el paquete apunta principalmente a `dlssg_sm86`; en RTX 40 ofrece
+un unlocker Ada alternativo mediante `AdaMfgUnlock`. El instalador permite
+seleccionar el proxy principal, normalmente `dxgi.dll`, o una variante
+alternativa si ese nombre entra en conflicto con ReShade.
+
+### Conflicto con ReShade y MGPU Bridge
+
+OptiScaler y ReShade normalmente quieren ocupar `dxgi.dll`. Por eso no se debe
+instalar encima de una instalación de ReShade sin decidir antes qué ruta se
+conserva. Si se quiere probar MGPU Bridge, hay que tratarlo como una instalación
+ReShade independiente, no como un complemento del mismo `dxgi.dll` de
+OptiScaler.
+
+Una combinación de OptiScaler-DLSSNR, RenoDX-DLSS5, MGPU Bridge y MFG unlocker
+puede dejar varios consumidores de NGX y varios proxies activos. El síntoma
+puede ser un crash temprano, `DXGI_ERROR_DEVICE_HUNG`, `DXGI_ERROR_DEVICE_REMOVED`
+o una falsa sensación de que el checkbox funciona sin que el log registre
+evaluaciones reales.
+
+### Relación entre sus piezas
+
+```text
+Stellar Blade
+    │
+    ├─ dxgi.dll → OptiScaler
+    │                 ├─ DLSS-NR / Pre-SR (misma GPU)
+    │                 ├─ dlssg_sm86 → MFG en RTX 20/30
+    │                 └─ Streamline / bridges auxiliares
+    │
+    └─ version.dll → dlssg_for_sm86 standalone
+                      └─ MFG en RTX 20/30, sin DLSS-NR
+```
+
+MGPU Bridge sería otra arquitectura: ReShade captura el frame y crea un
+dispositivo en una segunda GPU para ejecutar allí el pase NR. No forma parte
+automáticamente de `dlssg_for_sm86` ni de `dlssg_sm86`.
+
+## 6. Diferencia con los archivos descargados
 
 En `D:\Descargas\MFG Bridge` quedaron tres archivos comprimidos titulados
 “Nvidia Mfg Bridge” y un archivo `renodx-mfgunlock.addon64`. Por sus nombres,
@@ -224,7 +431,7 @@ Antes de instalar cualquier archivo con “Bridge” en el nombre hay que mirar
 qué función anuncia el README del proyecto y qué add-on contiene. “MFG Bridge”
 y “MGPU Bridge” no son sinónimos.
 
-## 5. Estado de Stellar Blade en este equipo
+## 7. Estado de Stellar Blade en este equipo
 
 Después de las pruebas, el juego quedó sin los artefactos de NR/ReShade que se
 habían instalado en `SB\Binaries\Win64`:
@@ -242,7 +449,7 @@ La instalación de MGPU Bridge, si se decide probar, debe hacerse como una ruta
 separada y reversible. No conviene combinarla con OptiScaler-DLSSNR ni con el
 MFG unlocker en el primer intento.
 
-## 6. Orden recomendado para una prueba futura
+## 8. Orden recomendado para una prueba futura
 
 1. Confirmar que hay dos monitores extendidos y que cada GPU puede manejar uno.
 2. Elegir una sola ruta neural: MGPU Bridge + ReShade, sin OptiScaler.
