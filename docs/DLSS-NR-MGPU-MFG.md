@@ -266,4 +266,3 @@ es la idea técnicamente relevante. MFG es otra función y los archivos MFG
 Bridge descargados no la reemplazan. La idea es prometedora, pero la
 combinación 2×3090 + MGPU Bridge + Stellar Blade sigue siendo experimental y no
 está validada por el proyecto que publicó las pruebas.
-
