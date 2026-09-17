@@ -34,7 +34,7 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   como alternativas exclusivas y permite mezclar selecciones compatibles. El
   mismo catálogo se puede generar con `moveset-catalog` en modo headless.
 
-Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md)
+Docs: [ARCHITECTURE.md](ARCHITECTURE.md) · [PLAN.md](PLAN.md) · [AGENTS.md](AGENTS.md) · [CHECKS.md](CHECKS.md) · [DLSS-NR, MGPU Bridge y MFG](docs/DLSS-NR-MGPU-MFG.md)
 Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE_BACK.md](docs/ZEN_WRITE_BACK.md)
 
 ## Instalación (usuario final)
