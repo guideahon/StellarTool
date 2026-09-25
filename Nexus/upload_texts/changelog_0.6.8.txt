@@ -1,0 +1,10 @@
+Version 0.6.8
+
+Fixed: Stellar Souls Builder no longer removes perfect dodge without lock-on.
+The “Perfect dodge without lock-on” option now restores the vanilla aliases for
+the sword, Tachy and Fusion no-lock-on evade rows.
+
+Added regression coverage for all three affected evasions and aligned the
+Builder feature manifest with the compiled transform.
+
+Everything from 0.6.7 is included.
