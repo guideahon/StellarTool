@@ -3,8 +3,11 @@
 Antes de cada release en Nexus Mods:
 
 1. **Zip de release**: correr `package.bat NOPAUSE` → genera `dist\StellarTool-<version>.zip`
-   (exe + runtime Qt + `tools\` con repak/retoc/UAssetGUI/usmap, sin oo2core). Probar en
-   una máquina/carpeta limpia que abre y mergea.
+   (exe + runtime Qt + `tools\` con repak/retoc/UAssetGUI/usmap, sin oo2core). La
+   descripción debe declarar el requisito externo de **.NET 10 Desktop Runtime
+   x64** para UAssetGUI (el SDK también lo contiene, pero no hace falta). Probar en
+   una máquina limpia que el prerequisito y las operaciones de UAssetGUI/Builder
+   funcionan.
    - Verificar licencias de redistribución de los binarios bundled (repak/retoc: MIT;
      UAssetGUI: MIT). El `.usmap` es de la comunidad: enlazar la fuente en la
      descripción en lugar de redistribuir si hay dudas.

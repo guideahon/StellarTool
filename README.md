@@ -40,9 +40,13 @@ Estado y pendientes: [docs/PENDIENTES.md](docs/PENDIENTES.md) · [docs/ZEN_WRITE
 ## Instalación (usuario final)
 
 Descargá el `StellarTool-<version>.zip` de la pestaña **Releases** del repo (o de
-Nexus Mods), extraelo donde quieras y ejecutá `StellarTool.exe`. Es autocontenido:
-incluye el runtime de Qt y los binarios de `tools\` (repak, retoc, UAssetGUI y el
-mapping de Stellar Blade). No instala nada ni toca archivos del juego.
+Nexus Mods), extraelo donde quieras y ejecutá `StellarTool.exe`. No tiene
+instalador e incluye el runtime de Qt y los binarios de `tools\` (repak, retoc,
+UAssetGUI y el mapping de Stellar Blade), pero UAssetGUI requiere una dependencia
+del sistema: instalá el [.NET 10 Desktop Runtime para Windows x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
+antes de usar funciones que convierten o escriben assets, incluido Stellar Souls
+Builder. El SDK .NET 10 también funciona porque incluye ese runtime, pero no hace
+falta instalar el SDK. Stellar Tool no modifica ni instala archivos del juego.
 
 ### Actualizaciones
 

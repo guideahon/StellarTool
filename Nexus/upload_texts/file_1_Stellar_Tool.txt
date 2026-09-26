@@ -1,1 +1,1 @@
-Self-contained tool (GUI + CLI). Bundles the open-source CLIs it drives: repak, retoc (trumank), UAssetGUI (atenfyr), cue4parse (FModel). Extract and run StellarTool.exe. No installer, no game files touched. Source: github.com/guideahon/StellarTool
+Portable GUI + CLI; bundles repak, retoc, UAssetGUI and cue4parse. Requires .NET 10 Desktop Runtime x64 for UAssetGUI (SDK also works, but isn't needed). Extract and run; no game files touched. Source: github.com/guideahon/StellarTool

@@ -94,7 +94,7 @@ Save merge workspaces as `.stproj` projects. The headless CLI supports analyze, 
 
 ## Install
 
-1. Download and extract Stellar Tool anywhere. It is self-contained and has no installer.
+1. Download and extract Stellar Tool anywhere. It has no installer; Qt and the command-line tools are bundled.
 2. Run `StellarTool.exe` and confirm your Stellar Blade folder in Settings.
 3. Drop in your mods, press **Analyze**, review the changes and conflicts, then merge.
 4. Copy the generated files to `StellarBlade\SB\Content\Paks\~mods`, or install the generated `.zip` with your mod manager.
@@ -102,9 +102,11 @@ Save merge workspaces as `.stproj` projects. The headless CLI supports analyze, 
 
 A vanilla baseline is optional but recommended. It lets you see vanilla → modded values instead of only the raw values supplied by each mod. The GitHub readme explains how to extract one from your own game copy.
 
+**Dependency:** The bundled UAssetGUI requires the **.NET 10 Desktop Runtime (Windows x64)** for asset conversion/writing, including Stellar Souls Builder. Install it once from the [official .NET 10 download page](https://dotnet.microsoft.com/en-us/download/dotnet/10.0) (choose Desktop Runtime → Windows x64). The .NET 10 SDK also works because it includes this runtime, but the SDK is not required.
+
 ## Requirements and conflicts
 
-- Windows 10/11.
+- Windows 10/11 and .NET 10 Desktop Runtime x64 (required by bundled UAssetGUI; see above).
 - The tool never modifies game files; it only reads mods and writes to the output folder you choose.
 - Builder installation is always explicit and only changes the paks/helpers that Stellar Tool itself installed; third-party mods are left alone.
 - The merged pak conflicts by definition with the source mods used to create it. Disable those source mods.
