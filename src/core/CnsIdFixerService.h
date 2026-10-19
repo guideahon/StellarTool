@@ -14,6 +14,7 @@ public:
         int duplicateContainers = 0;
         int fixedContainers = 0;
         int packageConflicts = 0;
+        QStringList sharedPackageContainerPaths;
         QString report;
         QString error;
     };
@@ -22,6 +23,7 @@ public:
 
     // Escanea .utoc recursivamente. Si fixDuplicates es true, conserva el
     // primer Container_Id y asigna IDs determinísticos a los duplicados.
+    // También devuelve los contenedores implicados en Package_Id compartidos.
     // Cada escritura crea antes <archivo>.cnsidfixer.bak.
     Result run(const QString &directory, bool fixDuplicates) const;
 

@@ -9,6 +9,7 @@
 #include <QHash>
 #include <QSet>
 #include <QtEndian>
+#include <algorithm>
 
 namespace st {
 
@@ -175,6 +176,13 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
         const QString path = it.next();
         if (path.endsWith(QLatin1String(".cnsidfixer.bak"), Qt::CaseInsensitive))
             continue;
+        const QString relativePath = QDir::fromNativeSeparators(
+            QDir(directory).relativeFilePath(path));
+        const QStringList pathParts = relativePath.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+        if (std::any_of(pathParts.cbegin(), pathParts.cend(), [](const QString &part) {
+                return part.compare(QLatin1String("disabled"), Qt::CaseInsensitive) == 0;
+            }))
+            continue;
         Container container;
         QString error;
         if (readContainer(path, &container, &error)) containers << container;
@@ -247,15 +255,21 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
         lines << QStringLiteral("Sin IDs duplicados.");
 
     lines << QString() << QStringLiteral("Package_Id");
+    QSet<int> sharedPackageContainers;
     for (auto group = byPackageId.cbegin(); group != byPackageId.cend(); ++group) {
         if (group.value().size() < 2) continue;
         ++result.packageConflicts;
         QStringList names;
-        for (int index : group.value())
+        for (int index : group.value()) {
+            sharedPackageContainers.insert(index);
             names << QFileInfo(containers[index].path).fileName();
+        }
         names.sort(Qt::CaseInsensitive);
         lines << QStringLiteral("%1: %2").arg(idText(group.key()), names.join(QStringLiteral(" ↔ ")));
     }
+    for (int index : sharedPackageContainers)
+        result.sharedPackageContainerPaths << containers.at(index).path;
+    result.sharedPackageContainerPaths.sort(Qt::CaseInsensitive);
     if (result.packageConflicts == 0)
         lines << QStringLiteral("Sin recursos compartidos.");
     else

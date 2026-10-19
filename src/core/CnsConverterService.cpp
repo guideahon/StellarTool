@@ -392,7 +392,25 @@ bool CnsConverterService::prepareInput(const QString &input, const QString &stag
             if (!copyFileReplacing(from, to, error)) return false;
         }
     } else if (fi.isFile()) {
-        if (!copyFileReplacing(input, QDir(source).filePath(fi.fileName()), error)) return false;
+        if (fi.suffix().compare(QLatin1String("utoc"), Qt::CaseInsensitive) == 0) {
+            // ID Fixer can pass one installed IoStore container. Include its
+            // matching data companions so the converter sees the complete mod.
+            for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"),
+                                       QStringLiteral("pak"), QStringLiteral("sig")}) {
+                const QString companion = fi.dir().filePath(
+                    fi.completeBaseName() + QLatin1Char('.') + ext);
+                if (!QFileInfo::exists(companion)) continue;
+                const QString staged = QDir(source).filePath(QFileInfo(companion).fileName());
+                if (!PakService::linkOrCopy(companion, staged)) {
+                    if (error)
+                        *error = QStringLiteral("No se pudo enlazar o copiar %1 a %2")
+                                     .arg(companion, staged);
+                    return false;
+                }
+            }
+        } else if (!copyFileReplacing(input, QDir(source).filePath(fi.fileName()), error)) {
+            return false;
+        }
     } else {
         if (error) *error = QStringLiteral("La entrada no existe: %1").arg(input);
         return false;

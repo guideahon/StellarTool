@@ -184,8 +184,99 @@ void AppController::runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes) {
                               : QStringLiteral("Escaneo de IDs terminado."))
                 : QStringLiteral("Falló CNS ID Fixer."));
             m_cnsIdFixerReport = result.ok ? result.report : result.error;
+            m_cnsIdFixerOk = result.ok;
             if (!result.ok) emit errorOccurred(result.error);
             emit cnsIdFixerFinished(result.ok);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void AppController::repairCnsAppearanceConflicts(const QUrl &directoryUrl,
+                                                  const QUrl &outDirUrl) {
+    if (m_busy) return;
+    const QString directory = directoryUrl.isLocalFile()
+        ? directoryUrl.toLocalFile() : directoryUrl.toString();
+    const QString outputDir = outDirUrl.isLocalFile()
+        ? outDirUrl.toLocalFile() : outDirUrl.toString();
+    if (outputDir.trimmed().isEmpty()) {
+        m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_isolation_output_required"));
+        m_cnsIdFixerOk = false;
+        emit cnsIdFixerFinished(false);
+        return;
+    }
+    const QString sourceRoot = QDir::fromNativeSeparators(QDir(directory).absolutePath());
+    const QString outputRoot = QDir::fromNativeSeparators(QDir(outputDir).absolutePath());
+    const QString relativeOutput = QDir::fromNativeSeparators(
+        QDir(sourceRoot).relativeFilePath(outputRoot));
+    if (relativeOutput == QLatin1String(".")
+        || (!relativeOutput.startsWith(QLatin1String("../"))
+            && !QDir::isAbsolutePath(relativeOutput))) {
+        m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_isolation_output_inside_mods"));
+        m_cnsIdFixerOk = false;
+        emit cnsIdFixerFinished(false);
+        return;
+    }
+
+    setBusy(true, t(QStringLiteral("cns_fixer_isolation_scanning")));
+    const QString runId = QString::number(QDateTime::currentMSecsSinceEpoch());
+    std::ignore = QtConcurrent::run([this, directory, outputDir, runId] {
+        const CnsIdFixerService::Result scan = m_cnsIdFixer->run(directory, false);
+        QStringList lines;
+        bool ok = scan.ok;
+        int generated = 0;
+        int failed = 0;
+
+        if (!scan.ok) {
+            lines << scan.error;
+        } else if (scan.sharedPackageContainerPaths.isEmpty()) {
+            lines << t(QStringLiteral("cns_fixer_isolation_no_conflicts"));
+        } else {
+            lines << t(QStringLiteral("cns_fixer_isolation_found"))
+                         .arg(scan.sharedPackageContainerPaths.size());
+            const int total = scan.sharedPackageContainerPaths.size();
+            for (int i = 0; i < total; ++i) {
+                const QString containerPath = scan.sharedPackageContainerPaths.at(i);
+                QMetaObject::invokeMethod(this, [this, i, total, containerPath] {
+                    setStatus(t(QStringLiteral("cns_fixer_isolation_progress"))
+                                  .arg(i + 1).arg(total)
+                                  .arg(QFileInfo(containerPath).fileName()));
+                }, Qt::QueuedConnection);
+                CnsConverterService::Request request;
+                request.inputPath = containerPath;
+                request.outputDir = outputDir;
+                request.mode = CnsConverterService::Mode::ToCns;
+                request.modName = QFileInfo(containerPath).completeBaseName()
+                    + QStringLiteral("_StellarTool_Isolated_")
+                    + CnsConverterService::shortId(containerPath + runId);
+
+                const CnsConverterService::Result converted = m_cns->convert(request);
+                if (!converted.ok) {
+                    ++failed;
+                    lines << t(QStringLiteral("cns_fixer_isolation_failed"))
+                                 .arg(QFileInfo(containerPath).fileName(), converted.error);
+                    continue;
+                }
+
+                ++generated;
+                lines << t(QStringLiteral("cns_fixer_isolation_created"))
+                             .arg(QFileInfo(containerPath).fileName(), converted.zipPath)
+                             .arg(converted.assetsWritten);
+                for (const QString &warning : converted.warnings)
+                    lines << t(QStringLiteral("cns_fixer_isolation_warning")).arg(warning);
+            }
+            lines << t(QStringLiteral("cns_fixer_isolation_summary"))
+                         .arg(generated).arg(failed);
+            ok = generated > 0;
+        }
+
+        const QString report = lines.join(QLatin1Char('\n'));
+        QMetaObject::invokeMethod(this, [this, ok, report] {
+            setBusy(false, t(ok ? QStringLiteral("cns_fixer_isolation_done")
+                                : QStringLiteral("cns_fixer_isolation_failed_status")));
+            m_cnsIdFixerReport = report;
+            m_cnsIdFixerOk = ok;
+            emit cnsIdFixerFinished(ok);
+            if (!ok) emit errorOccurred(report);
         }, Qt::QueuedConnection);
     });
 }

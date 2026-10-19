@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless status\n"
             "  StellarTool --headless detect\n"
             "  StellarTool --headless uninstall [--paks] [--helper]\n"
-            "  StellarTool --headless fixids    --mod <dir> [--apply]\n"
+            "  StellarTool --headless fixids    --mod <dir> [--apply | --isolate-textures --out <dir>]\n"
             "  StellarTool --headless presets\n"
             "  StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]\n"
             "  StellarTool --headless save-from-json --input <json> --out <sav>\n"
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
         parser.addVersionOption();
         parser.addOption({QStringLiteral("headless"), QStringLiteral("Modo sin UI")});
         parser.addOption({QStringLiteral("mod"), QStringLiteral("Mod a cargar (.pak/.zip/carpeta); repetible. El primero tiene prioridad."), QStringLiteral("ruta")});
-        parser.addOption({QStringLiteral("out"), QStringLiteral("Carpeta destino del pak mergeado"), QStringLiteral("dir")});
+        parser.addOption({QStringLiteral("out"), QStringLiteral("Carpeta de salida para mods generados o mergeados"), QStringLiteral("dir")});
         parser.addOption({QStringLiteral("baseline"), QStringLiteral("Carpeta con JSONs de tablas vanilla"), QStringLiteral("dir")});
         parser.addOption({QStringLiteral("prefer"), QStringLiteral("Nombre de mod que gana todos sus conflictos"), QStringLiteral("mod")});
         parser.addOption({QStringLiteral("no-zip"), QStringLiteral("No generar el zip instalable junto al pak")});
@@ -125,6 +125,7 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("paks"), QStringLiteral("uninstall: quitar los paks que instaló la tool")});
         parser.addOption({QStringLiteral("helper"), QStringLiteral("uninstall: quitar el helper que instaló la tool")});
         parser.addOption({QStringLiteral("apply"), QStringLiteral("fixids: escribir los cambios (por defecto solo reporta)")});
+        parser.addOption({QStringLiteral("isolate-textures"), QStringLiteral("fixids: convertir outfits con Package_Id compartidos a CNS aislado; requiere --out")});
         parser.addOption({QStringLiteral("input"), QStringLiteral("Archivo de entrada para partidas/ReShade"), QStringLiteral("archivo")});
         parser.addOption({QStringLiteral("action"), QStringLiteral("Operación de ReShade o Live"), QStringLiteral("operacion")});
         parser.addOption({QStringLiteral("old-name"), QStringLiteral("Nombre anterior de preset ReShade"), QStringLiteral("nombre")});
@@ -156,6 +157,7 @@ int main(int argc, char *argv[]) {
         options.uninstallPaks = parser.isSet(QStringLiteral("paks"));
         options.uninstallHelper = parser.isSet(QStringLiteral("helper"));
         options.applyFixes = parser.isSet(QStringLiteral("apply"));
+        options.isolateTextures = parser.isSet(QStringLiteral("isolate-textures"));
         options.input = parser.value(QStringLiteral("input"));
         options.action = parser.value(QStringLiteral("action"));
         options.oldName = parser.value(QStringLiteral("old-name"));

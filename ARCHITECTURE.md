@@ -112,7 +112,7 @@ Claves de diseño:
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
 | `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Conserva los tipos declarados por el usmap y completa FNames/tipos de arrays vacíos antes de escribir. |
 | `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. Al convertir a CNS aísla materiales/texturas compartidos en el namespace del outfit y genera opciones para alternar texturas reemplazadas y ajustar rugosidad/metalicidad desde CNS. |
-| `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta conflictos de `Package_Id`. |
+| `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable y devuelve los contenedores que comparten `Package_Id` para el aislamiento CNS. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
 | `ReShadePresetService` | detecta `SB/Binaries/Win64/ReShade.ini`, mantiene la biblioteca de presets en `%LOCALAPPDATA%/StellarTool/reshade/`, importa/exporta y restaura copias administradas en el juego con backup previo. Comprueba de forma best-effort los shaders referenciados. |
 | `SaveConverterService` | fachada async para el conversor de partidas de lotress: `.sav` ↔ JSON y reparación CNS, ejecutado con el Python embebido del paquete Builder. |
@@ -136,7 +136,7 @@ Páginas (`qml/pages`):
 5. **EasyMergePage** — flujo simplificado de merge.
 6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
 7. **CnsConverterPage** — conversor de outfits replacer ↔ CNS.
-8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados; también reempaqueta outfits con conflictos de materiales/texturas como CNS usando `CnsConverterService`.
+8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados; además detecta `Package_Id` compartidos en la carpeta instalada y genera CNS aislados para outfits compatibles.
 9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
 10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
 11. **SaveConverterPage** — conversor y reparador de partidas, con backup automático y crédito a lotress.
@@ -170,10 +170,11 @@ extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
 `Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos.
-El bloque de reparación visual reutiliza el flujo `cns` de
-`CnsConverterService`: recibe un `.pak`, `.zip` o carpeta, aísla materiales y
-texturas en un outfit CNS y escribe un paquete con nombre nuevo en la carpeta
-de salida, sin modificar la entrada.
+El bloque de aislamiento vuelve a escanear esa carpeta con
+`CnsIdFixerService`, toma los contenedores con `Package_Id` compartidos y
+reutiliza `CnsConverterService` para reempaquetar cada outfit compatible como
+CNS con materiales/texturas aislados. Escribe salidas con nombre único fuera
+del directorio instalado; no modifica los paks de origen.
 
 `LivePage` habla con `LiveService`, expuesto a QML como `Live` (context property
 propia, sin pasar por `AppController`: la página no comparte estado con el

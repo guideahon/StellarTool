@@ -59,6 +59,7 @@ class AppController : public QObject {
     Q_PROPERTY(QString lastCnsResult READ lastCnsResult NOTIFY cnsConversionFinished)
     Q_PROPERTY(QString cnsHistoryJson READ cnsHistory NOTIFY cnsHistoryChanged)
     Q_PROPERTY(QString cnsIdFixerReport READ cnsIdFixerReport NOTIFY cnsIdFixerFinished)
+    Q_PROPERTY(bool cnsIdFixerOk READ cnsIdFixerOk NOTIFY cnsIdFixerFinished)
     Q_PROPERTY(QString saveConverterResult READ saveConverterResult NOTIFY saveConverterFinished)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
@@ -200,7 +201,10 @@ public:
     Q_INVOKABLE QString cnsHistory() const;
     Q_INVOKABLE void openCnsOutputDir();
     Q_INVOKABLE void runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes);
+    Q_INVOKABLE void repairCnsAppearanceConflicts(const QUrl &directoryUrl,
+                                                   const QUrl &outDirUrl);
     QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
+    bool cnsIdFixerOk() const { return m_cnsIdFixerOk; }
     Q_INVOKABLE void convertSaveToJson(const QUrl &inputUrl, const QUrl &outputUrl, int indent = 2);
     Q_INVOKABLE void convertJsonToSave(const QUrl &inputUrl, const QUrl &outputUrl);
     Q_INVOKABLE void fixSave(const QUrl &inputUrl);
@@ -294,6 +298,7 @@ private:
     QString m_lastMergeResult;
     QString m_lastCnsResult;
     QString m_cnsIdFixerReport;
+    bool m_cnsIdFixerOk = false;
     QString m_saveConverterResult;
     QString m_movesetCatalogPath;
     QHash<QString, QStringList> m_usmapEnums;
