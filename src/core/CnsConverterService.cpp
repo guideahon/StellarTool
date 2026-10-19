@@ -3,6 +3,7 @@
 #include "Cue4Service.h"
 #include "GamePaths.h"
 #include "PakService.h"
+#include "Translator.h"
 #include "UAssetService.h"
 
 #include <QCoreApplication>
@@ -75,6 +76,34 @@ bool copyFileReplacing(const QString &source, const QString &target, QString *er
     if (QFile::copy(source, target)) return true;
     if (error) *error = QStringLiteral("No se pudo copiar %1 a %2").arg(source, target);
     return false;
+}
+
+bool copyUassetCompanions(const QString &sourceUasset, const QString &targetUasset,
+                          QString *error) {
+    const QFileInfo sourceInfo(sourceUasset);
+    const QString base = sourceInfo.completeBaseName();
+    for (const QString &ext : {QStringLiteral("ubulk"), QStringLiteral("uexp")}) {
+        const QString companion = sourceInfo.dir().filePath(base + QLatin1Char('.') + ext);
+        if (!QFileInfo::exists(companion)) continue;
+        const QString target = QFileInfo(targetUasset).dir().filePath(
+            QFileInfo(targetUasset).completeBaseName() + QLatin1Char('.') + ext);
+        // fromjson reserializes exports into a new .uexp. Replacing it with the
+        // source companion would pair old exports with the new header and crash
+        // the game. Only preserve a source .uexp for assets without one emitted.
+        if (ext == QLatin1String("uexp") && QFileInfo::exists(target)) continue;
+        if (!copyFileReplacing(companion, target, error)) return false;
+    }
+    return true;
+}
+
+QString vanillaMeshPath(QString path) {
+    const QString prefix = QStringLiteral("/Game/CNSRepacked/");
+    while (path.startsWith(prefix, Qt::CaseInsensitive)) {
+        const int hashEnd = path.indexOf(QLatin1Char('/'), prefix.size());
+        if (hashEnd < 0) break;
+        path = QStringLiteral("/Game") + path.mid(hashEnd);
+    }
+    return path;
 }
 
 // "/Game/A/B/MI_X.0" o "/Game/A/B/MI_X.MI_X" -> "/Game/A/B/MI_X".
@@ -192,68 +221,6 @@ QStringList CnsConverterService::meshMaterialSlots(const QString &mountDir,
         break;
     }
     return slotList;
-}
-
-QJsonArray CnsConverterService::textureParameterOverrides(
-    const QString &mountDir, const QStringList &slotList,
-    const QMap<QString, QString> &relocations,
-    const QString &workDir, QSet<QString> *covered) const {
-    QJsonArray parameters;
-    if (!m_cue4 || !m_cue4->available() || mountDir.isEmpty() || slotList.isEmpty())
-        return parameters;
-
-    // Sólo los slots vanilla: los materiales del propio mod ya se relocalizaron
-    // junto con sus texturas y apuntan bien.
-    QStringList patterns;
-    QMap<QString, int> indexOfPackage;
-    for (int i = 0; i < slotList.size(); ++i) {
-        const QString package = packageOf(slotList[i]);
-        if (package.isEmpty() || relocations.contains(key(package))) continue;
-        if (indexOfPackage.contains(key(package))) continue;
-        indexOfPackage.insert(key(package), i);
-        patterns << packagePattern(package);
-    }
-    if (patterns.isEmpty()) return parameters;
-
-    const QString out = QDir(workDir).filePath(QStringLiteral("cue4mat"));
-    const auto exported = m_cue4->exportPackages(mountDir, out, UAssetService::usmapPath(),
-                                                 patterns);
-    for (auto it = exported.begin(); it != exported.end(); ++it) {
-        // exportPackages devuelve nombre-de-asset -> json. Ubicamos el slot por
-        // la hoja de la ruta del paquete, que es ese mismo nombre.
-        int materialIndex = -1;
-        for (auto p = indexOfPackage.begin(); p != indexOfPackage.end(); ++p)
-            if (p.key().section(QLatin1Char('/'), -1) == it.key().toLower())
-                materialIndex = p.value();
-        if (materialIndex < 0) continue;
-        const auto doc = readJsonFile(it.value());
-        for (const auto &objectValue : doc.array()) {
-            const QJsonObject object = objectValue.toObject();
-            const auto textures = object.value(QStringLiteral("Properties")).toObject()
-                                      .value(QStringLiteral("TextureParameterValues")).toArray();
-            for (const auto &textureValue : textures) {
-                const QJsonObject entry = textureValue.toObject();
-                const QString target = packageOf(
-                    entry.value(QStringLiteral("ParameterValue")).toObject()
-                         .value(QStringLiteral("ObjectPath")).toString());
-                const QString relocated = relocations.value(key(target));
-                if (relocated.isEmpty()) continue;  // el mod no pisa esta textura
-                const QJsonObject info = entry.value(QStringLiteral("ParameterInfo")).toObject();
-                parameters.append(QJsonObject{
-                    {QStringLiteral("MaterialIndex"), materialIndex},
-                    {QStringLiteral("LayerIndex"),
-                     info.value(QStringLiteral("Index")).toInt(-1)},
-                    {QStringLiteral("ParamType"), QStringLiteral("Texture")},
-                    {QStringLiteral("ParamName"), info.value(QStringLiteral("Name")).toString()},
-                    {QStringLiteral("Association"),
-                     associationOf(info.value(QStringLiteral("Association")).toString())},
-                    {QStringLiteral("Value"), objectRef(relocated)}
-                });
-                if (covered) covered->insert(key(target));
-            }
-        }
-    }
-    return parameters;
 }
 
 QString CnsConverterService::normalizeAssetPath(const QString &path) {
@@ -813,24 +780,8 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             result.error = QStringLiteral("%1\nAsset: %2").arg(error, sourcePath);
             return result;
         }
-        const QFileInfo sourceFi(it.value());
-        QDir sourceFolder = sourceFi.dir();
-        const QString base = sourceFi.completeBaseName();
-        // El .uexp lo REESCRIBE UAssetGUI fromjson junto al .uasset: contiene los
-        // exports serializados, con los índices FName y las referencias de package
-        // ya reubicadas. Pisarlo con el .uexp de origen deja el header nuevo y los
-        // exports viejos, y el juego crashea al equipar el outfit. Sólo se copia
-        // como fallback si fromjson no lo emitió (asset sin datos separados).
-        // El .ubulk es data cruda (mips de textura) y sí se copia siempre.
-        for (const QString &ext : {QStringLiteral("ubulk"), QStringLiteral("uexp")}) {
-            const QString companion = sourceFolder.filePath(base + QLatin1Char('.') + ext);
-            if (!QFileInfo::exists(companion)) continue;
-            const QString target = QFileInfo(targetUasset).dir().filePath(
-                QFileInfo(targetUasset).completeBaseName() + QLatin1Char('.') + ext);
-            if (ext == QLatin1String("uexp") && QFileInfo::exists(target)) continue;
-            if (!copyFileReplacing(companion, target, &error)) {
-                result.error = error; return result;
-            }
+        if (!copyUassetCompanions(it.value(), targetUasset, &error)) {
+            result.error = error; return result;
         }
         ++result.assetsWritten;
     }
@@ -848,23 +799,305 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
 
     if (request.mode == Mode::ToCns) {
         const QString relocatedRoot = relocations.value(key(rootPath));
-        // Slots reales de la malla + redirección de las texturas vanilla que el
-        // mod pisaba: sin esto el outfit se ve con la piel vanilla (ver
-        // textureParameterOverrides).
+        // CNS deja los assets vanilla compartidos visibles a otros mods. Para
+        // que una textura global no cambie el aspecto del outfit, duplicamos
+        // materiales vanilla y sus texturas bajo el namespace exclusivo del
+        // outfit, y damos a CNS overrides de todas las texturas del material.
         emit progress(QStringLiteral("Leyendo materiales del outfit…"));
         const QString mount = stageWithGame(utoc, temp.path());
         QSet<QString> covered;
-        // Mismo tratamiento para el outfit y para cada malla vanilla que hayamos
-        // traído: leer sus slots y redirigir las texturas que el mod pisaba.
-        auto meshData = [&](const QString &meshPath) {
+        bool addedIsolatedAssets = false;
+        QMap<QString, QString> isolatedAssets;
+        QStringList materialWarnings;
+        const QString isolatedPrefix = QStringLiteral("/Game/CNSRepacked/%1/").arg(optionId);
+        auto alreadyIsolated = [&](const QString &assetPath) {
+            return assetPath.startsWith(isolatedPrefix, Qt::CaseInsensitive);
+        };
+        auto likelyVanillaPath = [](const QString &assetPath) {
+            return assetPath.startsWith(QLatin1String("/Game/Art/"), Qt::CaseInsensitive)
+                || assetPath.startsWith(QLatin1String("/Game/DLC_"), Qt::CaseInsensitive)
+                || assetPath.startsWith(QLatin1String("/Game/SB/"), Qt::CaseInsensitive);
+        };
+        auto sourceForRelocatedPath = [&](const QString &targetPath) {
+            for (auto it = relocations.cbegin(); it != relocations.cend(); ++it)
+                if (key(it.value()) == key(targetPath)) return it.key();
+            return QString();
+        };
+
+        auto materializeVanillaAsset = [&](const QString &sourcePath,
+                                            const QString &category) -> QString {
+            const QString normalized = normalizeAssetPath(sourcePath);
+            if (normalized.isEmpty() || mount.isEmpty()) return {};
+            const QString cacheKey = category.toLower() + QLatin1Char('|') + key(normalized);
+            if (isolatedAssets.contains(cacheKey)) return isolatedAssets.value(cacheKey);
+
+            const QString leaf = normalized.section(QLatin1Char('/'), -1);
+            const QString targetPath = QStringLiteral("/Game/CNSRepacked/%1/StellarToolIsolation/%2/%3/%4")
+                                           .arg(optionId).arg(category)
+                                           .arg(shortId(normalized)).arg(leaf);
+            const QString extractDir = QDir(temp.path()).filePath(
+                QStringLiteral("isolated-%1").arg(shortId(cacheKey)));
+            QDir(extractDir).removeRecursively();
+            emit progress(tr_(QStringLiteral("cns_isolate_progress")).arg(leaf));
+            QString extractError;
+            if (m_pak->toLegacyFiltered(mount, leaf, extractDir, &extractError) <= 0) {
+                materialWarnings << tr_(QStringLiteral("cns_isolate_asset_failed"))
+                                        .arg(normalized, extractError);
+                return {};
+            }
+            QString sourceUasset;
+            QDirIterator extracted(extractDir, {QStringLiteral("*.uasset")}, QDir::Files,
+                                   QDirIterator::Subdirectories);
+            while (extracted.hasNext()) {
+                const QString candidate = extracted.next();
+                if (key(assetPathForFile(candidate, extractDir)) == key(normalized)) {
+                    sourceUasset = candidate;
+                    break;
+                }
+            }
+            if (sourceUasset.isEmpty()) {
+                materialWarnings << tr_(QStringLiteral("cns_isolate_asset_missing"))
+                                        .arg(normalized);
+                return {};
+            }
+
+            const QString targetUasset = fileForAsset(targetPath, packageDir);
+            QMap<QString, QString> copyRelocations = relocations;
+            copyRelocations.insert(key(normalized), targetPath);
+            QString copyError;
+            if (!writeRelocatedAsset(sourceUasset, targetUasset, copyRelocations, &copyError)
+                || !copyUassetCompanions(sourceUasset, targetUasset, &copyError)) {
+                materialWarnings << tr_(QStringLiteral("cns_isolate_asset_relocate_failed"))
+                                        .arg(normalized, copyError);
+                QFile::remove(targetUasset);
+                const QString targetBase = QFileInfo(targetUasset).completeBaseName();
+                for (const QString &ext : {QStringLiteral("uexp"), QStringLiteral("ubulk")})
+                    QFile::remove(QFileInfo(targetUasset).dir().filePath(
+                        targetBase + QLatin1Char('.') + ext));
+                return {};
+            }
+            isolatedAssets.insert(cacheKey, targetPath);
+            addedIsolatedAssets = true;
+            ++result.assetsWritten;
+            return targetPath;
+        };
+
+        auto exportMaterialProperties = [&](const QStringList &slotList,
+                                             const QString &label) {
+            QMap<QString, QJsonObject> propertiesByPackage;
+            if (!m_cue4 || !m_cue4->available() || mount.isEmpty()) return propertiesByPackage;
+            QStringList packages;
+            QSet<QString> seenPackages;
+            for (const QString &slot : slotList) {
+                const QString package = packageOf(slot);
+                if (!package.isEmpty() && !seenPackages.contains(key(package))) {
+                    seenPackages.insert(key(package));
+                    packages << package;
+                }
+            }
+            if (packages.isEmpty()) return propertiesByPackage;
+
+            QStringList patterns;
+            for (const QString &package : packages) patterns << packagePattern(package);
+            const QString outDir = QDir(temp.path()).filePath(QStringLiteral("cue4mat-%1").arg(label));
+            QString cueError;
+            const auto exported = m_cue4->exportPackages(
+                mount, outDir, UAssetService::usmapPath(), patterns, &cueError);
+            for (const QString &package : packages) {
+                const QString leaf = package.section(QLatin1Char('/'), -1);
+                QString jsonPath;
+                for (auto it = exported.begin(); it != exported.end(); ++it) {
+                    if (it.key().compare(leaf, Qt::CaseInsensitive) == 0) {
+                        jsonPath = it.value();
+                        break;
+                    }
+                }
+                if (jsonPath.isEmpty()) continue;
+                const QJsonDocument doc = readJsonFile(jsonPath);
+                for (const QJsonValue &value : doc.array()) {
+                    const QJsonObject properties = value.toObject()
+                                                      .value(QStringLiteral("Properties"))
+                                                      .toObject();
+                    if (!properties.isEmpty()) {
+                        propertiesByPackage.insert(key(package), properties);
+                        break;
+                    }
+                }
+            }
+            if (propertiesByPackage.isEmpty() && !cueError.isEmpty())
+                materialWarnings << tr_(QStringLiteral("cns_material_read_failed"))
+                                        .arg(cueError);
+            return propertiesByPackage;
+        };
+
+        auto meshData = [&](const QString &meshPath, const QString &baselineMeshPath,
+                            QJsonArray *scalarControls, QJsonArray *textureOptions) {
             const QStringList slotList = meshMaterialSlots(mount, meshPath, temp.path());
-            const QJsonArray parameters =
-                textureParameterOverrides(mount, slotList, relocations, temp.path(), &covered);
+            const auto materialProperties = exportMaterialProperties(
+                slotList, shortId(meshPath));
+            const QString vanillaMesh = vanillaMeshPath(baselineMeshPath);
+            const QStringList baselineSlots = vanillaMesh.isEmpty()
+                ? QStringList() : meshMaterialSlots(mount, vanillaMesh, temp.path());
+            const auto baselineMaterialProperties = exportMaterialProperties(
+                baselineSlots, shortId(meshPath + QStringLiteral("-baseline")));
+            QJsonArray parameters;
             QJsonArray materials;
-            // "Materials" sólo tiene sentido junto a los overrides: es la lista
-            // que indexa MaterialIndex.
-            if (!parameters.isEmpty())
-                for (const QString &slot : slotList) materials.append(slot);
+            QSet<QString> emittedControls;
+            for (int materialIndex = 0; materialIndex < slotList.size(); ++materialIndex) {
+                const QString slot = slotList.at(materialIndex);
+                const QString package = packageOf(slot);
+                const QJsonObject properties = materialProperties.value(key(package));
+                QString outputMaterial = slot;
+                if (!package.isEmpty() && !alreadyIsolated(package)) {
+                    QString targetMaterial;
+                    if (relocations.contains(key(package)))
+                        targetMaterial = relocations.value(key(package));
+                    else
+                        targetMaterial = materializeVanillaAsset(package, QStringLiteral("Materials"));
+                    if (!targetMaterial.isEmpty()) {
+                        const QString objectName = slot.section(QLatin1Char('.'), -1);
+                        outputMaterial = targetMaterial + QLatin1Char('.')
+                            + (objectName.isEmpty() ? targetMaterial.section(QLatin1Char('/'), -1)
+                                                    : objectName);
+                    }
+                }
+                materials.append(outputMaterial);
+
+                QJsonObject baselineProperties;
+                if (materialIndex < baselineSlots.size())
+                    baselineProperties = baselineMaterialProperties.value(
+                        key(packageOf(baselineSlots.at(materialIndex))));
+
+                const QJsonArray textureValues = properties
+                    .value(QStringLiteral("TextureParameterValues")).toArray();
+                for (const QJsonValue &textureValue : textureValues) {
+                    const QJsonObject entry = textureValue.toObject();
+                    const QJsonObject info = entry.value(QStringLiteral("ParameterInfo")).toObject();
+                    const QString paramName = info.value(QStringLiteral("Name")).toString();
+                    const QString texturePath = packageOf(
+                        entry.value(QStringLiteral("ParameterValue")).toObject()
+                             .value(QStringLiteral("ObjectPath")).toString());
+                    if (texturePath.isEmpty() || paramName.isEmpty()) continue;
+
+                    const bool textureAlreadyIsolated = alreadyIsolated(texturePath);
+                    QString targetTexture = textureAlreadyIsolated ? texturePath : QString();
+                    QString originalTexturePath;
+                    if (textureAlreadyIsolated)
+                        originalTexturePath = sourceForRelocatedPath(texturePath);
+                    else if (relocations.contains(key(texturePath))) {
+                        targetTexture = relocations.value(key(texturePath));
+                        originalTexturePath = texturePath;
+                    } else {
+                        targetTexture = materializeVanillaAsset(texturePath,
+                                                               QStringLiteral("Textures"));
+                    }
+                    if (targetTexture.isEmpty()) continue;
+
+                    QString baselineTexturePath;
+                    const QJsonArray baselineTextureValues = baselineProperties
+                        .value(QStringLiteral("TextureParameterValues")).toArray();
+                    const QString associationName = info.value(QStringLiteral("Association")).toString();
+                    const int layerIndex = info.value(QStringLiteral("Index")).toInt(-1);
+                    for (const QJsonValue &baselineValue : baselineTextureValues) {
+                        const QJsonObject baselineEntry = baselineValue.toObject();
+                        const QJsonObject baselineInfo = baselineEntry
+                            .value(QStringLiteral("ParameterInfo")).toObject();
+                        if (baselineInfo.value(QStringLiteral("Name")).toString() != paramName
+                            || baselineInfo.value(QStringLiteral("Association")).toString()
+                                   != associationName
+                            || baselineInfo.value(QStringLiteral("Index")).toInt(-1) != layerIndex)
+                            continue;
+                        baselineTexturePath = packageOf(
+                            baselineEntry.value(QStringLiteral("ParameterValue")).toObject()
+                                .value(QStringLiteral("ObjectPath")).toString());
+                        break;
+                    }
+
+                    if (!textureAlreadyIsolated)
+                        parameters.append(QJsonObject{
+                            {QStringLiteral("MaterialIndex"), materialIndex},
+                            {QStringLiteral("LayerIndex"), info.value(QStringLiteral("Index")).toInt(-1)},
+                            {QStringLiteral("ParamType"), QStringLiteral("Texture")},
+                            {QStringLiteral("ParamName"), paramName},
+                            {QStringLiteral("Association"),
+                             associationOf(info.value(QStringLiteral("Association")).toString())},
+                            {QStringLiteral("Value"), objectRef(targetTexture)}
+                        });
+                    covered.insert(key(texturePath));
+                    if (!originalTexturePath.isEmpty())
+                        covered.insert(key(originalTexturePath));
+
+                    const QString originalCandidate = !baselineTexturePath.isEmpty()
+                        ? baselineTexturePath : originalTexturePath;
+                    if (textureOptions && likelyVanillaPath(originalCandidate)) {
+                        const QString originalTexture = materializeVanillaAsset(
+                            originalCandidate, QStringLiteral("Textures"));
+                        if (!originalTexture.isEmpty()
+                            && key(originalTexture) != key(targetTexture)) {
+                            const QString association =
+                                associationOf(info.value(QStringLiteral("Association")).toString());
+                            const int layerIndex = info.value(QStringLiteral("Index")).toInt(-1);
+                            textureOptions->append(QJsonObject{
+                                {QStringLiteral("DisplayName"),
+                                 tr_(QStringLiteral("cns_material_control_name"))
+                                     .arg(materialIndex).arg(paramName)},
+                                {QStringLiteral("Description"), QString()},
+                                {QStringLiteral("MaterialIndex"), materialIndex},
+                                {QStringLiteral("Association"), association},
+                                {QStringLiteral("LayerIndex"), layerIndex},
+                                {QStringLiteral("ParamName"), paramName},
+                                {QStringLiteral("OptionNames"),
+                                 QJsonArray{tr_(QStringLiteral("cns_texture_option_outfit")),
+                                            tr_(QStringLiteral("cns_texture_option_original"))}},
+                                {QStringLiteral("Textures"),
+                                 QJsonArray{objectRef(targetTexture), objectRef(originalTexture)}},
+                                {QStringLiteral("Value"), 0}
+                            });
+                        }
+                    }
+                }
+
+                const QJsonArray scalarValues = properties
+                    .value(QStringLiteral("ScalarParameterValues")).toArray();
+                for (const QJsonValue &scalarValue : scalarValues) {
+                    const QJsonObject entry = scalarValue.toObject();
+                    const QJsonObject info = entry.value(QStringLiteral("ParameterInfo")).toObject();
+                    const QString paramName = info.value(QStringLiteral("Name")).toString();
+                    const QString lowered = paramName.toLower();
+                    if (!scalarControls || paramName.isEmpty()
+                        || !(lowered.contains(QLatin1String("rough"))
+                             || lowered.contains(QLatin1String("metal"))
+                             || lowered.contains(QLatin1String("specular"))
+                             || lowered.contains(QLatin1String("gloss"))
+                             || lowered.contains(QLatin1String("reflect")))
+                        || !entry.value(QStringLiteral("ParameterValue")).isDouble())
+                        continue;
+                    const QString controlKey = QStringLiteral("%1|%2|%3|%4")
+                        .arg(materialIndex).arg(paramName)
+                        .arg(info.value(QStringLiteral("Association")).toString())
+                        .arg(info.value(QStringLiteral("Index")).toInt(-1));
+                    if (emittedControls.contains(controlKey)) continue;
+                    emittedControls.insert(controlKey);
+                    const double value = entry.value(QStringLiteral("ParameterValue")).toDouble();
+                    const double minValue = qMin(0.0, value);
+                    const double maxValue = qMax(1.0, value * 2.0);
+                    scalarControls->append(QJsonObject{
+                        {QStringLiteral("DisplayName"),
+                         tr_(QStringLiteral("cns_material_control_name"))
+                             .arg(materialIndex).arg(paramName)},
+                        {QStringLiteral("Description"), QString()},
+                        {QStringLiteral("MaterialIndex"), materialIndex},
+                        {QStringLiteral("Association"),
+                         associationOf(info.value(QStringLiteral("Association")).toString())},
+                        {QStringLiteral("LayerIndex"), info.value(QStringLiteral("Index")).toInt(-1)},
+                        {QStringLiteral("ParamName"), paramName},
+                        {QStringLiteral("Min"), minValue},
+                        {QStringLiteral("Max"), maxValue},
+                        {QStringLiteral("Step"), maxValue - minValue > 10.0 ? 0.1 : 0.01},
+                        {QStringLiteral("Value"), value}
+                    });
+                }
+            }
             return QJsonObject{
                 {QStringLiteral("Mesh"), meshPath + QLatin1Char('.')
                                          + meshPath.section(QLatin1Char('/'), -1)},
@@ -872,7 +1105,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
                 {QStringLiteral("Parameters"), parameters}
             };
         };
-        QJsonObject outfitData = meshData(relocatedRoot);
+        QJsonArray scalarControls;
+        QJsonArray textureOptions;
+        QJsonObject outfitData = meshData(relocatedRoot, rootPath,
+                                          &scalarControls, &textureOptions);
 
         // Cosméticos extra (cara, pelo…): la malla vanilla ya viaja en el paquete
         // con sus referencias reescritas hacia los assets del mod.
@@ -881,20 +1117,48 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             const AssetInfo info = extraRoots.value(it.key());
             const QString label = info.name.isEmpty() ? info.fitMeshType : info.name;
             covered.insert(it.key());
-            extraDescriptors.append(QJsonObject{
+            QJsonArray extraScalarControls;
+            QJsonArray extraTextureOptions;
+            const QJsonObject extraMeshData = meshData(it.value(), info.path,
+                                                       &extraScalarControls,
+                                                       &extraTextureOptions);
+            QJsonObject extraDescriptor{
                 {QStringLiteral("UniqueFitID"),
                  QStringLiteral("Repacked %1 %2").arg(name, label)},
                 {QStringLiteral("Requirement"), QStringLiteral("None")},
                 {QStringLiteral("DisplayName"), QStringLiteral("%1 (%2)").arg(name, label)},
                 {QStringLiteral("Description"), QStringLiteral("%1 (%2)").arg(name, label)},
                 {QStringLiteral("OutfitTypes"), QJsonArray()},
-                {QStringLiteral("OutfitDatas"), QJsonArray{meshData(it.value())}},
+                {QStringLiteral("OutfitDatas"), QJsonArray{extraMeshData}},
                 {QStringLiteral("CharacterID"),
                  info.characterId.isEmpty() ? QStringLiteral("EVE") : info.characterId},
                 {QStringLiteral("FitMeshType"), info.fitMeshType}
-            });
+            };
+            if (!extraScalarControls.isEmpty() || !extraTextureOptions.isEmpty())
+                extraDescriptor.insert(QStringLiteral("UserConfigs"), QJsonObject{
+                    {QStringLiteral("ShapeKeys"), QJsonArray()},
+                    {QStringLiteral("MaterialToggles"), QJsonArray()},
+                    {QStringLiteral("ScalarControls"), extraScalarControls},
+                    {QStringLiteral("VectorControls"), QJsonArray()},
+                    {QStringLiteral("TextureOptions"), extraTextureOptions}
+                });
+            extraDescriptors.append(extraDescriptor);
         }
         if (!mount.isEmpty()) QDir(mount).removeRecursively();
+
+        if (addedIsolatedAssets) {
+            const QString base = QFileInfo(utoc).completeBaseName();
+            for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"),
+                                       QStringLiteral("pak"), QStringLiteral("sig")})
+                QFile::remove(QFileInfo(utoc).dir().filePath(base + QLatin1Char('.') + ext));
+            emit progress(tr_(QStringLiteral("cns_material_pack_progress")));
+            if (!m_pak->packZen(packageDir, utoc, &error)) {
+                result.error = error;
+                return result;
+            }
+        }
+        materialWarnings.removeDuplicates();
+        result.warnings.append(materialWarnings);
 
         // Lo que el mod pisaba fuera del outfit y no quedó cubierto ni por un
         // override de textura ni por una malla extra no se aplica en CNS.
@@ -939,6 +1203,14 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             {QStringLiteral("FitMeshType"),
              sourceInfo.fitMeshType.isEmpty() ? QStringLiteral("Body") : sourceInfo.fitMeshType}
         };
+        if (!scalarControls.isEmpty() || !textureOptions.isEmpty())
+            descriptor.insert(QStringLiteral("UserConfigs"), QJsonObject{
+                {QStringLiteral("ShapeKeys"), QJsonArray()},
+                {QStringLiteral("MaterialToggles"), QJsonArray()},
+                {QStringLiteral("ScalarControls"), scalarControls},
+                {QStringLiteral("VectorControls"), QJsonArray()},
+                {QStringLiteral("TextureOptions"), textureOptions}
+            });
         if (!sourceInfo.meshSubType.isEmpty())
             descriptor.insert(QStringLiteral("MeshSubType"), sourceInfo.meshSubType);
         if (!sourceInfo.iconObjectPath.isEmpty())

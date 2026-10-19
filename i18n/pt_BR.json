@@ -249,5 +249,15 @@
   "builder_move_speed": "Aumentar velocidade de movimento",
   "builder_enemy_drops": "Aumentar drops",
   "builder_multiplier": "Multiplicador",
-  "builder_moveset_title": "Movesets e habilidades", "builder_moveset_hint": "Analise variantes e combine alterações individuais.", "builder_moveset_source": "Escolher pasta de variantes", "builder_moveset_source_placeholder": "Pasta com variantes .pak/.ucas/.utoc", "builder_moveset_analyze": "Analisar", "builder_moveset_analyzing": "Analisando variantes…", "builder_moveset_selected": "Alterações selecionadas: %1", "builder_moveset_conflict": "alternativa exclusiva", "builder_moveset_unsupported": "requer validação", "builder_moveset_analyzed": "Catálogo pronto (%1 alterações).", "err_moveset_source": "Escolha uma pasta válida de variantes.", "err_moveset_game": "Escolha uma instalação válida do Stellar Blade.", "err_moveset_analysis": "Falha na análise do moveset."
+  "builder_moveset_title": "Movesets e habilidades", "builder_moveset_hint": "Analise variantes e combine alterações individuais.", "builder_moveset_source": "Escolher pasta de variantes", "builder_moveset_source_placeholder": "Pasta com variantes .pak/.ucas/.utoc", "builder_moveset_analyze": "Analisar", "builder_moveset_analyzing": "Analisando variantes…", "builder_moveset_selected": "Alterações selecionadas: %1", "builder_moveset_conflict": "alternativa exclusiva", "builder_moveset_unsupported": "requer validação", "builder_moveset_analyzed": "Catálogo pronto (%1 alterações).", "err_moveset_source": "Escolha uma pasta válida de variantes.", "err_moveset_game": "Escolha uma instalação válida do Stellar Blade.", "err_moveset_analysis": "Falha na análise do moveset.",
+  "cns_isolate_progress": "Isolando material ou textura %1…",
+  "cns_isolate_asset_failed": "Não foi possível isolar %1: %2",
+  "cns_isolate_asset_missing": "Asset original não encontrado: %1.",
+  "cns_isolate_asset_relocate_failed": "Não foi possível realocar %1: %2",
+  "cns_material_read_failed": "O CUE4Parse não conseguiu ler os materiais: %1",
+  "cns_material_pack_progress": "Empacotando materiais isolados…",
+  "cns_material_control_name": "Material %1 %2",
+  "cns_texture_option_outfit": "Outfit",
+  "cns_texture_option_original": "Original"
+
 }

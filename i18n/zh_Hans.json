@@ -249,5 +249,15 @@
   "builder_move_speed": "提高移动速度",
   "builder_enemy_drops": "提高掉落",
   "builder_multiplier": "倍率",
-  "builder_moveset_title": "招式与技能", "builder_moveset_hint": "分析变体并组合单独的改动。", "builder_moveset_source": "选择变体文件夹", "builder_moveset_source_placeholder": "包含 .pak/.ucas/.utoc 变体的文件夹", "builder_moveset_analyze": "分析", "builder_moveset_analyzing": "正在分析变体…", "builder_moveset_selected": "已选择改动：%1", "builder_moveset_conflict": "互斥选项", "builder_moveset_unsupported": "需要验证", "builder_moveset_analyzed": "目录已就绪（%1 项改动）。", "err_moveset_source": "请选择有效的招式变体文件夹。", "err_moveset_game": "请选择有效的 Stellar Blade 安装。", "err_moveset_analysis": "招式分析失败。"
+  "builder_moveset_title": "招式与技能", "builder_moveset_hint": "分析变体并组合单独的改动。", "builder_moveset_source": "选择变体文件夹", "builder_moveset_source_placeholder": "包含 .pak/.ucas/.utoc 变体的文件夹", "builder_moveset_analyze": "分析", "builder_moveset_analyzing": "正在分析变体…", "builder_moveset_selected": "已选择改动：%1", "builder_moveset_conflict": "互斥选项", "builder_moveset_unsupported": "需要验证", "builder_moveset_analyzed": "目录已就绪（%1 项改动）。", "err_moveset_source": "请选择有效的招式变体文件夹。", "err_moveset_game": "请选择有效的 Stellar Blade 安装。", "err_moveset_analysis": "招式分析失败。",
+  "cns_isolate_progress": "正在隔离材质或纹理 %1…",
+  "cns_isolate_asset_failed": "无法隔离 %1：%2",
+  "cns_isolate_asset_missing": "找不到原始资源：%1。",
+  "cns_isolate_asset_relocate_failed": "无法重新定位 %1：%2",
+  "cns_material_read_failed": "CUE4Parse 无法读取材质：%1",
+  "cns_material_pack_progress": "正在打包隔离的材质…",
+  "cns_material_control_name": "材质 %1 %2",
+  "cns_texture_option_outfit": "服装",
+  "cns_texture_option_original": "原始"
+
 }

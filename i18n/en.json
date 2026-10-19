@@ -569,5 +569,15 @@
   "builder_moveset_analyzed": "Moveset catalog ready (%1 changes).",
   "err_moveset_source": "Select a valid moveset variants folder.",
   "err_moveset_game": "Select a valid Stellar Blade installation.",
-  "err_moveset_analysis": "Moveset analysis failed."
+  "err_moveset_analysis": "Moveset analysis failed.",
+  "cns_isolate_progress": "Isolating material or texture %1…",
+  "cns_isolate_asset_failed": "Could not isolate %1: %2",
+  "cns_isolate_asset_missing": "Vanilla asset not found: %1.",
+  "cns_isolate_asset_relocate_failed": "Could not relocate %1: %2",
+  "cns_material_read_failed": "CUE4Parse could not read materials: %1",
+  "cns_material_pack_progress": "Packaging isolated materials…",
+  "cns_material_control_name": "M%1 %2",
+  "cns_texture_option_outfit": "Outfit",
+  "cns_texture_option_original": "Original"
+
 }

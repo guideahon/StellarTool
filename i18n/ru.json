@@ -249,5 +249,15 @@
   "builder_move_speed": "Увеличить скорость движения",
   "builder_enemy_drops": "Увеличить добычу",
   "builder_multiplier": "Множитель",
-  "builder_moveset_title": "Наборы движений и навыки", "builder_moveset_hint": "Анализируйте варианты и объединяйте отдельные изменения.", "builder_moveset_source": "Выбрать папку вариантов", "builder_moveset_source_placeholder": "Папка с вариантами .pak/.ucas/.utoc", "builder_moveset_analyze": "Анализировать", "builder_moveset_analyzing": "Анализ вариантов…", "builder_moveset_selected": "Выбрано изменений: %1", "builder_moveset_conflict": "эксклюзивный вариант", "builder_moveset_unsupported": "требуется проверка", "builder_moveset_analyzed": "Каталог готов (%1 изменений).", "err_moveset_source": "Выберите корректную папку вариантов.", "err_moveset_game": "Выберите корректную установку Stellar Blade.", "err_moveset_analysis": "Не удалось проанализировать набор движений."
+  "builder_moveset_title": "Наборы движений и навыки", "builder_moveset_hint": "Анализируйте варианты и объединяйте отдельные изменения.", "builder_moveset_source": "Выбрать папку вариантов", "builder_moveset_source_placeholder": "Папка с вариантами .pak/.ucas/.utoc", "builder_moveset_analyze": "Анализировать", "builder_moveset_analyzing": "Анализ вариантов…", "builder_moveset_selected": "Выбрано изменений: %1", "builder_moveset_conflict": "эксклюзивный вариант", "builder_moveset_unsupported": "требуется проверка", "builder_moveset_analyzed": "Каталог готов (%1 изменений).", "err_moveset_source": "Выберите корректную папку вариантов.", "err_moveset_game": "Выберите корректную установку Stellar Blade.", "err_moveset_analysis": "Не удалось проанализировать набор движений.",
+  "cns_isolate_progress": "Изоляция материала или текстуры %1…",
+  "cns_isolate_asset_failed": "Не удалось изолировать %1: %2",
+  "cns_isolate_asset_missing": "Исходный asset не найден: %1.",
+  "cns_isolate_asset_relocate_failed": "Не удалось переместить %1: %2",
+  "cns_material_read_failed": "CUE4Parse не удалось прочитать материалы: %1",
+  "cns_material_pack_progress": "Упаковка изолированных материалов…",
+  "cns_material_control_name": "Материал %1 %2",
+  "cns_texture_option_outfit": "Костюм",
+  "cns_texture_option_original": "Оригинал"
+
 }

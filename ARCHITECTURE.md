@@ -111,7 +111,7 @@ Claves de diseño:
 | `ModImporter` | orquesta ingesta: extrae, convierte, clasifica assets, produce `ModPackage`. Maneja mods legacy y Zen (con fallback a CUE4Parse). Corre en `QtConcurrent` con progreso. |
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
 | `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Conserva los tipos declarados por el usmap y completa FNames/tipos de arrays vacíos antes de escribir. |
-| `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. |
+| `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con sus bases de rutas, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. Al convertir a CNS aísla materiales/texturas compartidos en el namespace del outfit y genera opciones para alternar texturas reemplazadas y ajustar rugosidad/metalicidad desde CNS. |
 | `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta conflictos de `Package_Id`. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
 | `ReShadePresetService` | detecta `SB/Binaries/Win64/ReShade.ini`, mantiene la biblioteca de presets en `%LOCALAPPDATA%/StellarTool/reshade/`, importa/exporta y restaura copias administradas en el juego con backup previo. Comprueba de forma best-effort los shaders referenciados. |

@@ -12,7 +12,10 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   modificar el mod de entrada. Acepta `.zip`, `.pak`, `.utoc` o carpeta y
   genera automáticamente un ZIP instalable con Vortex. Mantiene un historial
   persistente con acceso a la carpeta de salida y borra el directorio intermedio
-  una vez creado el ZIP.
+  una vez creado el ZIP. Al convertir a CNS, aísla materiales y texturas
+  compartidos con el juego y agrega opciones en CNS para elegir entre las
+  texturas del outfit y las originales, además de controles de rugosidad y
+  metalicidad cuando los materiales los exponen.
 - **CNS ID Fixer** escanea mods IoStore, corrige `Container_Id` duplicados con
   backup verificable y reporta conflictos de `Package_Id` sin alterar esos IDs.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de

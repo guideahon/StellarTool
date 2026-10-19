@@ -249,5 +249,15 @@
   "builder_move_speed": "Aumenta velocità di movimento",
   "builder_enemy_drops": "Aumenta ricompense",
   "builder_multiplier": "Moltiplicatore",
-  "builder_moveset_title": "Moveset e abilità", "builder_moveset_hint": "Analizza le varianti e combina i singoli cambiamenti.", "builder_moveset_source": "Scegli cartella varianti", "builder_moveset_source_placeholder": "Cartella con varianti .pak/.ucas/.utoc", "builder_moveset_analyze": "Analizza", "builder_moveset_analyzing": "Analisi delle varianti…", "builder_moveset_selected": "Modifiche selezionate: %1", "builder_moveset_conflict": "alternativa esclusiva", "builder_moveset_unsupported": "richiede validazione", "builder_moveset_analyzed": "Catalogo pronto (%1 modifiche).", "err_moveset_source": "Scegli una cartella di varianti valida.", "err_moveset_game": "Scegli un'installazione valida di Stellar Blade.", "err_moveset_analysis": "Analisi moveset non riuscita."
+  "builder_moveset_title": "Moveset e abilità", "builder_moveset_hint": "Analizza le varianti e combina i singoli cambiamenti.", "builder_moveset_source": "Scegli cartella varianti", "builder_moveset_source_placeholder": "Cartella con varianti .pak/.ucas/.utoc", "builder_moveset_analyze": "Analizza", "builder_moveset_analyzing": "Analisi delle varianti…", "builder_moveset_selected": "Modifiche selezionate: %1", "builder_moveset_conflict": "alternativa esclusiva", "builder_moveset_unsupported": "richiede validazione", "builder_moveset_analyzed": "Catalogo pronto (%1 modifiche).", "err_moveset_source": "Scegli una cartella di varianti valida.", "err_moveset_game": "Scegli un'installazione valida di Stellar Blade.", "err_moveset_analysis": "Analisi moveset non riuscita.",
+  "cns_isolate_progress": "Isolamento del materiale o della texture %1…",
+  "cns_isolate_asset_failed": "Impossibile isolare %1: %2",
+  "cns_isolate_asset_missing": "Asset originale non trovato: %1.",
+  "cns_isolate_asset_relocate_failed": "Impossibile rilocalizzare %1: %2",
+  "cns_material_read_failed": "CUE4Parse non è riuscito a leggere i materiali: %1",
+  "cns_material_pack_progress": "Creazione del pacchetto dei materiali isolati…",
+  "cns_material_control_name": "Materiale %1 %2",
+  "cns_texture_option_outfit": "Outfit",
+  "cns_texture_option_original": "Originale"
+
 }

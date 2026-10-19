@@ -87,13 +87,10 @@ private:
                              const QMap<QString, QString> &relocations,
                              QString *error) const;
 
-    // Un replacer suele cambiar la piel pisando las TEXTURAS que lee un material
-    // vanilla (p. ej. MI_P_EVE_09_Skin), no el material. Relocalizadas bajo
-    // /Game/CNSRepacked/<id>/ quedan huérfanas y el outfit se ve con la piel
-    // vanilla. CNS resuelve esto con "Materials" + "Parameters" en el descriptor:
-    // overrides que aplica sólo mientras el outfit está equipado. Estos helpers
-    // reconstruyen esa lista leyendo los slots reales de la malla y los
-    // parámetros de textura de cada material vanilla.
+    // Un replacer puede reemplazar texturas compartidas que un outfit sigue
+    // leyendo desde materiales vanilla. Al convertir, se aíslan materiales y
+    // texturas bajo /Game/CNSRepacked/<id>/ y CNS los asigna con los campos
+    // Materials + Parameters del descriptor.
 
     // Carpeta montable por CUE4Parse con los contenedores vanilla (hardlink) +
     // el contenedor recién empaquetado. Hay que borrarla al terminar.
@@ -102,15 +99,6 @@ private:
     // Devuelve "/Game/…/MI_X.MI_X". Vacío si no se puede leer.
     QStringList meshMaterialSlots(const QString &mountDir, const QString &meshPath,
                                   const QString &workDir) const;
-    // Para cada slot vanilla, redirige a la copia relocalizada las texturas que
-    // el mod pisaba. Devuelve las entradas "Parameters" y marca como usadas las
-    // rutas que quedaron cubiertas.
-    QJsonArray textureParameterOverrides(const QString &mountDir,
-                                         const QStringList &slotList,
-                                         const QMap<QString, QString> &relocations,
-                                         const QString &workDir,
-                                         QSet<QString> *covered) const;
-
     PakService *m_pak;
     UAssetService *m_uasset;
     Cue4Service *m_cue4;
