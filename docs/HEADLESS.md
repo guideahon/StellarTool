@@ -23,7 +23,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera la salida instalable; `cns` también aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta o corrige IDs; requiere `--apply` para escribir. |
+| CNS ID Fixer | `fixids`, `cns` | `fixids` reporta o corrige IDs; requiere `--apply` para escribir. La reparación visual reempaqueta el outfit con `cns` y escribe un mod CNS nuevo. |
 | Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -47,6 +47,7 @@ StellarTool.exe --headless presets
 StellarTool.exe --headless cns --mod "C:\outfit.zip" --out "C:\salida" [--name "Outfit"]
 StellarTool.exe --headless replacer --mod "C:\outfit-cns.zip" --out "C:\salida" --replace "Black Pearl" [--select "2"]
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" [--apply]
+StellarTool.exe --headless cns --mod "C:\mods\outfit-problematico.zip" --out "C:\salida" [--name "Outfit reparado"]
 StellarTool.exe --headless baseline --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless detect
 StellarTool.exe --headless status
@@ -66,7 +67,9 @@ no alteren su aspecto. El descriptor agrega opciones CNS para alternar las
 texturas incluidas por el mod con copias originales cuando el asset lo permite,
 y sliders para parámetros de rugosidad/metalicidad presentes en los materiales.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
-paks del juego.
+paks del juego. El bloque «Reparar materiales y texturas» de CNS ID Fixer usa
+este mismo flujo para `.pak`, `.zip` o una carpeta de mod y genera un nombre de
+salida único para conservar corridas anteriores.
 
 `--input` también puede ser una carpeta `.stpatch` o un archivo comprimido
 `.stpatch`/`.zip` que contenga `manifest.toml` opcional y uno o más `.toml`.

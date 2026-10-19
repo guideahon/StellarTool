@@ -136,7 +136,7 @@ Páginas (`qml/pages`):
 5. **EasyMergePage** — flujo simplificado de merge.
 6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
 7. **CnsConverterPage** — conversor de outfits replacer ↔ CNS.
-8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados.
+8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados; también reempaqueta outfits con conflictos de materiales/texturas como CNS usando `CnsConverterService`.
 9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
 10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
 11. **SaveConverterPage** — conversor y reparador de partidas, con backup automático y crédito a lotress.
@@ -170,6 +170,10 @@ extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
 `Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos.
+El bloque de reparación visual reutiliza el flujo `cns` de
+`CnsConverterService`: recibe un `.pak`, `.zip` o carpeta, aísla materiales y
+texturas en un outfit CNS y escribe un paquete con nombre nuevo en la carpeta
+de salida, sin modificar la entrada.
 
 `LivePage` habla con `LiveService`, expuesto a QML como `Live` (context property
 propia, sin pasar por `AppController`: la página no comparte estado con el

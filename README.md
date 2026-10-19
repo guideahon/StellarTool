@@ -18,6 +18,9 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   metalicidad cuando los materiales los exponen.
 - **CNS ID Fixer** escanea mods IoStore, corrige `Container_Id` duplicados con
   backup verificable y reporta conflictos de `Package_Id` sin alterar esos IDs.
+  También permite reempaquetar desde esa página un outfit con problemas de
+  materiales/texturas como un mod CNS nuevo, con los recursos compartidos
+  aislados y sin modificar el archivo de entrada.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
