@@ -16,11 +16,13 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   compartidos con el juego y agrega opciones en CNS para elegir entre las
   texturas del outfit y las originales, además de controles de rugosidad y
   metalicidad cuando los materiales los exponen.
-- **CNS ID Fixer** escanea mods IoStore, corrige `Container_Id` duplicados con
-  backup verificable y reporta conflictos de `Package_Id`. También puede buscar
-  los paquetes con recursos compartidos en la carpeta instalada y generar mods
-  CNS con materiales/texturas aislados para los outfits compatibles; los
-  originales quedan intactos y se instalan las salidas manualmente.
+- **CNS ID Fixer** analiza mods IoStore y corrige `Container_Id` duplicados con
+  backup verificable. El botón **Fix IDs and textures** convierte outfits con
+  `Package_Id` compartidos a CNS, instala los archivos directamente en
+  `~mods/CustomNanosuitSystem/Cosmetics`, verifica el resultado y mueve los
+  originales a `~mods/disabled/` con extensión `.disabled` para que el juego no
+  los vuelva a cargar. La conversión completa debe funcionar antes de reemplazar
+  ningún original. Requiere CNS instalado.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
@@ -52,7 +54,9 @@ UAssetGUI y el mapping de Stellar Blade), pero UAssetGUI requiere una dependenci
 del sistema: instalá el [.NET 10 Desktop Runtime para Windows x64](https://dotnet.microsoft.com/en-us/download/dotnet/10.0)
 antes de usar funciones que convierten o escriben assets, incluido Stellar Souls
 Builder. El SDK .NET 10 también funciona porque incluye ese runtime, pero no hace
-falta instalar el SDK. Stellar Tool no modifica ni instala archivos del juego.
+falta instalar el SDK. La mayoría de las operaciones solo genera salidas; las
+acciones de instalación directa están identificadas y piden confirmación antes de
+cambiar la carpeta activa de mods.
 
 ### Actualizaciones
 

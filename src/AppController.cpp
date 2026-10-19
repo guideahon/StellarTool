@@ -191,93 +191,391 @@ void AppController::runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes) {
     });
 }
 
-void AppController::repairCnsAppearanceConflicts(const QUrl &directoryUrl,
-                                                  const QUrl &outDirUrl) {
+void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
     if (m_busy) return;
     const QString directory = directoryUrl.isLocalFile()
         ? directoryUrl.toLocalFile() : directoryUrl.toString();
-    const QString outputDir = outDirUrl.isLocalFile()
-        ? outDirUrl.toLocalFile() : outDirUrl.toString();
-    if (outputDir.trimmed().isEmpty()) {
-        m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_isolation_output_required"));
-        m_cnsIdFixerOk = false;
-        emit cnsIdFixerFinished(false);
-        return;
-    }
-    const QString sourceRoot = QDir::fromNativeSeparators(QDir(directory).absolutePath());
-    const QString outputRoot = QDir::fromNativeSeparators(QDir(outputDir).absolutePath());
-    const QString relativeOutput = QDir::fromNativeSeparators(
-        QDir(sourceRoot).relativeFilePath(outputRoot));
-    if (relativeOutput == QLatin1String(".")
-        || (!relativeOutput.startsWith(QLatin1String("../"))
-            && !QDir::isAbsolutePath(relativeOutput))) {
-        m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_isolation_output_inside_mods"));
+    const QString configuredMods = GamePaths::modsDir();
+    const QString sourceRoot = QDir::cleanPath(QFileInfo(directory).canonicalFilePath());
+    const QString expectedRoot = QDir::cleanPath(QFileInfo(configuredMods).canonicalFilePath());
+    if (sourceRoot.isEmpty() || expectedRoot.isEmpty()
+        || sourceRoot.compare(expectedRoot, Qt::CaseInsensitive) != 0) {
+        m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_fix_folder_required"));
         m_cnsIdFixerOk = false;
         emit cnsIdFixerFinished(false);
         return;
     }
 
-    setBusy(true, t(QStringLiteral("cns_fixer_isolation_scanning")));
-    const QString runId = QString::number(QDateTime::currentMSecsSinceEpoch());
-    std::ignore = QtConcurrent::run([this, directory, outputDir, runId] {
-        const CnsIdFixerService::Result scan = m_cnsIdFixer->run(directory, false);
+    const QString paksRoot = QFileInfo(sourceRoot).absolutePath();
+    const QString runId = QDateTime::currentDateTimeUtc().toString(
+                              QStringLiteral("yyyyMMdd_HHmmss_zzz"))
+        + QLatin1Char('_')
+        + CnsConverterService::shortId(sourceRoot
+                                       + QString::number(QDateTime::currentMSecsSinceEpoch()));
+    const QString stageRoot = QDir(paksRoot).filePath(
+        QStringLiteral(".StellarTool_CnsFix_") + runId);
+    if (QFileInfo::exists(stageRoot)) {
+        m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_fix_stage_failed"))
+            .arg(stageRoot, t(QStringLiteral("cns_fixer_fix_reason_stage_exists")));
+        m_cnsIdFixerOk = false;
+        emit cnsIdFixerFinished(false);
+        return;
+    }
+
+    setBusy(true, t(QStringLiteral("cns_fixer_fix_scanning")));
+    std::ignore = QtConcurrent::run([this, sourceRoot, paksRoot, stageRoot, runId] {
+        struct ConvertedOutfit {
+            QStringList stagedFiles;
+        };
+
+        auto finish = [this](bool ok, const QString &report, const QString &statusKey) {
+            QMetaObject::invokeMethod(this, [this, ok, report, statusKey] {
+                setBusy(false, t(statusKey));
+                m_cnsIdFixerReport = report;
+                m_cnsIdFixerOk = ok;
+                emit cnsIdFixerFinished(ok);
+                if (!ok) emit errorOccurred(report);
+            }, Qt::QueuedConnection);
+        };
+        auto cleanStage = [&stageRoot] {
+            if (QFileInfo::exists(stageRoot)) QDir(stageRoot).removeRecursively();
+        };
+
         QStringList lines;
-        bool ok = scan.ok;
-        int generated = 0;
-        int failed = 0;
+        const CnsIdFixerService::Result initial = m_cnsIdFixer->run(sourceRoot, false);
+        if (!initial.ok) {
+            finish(false, initial.error,
+                   QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+        lines << initial.report << QString();
 
-        if (!scan.ok) {
-            lines << scan.error;
-        } else if (scan.sharedPackageContainerPaths.isEmpty()) {
-            lines << t(QStringLiteral("cns_fixer_isolation_no_conflicts"));
+        QList<ConvertedOutfit> convertedOutfits;
+        const int total = initial.sharedPackageContainerPaths.size();
+        if (total == 0) {
+            lines << t(QStringLiteral("cns_fixer_fix_no_conflicts"));
+            const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true);
+            if (!idFix.ok) {
+                finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
+                                   + idFix.error,
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            lines << QString() << t(QStringLiteral("cns_fixer_fix_id_summary"))
+                                      .arg(idFix.fixedContainers)
+                  << idFix.report;
+            finish(true, lines.join(QLatin1Char('\n')),
+                   QStringLiteral("cns_fixer_fix_done"));
+            return;
         } else {
-            lines << t(QStringLiteral("cns_fixer_isolation_found"))
-                         .arg(scan.sharedPackageContainerPaths.size());
-            const int total = scan.sharedPackageContainerPaths.size();
+            lines << t(QStringLiteral("cns_fixer_fix_found")).arg(total);
+            const QString cnsLogic = QDir(paksRoot).filePath(
+                QStringLiteral("LogicMods/DekCNS_P"));
+            if (!QFileInfo::exists(cnsLogic + QStringLiteral(".utoc"))
+                && !QFileInfo::exists(cnsLogic + QStringLiteral(".pak"))) {
+                finish(false, t(QStringLiteral("cns_fixer_fix_cns_required")),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            if (!QDir().mkpath(stageRoot)) {
+                finish(false,
+                       t(QStringLiteral("cns_fixer_fix_stage_failed"))
+                           .arg(stageRoot, t(QStringLiteral("cns_fixer_fix_reason_stage_create"))),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            const QString conversionRoot = QDir(stageRoot).filePath(QStringLiteral("conversions"));
+            const QString extractionRoot = QDir(stageRoot).filePath(QStringLiteral("extracted"));
+            const QString payloadRoot = QDir(stageRoot).filePath(QStringLiteral("payload"));
+            if (!QDir().mkpath(conversionRoot) || !QDir().mkpath(extractionRoot)
+                || !QDir().mkpath(payloadRoot)) {
+                cleanStage();
+                finish(false,
+                       t(QStringLiteral("cns_fixer_fix_stage_failed"))
+                           .arg(stageRoot, t(QStringLiteral("cns_fixer_fix_reason_stage_prepare"))),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+
             for (int i = 0; i < total; ++i) {
-                const QString containerPath = scan.sharedPackageContainerPaths.at(i);
+                const QString containerPath = initial.sharedPackageContainerPaths.at(i);
                 QMetaObject::invokeMethod(this, [this, i, total, containerPath] {
-                    setStatus(t(QStringLiteral("cns_fixer_isolation_progress"))
+                    setStatus(t(QStringLiteral("cns_fixer_fix_progress"))
                                   .arg(i + 1).arg(total)
                                   .arg(QFileInfo(containerPath).fileName()));
                 }, Qt::QueuedConnection);
+
+                QString modBase = QFileInfo(containerPath).completeBaseName();
+                modBase.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_-]")),
+                                QStringLiteral("_"));
+                if (modBase.isEmpty()) modBase = QStringLiteral("Outfit");
+                modBase.truncate(40);
+                const QString stableId = CnsConverterService::shortId(
+                    QDir::toNativeSeparators(containerPath).toCaseFolded()).left(10);
+                const QString modName = modBase + QStringLiteral("_STFix_") + stableId;
+                const QString conversionDir = QDir(conversionRoot).filePath(QString::number(i));
+                const QString extractedDir = QDir(extractionRoot).filePath(QString::number(i));
+
                 CnsConverterService::Request request;
                 request.inputPath = containerPath;
-                request.outputDir = outputDir;
+                request.outputDir = conversionDir;
                 request.mode = CnsConverterService::Mode::ToCns;
-                request.modName = QFileInfo(containerPath).completeBaseName()
-                    + QStringLiteral("_StellarTool_Isolated_")
-                    + CnsConverterService::shortId(containerPath + runId);
-
-                const CnsConverterService::Result converted = m_cns->convert(request);
-                if (!converted.ok) {
-                    ++failed;
-                    lines << t(QStringLiteral("cns_fixer_isolation_failed"))
-                                 .arg(QFileInfo(containerPath).fileName(), converted.error);
-                    continue;
+                request.modName = modName;
+                const CnsConverterService::Result result = m_cns->convert(request);
+                if (!result.ok || !result.blockingWarnings.isEmpty()) {
+                    cleanStage();
+                    const QString details = result.ok
+                        ? result.blockingWarnings.join(QLatin1Char('\n')) : result.error;
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_convert_failed"))
+                               .arg(QFileInfo(containerPath).fileName(), details),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                QString extractError;
+                if (!m_pak->extractZip(result.zipPath, extractedDir, &extractError)) {
+                    cleanStage();
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_stage_failed"))
+                               .arg(result.zipPath, extractError),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
                 }
 
-                ++generated;
-                lines << t(QStringLiteral("cns_fixer_isolation_created"))
-                             .arg(QFileInfo(containerPath).fileName(), converted.zipPath)
-                             .arg(converted.assetsWritten);
-                for (const QString &warning : converted.warnings)
-                    lines << t(QStringLiteral("cns_fixer_isolation_warning")).arg(warning);
+                const QDir extracted(extractedDir);
+                const QStringList nestedDirs = extracted.entryList(
+                    QDir::Dirs | QDir::NoDotAndDotDot);
+                QStringList fileNames = extracted.entryList(QDir::Files | QDir::NoDotAndDotDot);
+                bool hasUtoc = false;
+                bool hasUcas = false;
+                bool hasDescriptor = false;
+                bool supportedFiles = nestedDirs.isEmpty() && !fileNames.isEmpty();
+                for (const QString &fileName : fileNames) {
+                    const QString lower = fileName.toLower();
+                    hasUtoc = hasUtoc || lower.endsWith(QLatin1String(".utoc"));
+                    hasUcas = hasUcas || lower.endsWith(QLatin1String(".ucas"));
+                    hasDescriptor = hasDescriptor || lower.endsWith(QLatin1String(".dekcns.json"));
+                    if (!lower.endsWith(QLatin1String(".utoc"))
+                        && !lower.endsWith(QLatin1String(".ucas"))
+                        && !lower.endsWith(QLatin1String(".pak"))
+                        && !lower.endsWith(QLatin1String(".sig"))
+                        && !lower.endsWith(QLatin1String(".dekcns.json")))
+                        supportedFiles = false;
+                }
+                if (!supportedFiles || !hasUtoc || !hasUcas || !hasDescriptor) {
+                    cleanStage();
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_stage_failed"))
+                               .arg(result.zipPath,
+                                    t(QStringLiteral("cns_fixer_fix_reason_stage_invalid"))),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+
+                ConvertedOutfit outfit;
+                for (const QString &fileName : fileNames) {
+                    const QString stagedPath = QDir(payloadRoot).filePath(fileName);
+                    if (QFileInfo::exists(stagedPath)
+                        || !QFile::copy(extracted.filePath(fileName), stagedPath)) {
+                        cleanStage();
+                        finish(false,
+                               t(QStringLiteral("cns_fixer_fix_stage_failed"))
+                                   .arg(fileName, t(QStringLiteral("cns_fixer_fix_reason_stage_copy"))),
+                               QStringLiteral("cns_fixer_fix_failed_status"));
+                        return;
+                    }
+                    outfit.stagedFiles << stagedPath;
+                }
+                convertedOutfits << outfit;
+                lines << t(QStringLiteral("cns_fixer_fix_converted"))
+                             .arg(modName).arg(result.assetsWritten);
+                for (const QString &warning : result.warnings)
+                    lines << t(QStringLiteral("cns_fixer_fix_warning")).arg(warning);
             }
-            lines << t(QStringLiteral("cns_fixer_isolation_summary"))
-                         .arg(generated).arg(failed);
-            ok = generated > 0;
         }
 
-        const QString report = lines.join(QLatin1Char('\n'));
-        QMetaObject::invokeMethod(this, [this, ok, report] {
-            setBusy(false, t(ok ? QStringLiteral("cns_fixer_isolation_done")
-                                : QStringLiteral("cns_fixer_isolation_failed_status")));
-            m_cnsIdFixerReport = report;
-            m_cnsIdFixerOk = ok;
-            emit cnsIdFixerFinished(ok);
-            if (!ok) emit errorOccurred(report);
-        }, Qt::QueuedConnection);
+        // Stage every conversion successfully before moving any installed file.
+        // Preserve each source path under disabled and add a suffix so UE's
+        // recursive ~mods loader cannot load the backup as another live mod.
+        const QString disabledRoot = QDir(sourceRoot).filePath(
+            QStringLiteral("disabled/StellarTool_Fix_") + runId);
+        const QString cosmeticsDir = QDir(sourceRoot).filePath(
+            QStringLiteral("CustomNanosuitSystem/Cosmetics"));
+        QList<QPair<QString, QString>> originalMoves;
+        QStringList seenSources;
+        const QStringList companionSuffixes{
+            QStringLiteral(".utoc"), QStringLiteral(".ucas"), QStringLiteral(".pak"),
+            QStringLiteral(".sig"), QStringLiteral(".dekcns.json"),
+            QStringLiteral(".dekani.json"), QStringLiteral(".cnslink.json")};
+        for (const QString &containerPath : initial.sharedPackageContainerPaths) {
+            const QFileInfo fi(containerPath);
+            const QString stem = fi.completeBaseName();
+            QStringList family;
+            for (const QString &suffix : companionSuffixes) {
+                const QString path = fi.dir().filePath(stem + suffix);
+                if (QFileInfo::exists(path)) family << path;
+            }
+            QString descriptorStem = stem;
+            if (descriptorStem.endsWith(QLatin1String("_P"), Qt::CaseInsensitive))
+                descriptorStem.chop(2);
+            for (const QString &suffix : {QStringLiteral(".dekcns.json"),
+                                           QStringLiteral(".dekani.json"),
+                                           QStringLiteral(".cnslink.json")}) {
+                const QString path = fi.dir().filePath(descriptorStem + suffix);
+                if (QFileInfo::exists(path)) family << path;
+            }
+            const QString idBackup = containerPath + QStringLiteral(".cnsidfixer.bak");
+            if (QFileInfo::exists(idBackup)) family << idBackup;
+            for (const QString &source : family) {
+                const QString normalized = QDir::cleanPath(QFileInfo(source).absoluteFilePath());
+                bool duplicate = false;
+                for (const QString &seen : seenSources)
+                    if (seen.compare(normalized, Qt::CaseInsensitive) == 0) duplicate = true;
+                if (duplicate) continue;
+                seenSources << normalized;
+                const QString relative = QDir::fromNativeSeparators(
+                    QDir(sourceRoot).relativeFilePath(normalized));
+                if (relative == QLatin1String("..")
+                    || relative.startsWith(QLatin1String("../"))
+                    || QDir::isAbsolutePath(relative)) {
+                    cleanStage();
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_move_failed"))
+                               .arg(normalized, t(QStringLiteral("cns_fixer_fix_reason_move_outside"))),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                const QString destination = QDir(disabledRoot).filePath(relative
+                                                                          + QStringLiteral(".disabled"));
+                if (QFileInfo::exists(destination)) {
+                    cleanStage();
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_move_failed"))
+                               .arg(normalized, t(QStringLiteral("cns_fixer_fix_reason_move_collision"))),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                originalMoves.append(qMakePair(normalized, destination));
+            }
+        }
+
+        QStringList finalFiles;
+        for (const ConvertedOutfit &outfit : convertedOutfits) {
+            for (const QString &stagedPath : outfit.stagedFiles) {
+                const QString destination = QDir(cosmeticsDir).filePath(QFileInfo(stagedPath).fileName());
+                if (QFileInfo::exists(destination) || finalFiles.contains(destination,
+                                                                           Qt::CaseInsensitive)) {
+                    cleanStage();
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_destination_exists"))
+                               .arg(destination),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                finalFiles << destination;
+            }
+        }
+
+        if (!QDir().mkpath(cosmeticsDir) || !QDir().mkpath(disabledRoot)) {
+            cleanStage();
+            finish(false,
+                   t(QStringLiteral("cns_fixer_fix_move_failed"))
+                       .arg(disabledRoot, t(QStringLiteral("cns_fixer_fix_reason_dirs_create"))),
+                   QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+
+        QList<QPair<QString, QString>> movedOriginals;
+        auto restoreOriginals = [&movedOriginals, &disabledRoot] {
+            bool restored = true;
+            for (auto it = movedOriginals.crbegin(); it != movedOriginals.crend(); ++it) {
+                QDir().mkpath(QFileInfo(it->first).absolutePath());
+                if (QFileInfo::exists(it->second) && !QFile::rename(it->second, it->first))
+                    restored = false;
+            }
+            if (restored) QDir(disabledRoot).removeRecursively();
+            return restored;
+        };
+        auto removeInstalled = [](const QStringList &paths) {
+            for (const QString &path : paths) QFile::remove(path);
+        };
+
+        for (const auto &move : originalMoves) {
+            QDir().mkpath(QFileInfo(move.second).absolutePath());
+            if (!QFile::rename(move.first, move.second)) {
+                const bool restored = restoreOriginals();
+                cleanStage();
+                QString reason = t(QStringLiteral("cns_fixer_fix_reason_move_original"));
+                if (!restored) reason += QLatin1Char(' ')
+                    + t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                finish(false,
+                       t(QStringLiteral("cns_fixer_fix_move_failed"))
+                           .arg(move.first, reason),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            movedOriginals << move;
+        }
+
+        QStringList installedFiles;
+        for (const ConvertedOutfit &outfit : convertedOutfits) {
+            for (const QString &stagedPath : outfit.stagedFiles) {
+                const QString destination = QDir(cosmeticsDir).filePath(QFileInfo(stagedPath).fileName());
+                if (!QFile::rename(stagedPath, destination)) {
+                    removeInstalled(installedFiles);
+                    const bool restored = restoreOriginals();
+                    cleanStage();
+                    QString reason = t(QStringLiteral("cns_fixer_fix_reason_install_package"));
+                    if (!restored) reason += QLatin1Char(' ')
+                        + t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                    finish(false,
+                           t(QStringLiteral("cns_fixer_fix_install_failed"))
+                               .arg(destination, reason),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                installedFiles << destination;
+            }
+        }
+
+        // Verify that package conflicts disappeared before fixing Container_Id.
+        // If the check fails, restore the exact source mod files.
+        const CnsIdFixerService::Result verification = m_cnsIdFixer->run(sourceRoot, false);
+        if (!verification.ok || verification.packageConflicts > 0) {
+            removeInstalled(installedFiles);
+            const bool restored = restoreOriginals();
+            cleanStage();
+            QString reason = verification.ok
+                ? t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
+                : verification.error;
+            if (!restored) reason += QLatin1Char('\n')
+                + t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+            finish(false, reason, QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+
+        const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true);
+        if (!idFix.ok) {
+            removeInstalled(installedFiles);
+            const bool restored = restoreOriginals();
+            cleanStage();
+            QString reason = idFix.error;
+            if (!restored) reason += QLatin1Char('\n')
+                + t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+            finish(false, reason, QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+
+        lines << QString()
+              << t(QStringLiteral("cns_fixer_fix_id_summary")).arg(idFix.fixedContainers)
+              << t(QStringLiteral("cns_fixer_fix_disabled")).arg(disabledRoot)
+              << t(QStringLiteral("cns_fixer_fix_summary"))
+                    .arg(convertedOutfits.size()).arg(originalMoves.size());
+        lines << QString() << idFix.report;
+        if (!QDir(stageRoot).removeRecursively())
+            lines << t(QStringLiteral("cns_fixer_fix_stage_cleanup_warning")).arg(stageRoot);
+        finish(true, lines.join(QLatin1Char('\n')),
+               QStringLiteral("cns_fixer_fix_done"));
     });
 }
 

@@ -761,8 +761,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             if (m_pak->toLegacyFiltered(GamePaths::paksDir(),
                                         rootAsset.section(QLatin1Char('/'), -1),
                                         outDir, &localError) <= 0) {
-                result.warnings << QStringLiteral("No se pudo extraer la malla vanilla %1: %2")
-                                       .arg(rootAsset, localError);
+                const QString warning = QStringLiteral("No se pudo extraer la malla vanilla %1: %2")
+                                            .arg(rootAsset, localError);
+                result.warnings << warning;
+                result.blockingWarnings << warning;
                 it = extraRoots.erase(it);
                 continue;
             }
@@ -827,6 +829,7 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         bool addedIsolatedAssets = false;
         QMap<QString, QString> isolatedAssets;
         QStringList materialWarnings;
+        QStringList blockingMaterialWarnings;
         const QString isolatedPrefix = QStringLiteral("/Game/CNSRepacked/%1/").arg(optionId);
         auto alreadyIsolated = [&](const QString &assetPath) {
             return assetPath.startsWith(isolatedPrefix, Qt::CaseInsensitive);
@@ -845,7 +848,13 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         auto materializeVanillaAsset = [&](const QString &sourcePath,
                                             const QString &category) -> QString {
             const QString normalized = normalizeAssetPath(sourcePath);
-            if (normalized.isEmpty() || mount.isEmpty()) return {};
+            if (normalized.isEmpty() || mount.isEmpty()) {
+                const QString warning = tr_(QStringLiteral("cns_material_texture_isolation_failed"))
+                                            .arg(sourcePath);
+                materialWarnings << warning;
+                blockingMaterialWarnings << warning;
+                return {};
+            }
             const QString cacheKey = category.toLower() + QLatin1Char('|') + key(normalized);
             if (isolatedAssets.contains(cacheKey)) return isolatedAssets.value(cacheKey);
 
@@ -859,8 +868,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             emit progress(tr_(QStringLiteral("cns_isolate_progress")).arg(leaf));
             QString extractError;
             if (m_pak->toLegacyFiltered(mount, leaf, extractDir, &extractError) <= 0) {
-                materialWarnings << tr_(QStringLiteral("cns_isolate_asset_failed"))
-                                        .arg(normalized, extractError);
+                const QString warning = tr_(QStringLiteral("cns_isolate_asset_failed"))
+                                            .arg(normalized, extractError);
+                materialWarnings << warning;
+                blockingMaterialWarnings << warning;
                 return {};
             }
             QString sourceUasset;
@@ -874,8 +885,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
                 }
             }
             if (sourceUasset.isEmpty()) {
-                materialWarnings << tr_(QStringLiteral("cns_isolate_asset_missing"))
-                                        .arg(normalized);
+                const QString warning = tr_(QStringLiteral("cns_isolate_asset_missing"))
+                                            .arg(normalized);
+                materialWarnings << warning;
+                blockingMaterialWarnings << warning;
                 return {};
             }
 
@@ -885,8 +898,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             QString copyError;
             if (!writeRelocatedAsset(sourceUasset, targetUasset, copyRelocations, &copyError)
                 || !copyUassetCompanions(sourceUasset, targetUasset, &copyError)) {
-                materialWarnings << tr_(QStringLiteral("cns_isolate_asset_relocate_failed"))
-                                        .arg(normalized, copyError);
+                const QString warning = tr_(QStringLiteral("cns_isolate_asset_relocate_failed"))
+                                            .arg(normalized, copyError);
+                materialWarnings << warning;
+                blockingMaterialWarnings << warning;
                 QFile::remove(targetUasset);
                 const QString targetBase = QFileInfo(targetUasset).completeBaseName();
                 for (const QString &ext : {QStringLiteral("uexp"), QStringLiteral("ubulk")})
@@ -942,9 +957,12 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
                     }
                 }
             }
-            if (propertiesByPackage.isEmpty() && !cueError.isEmpty())
-                materialWarnings << tr_(QStringLiteral("cns_material_read_failed"))
-                                        .arg(cueError);
+            if (propertiesByPackage.isEmpty() && !cueError.isEmpty()) {
+                const QString warning = tr_(QStringLiteral("cns_material_read_failed"))
+                                            .arg(cueError);
+                materialWarnings << warning;
+                blockingMaterialWarnings << warning;
+            }
             return propertiesByPackage;
         };
 
@@ -953,6 +971,12 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             const QStringList slotList = meshMaterialSlots(mount, meshPath, temp.path());
             const auto materialProperties = exportMaterialProperties(
                 slotList, shortId(meshPath));
+            if (slotList.isEmpty()) {
+                const QString warning = tr_(QStringLiteral("cns_material_slots_missing"))
+                                            .arg(meshPath);
+                materialWarnings << warning;
+                blockingMaterialWarnings << warning;
+            }
             const QString vanillaMesh = vanillaMeshPath(baselineMeshPath);
             const QStringList baselineSlots = vanillaMesh.isEmpty()
                 ? QStringList() : meshMaterialSlots(mount, vanillaMesh, temp.path());
@@ -965,6 +989,17 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
                 const QString slot = slotList.at(materialIndex);
                 const QString package = packageOf(slot);
                 const QJsonObject properties = materialProperties.value(key(package));
+                if (package.isEmpty()) {
+                    const QString warning = tr_(QStringLiteral("cns_material_slots_missing"))
+                                                .arg(meshPath);
+                    materialWarnings << warning;
+                    blockingMaterialWarnings << warning;
+                } else if (properties.isEmpty()) {
+                    const QString warning = tr_(QStringLiteral("cns_material_properties_missing"))
+                                                .arg(package);
+                    materialWarnings << warning;
+                    blockingMaterialWarnings << warning;
+                }
                 QString outputMaterial = slot;
                 if (!package.isEmpty() && !alreadyIsolated(package)) {
                     QString targetMaterial;
@@ -1009,7 +1044,13 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
                         targetTexture = materializeVanillaAsset(texturePath,
                                                                QStringLiteral("Textures"));
                     }
-                    if (targetTexture.isEmpty()) continue;
+                    if (targetTexture.isEmpty()) {
+                        const QString warning = tr_(QStringLiteral("cns_material_texture_isolation_failed"))
+                                                    .arg(texturePath);
+                        materialWarnings << warning;
+                        blockingMaterialWarnings << warning;
+                        continue;
+                    }
 
                     QString baselineTexturePath;
                     const QJsonArray baselineTextureValues = baselineProperties
@@ -1177,6 +1218,7 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         }
         materialWarnings.removeDuplicates();
         result.warnings.append(materialWarnings);
+        result.blockingWarnings.append(blockingMaterialWarnings);
 
         // Lo que el mod pisaba fuera del outfit y no quedó cubierto ni por un
         // override de textura ni por una malla extra no se aplica en CNS.
@@ -1190,10 +1232,13 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             if (!reachable) orphans << asset;
         }
         orphans.removeDuplicates();
-        if (!orphans.isEmpty())
-            result.warnings << QStringLiteral(
+        if (!orphans.isEmpty()) {
+            const QString warning = QStringLiteral(
                 "Este mod también reemplaza assets fuera del outfit que CNS no puede "
                 "aplicar al equipar:\n  %1").arg(orphans.join(QStringLiteral("\n  ")));
+            result.warnings << warning;
+            result.blockingWarnings << warning;
+        }
         if (!extraDescriptors.isEmpty())
             result.warnings << QStringLiteral(
                 "Se agregaron %1 cosmético(s) CNS extra (cara/pelo) con los cambios "

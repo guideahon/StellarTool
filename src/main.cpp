@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless status\n"
             "  StellarTool --headless detect\n"
             "  StellarTool --headless uninstall [--paks] [--helper]\n"
-            "  StellarTool --headless fixids    --mod <dir> [--apply | --isolate-textures --out <dir>]\n"
+            "  StellarTool --headless fixids    --mod <~mods> [--apply [--fix-textures]]\n"
             "  StellarTool --headless presets\n"
             "  StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]\n"
             "  StellarTool --headless save-from-json --input <json> --out <sav>\n"
@@ -125,7 +125,7 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("paks"), QStringLiteral("uninstall: quitar los paks que instaló la tool")});
         parser.addOption({QStringLiteral("helper"), QStringLiteral("uninstall: quitar el helper que instaló la tool")});
         parser.addOption({QStringLiteral("apply"), QStringLiteral("fixids: escribir los cambios (por defecto solo reporta)")});
-        parser.addOption({QStringLiteral("isolate-textures"), QStringLiteral("fixids: convertir outfits con Package_Id compartidos a CNS aislado; requiere --out")});
+        parser.addOption({QStringLiteral("fix-textures"), QStringLiteral("fixids: aislar conflictos de Package_Id como CNS y desplegarlos; requiere --apply")});
         parser.addOption({QStringLiteral("input"), QStringLiteral("Archivo de entrada para partidas/ReShade"), QStringLiteral("archivo")});
         parser.addOption({QStringLiteral("action"), QStringLiteral("Operación de ReShade o Live"), QStringLiteral("operacion")});
         parser.addOption({QStringLiteral("old-name"), QStringLiteral("Nombre anterior de preset ReShade"), QStringLiteral("nombre")});
@@ -157,7 +157,7 @@ int main(int argc, char *argv[]) {
         options.uninstallPaks = parser.isSet(QStringLiteral("paks"));
         options.uninstallHelper = parser.isSet(QStringLiteral("helper"));
         options.applyFixes = parser.isSet(QStringLiteral("apply"));
-        options.isolateTextures = parser.isSet(QStringLiteral("isolate-textures"));
+        options.fixTextures = parser.isSet(QStringLiteral("fix-textures"));
         options.input = parser.value(QStringLiteral("input"));
         options.action = parser.value(QStringLiteral("action"));
         options.oldName = parser.value(QStringLiteral("old-name"));

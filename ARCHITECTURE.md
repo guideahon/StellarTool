@@ -170,11 +170,21 @@ extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
 `Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos.
-El bloque de aislamiento vuelve a escanear esa carpeta con
-`CnsIdFixerService`, toma los contenedores con `Package_Id` compartidos y
-reutiliza `CnsConverterService` para reempaquetar cada outfit compatible como
-CNS con materiales/texturas aislados. Escribe salidas con nombre único fuera
-del directorio instalado; no modifica los paks de origen.
+El botón **Fix IDs and textures** convierte a CNS todos los contenedores que
+participan en conflictos `Package_Id` y aísla materiales/texturas con
+`CnsConverterService`. Primero prepara y verifica todas las salidas. Después
+mueve los archivos originales a `~mods/disabled/StellarTool_Fix_<run>/`,
+conservando sus rutas y agregando `.disabled` para que el cargador recursivo del
+juego no los monte. Despliega los paquetes y descriptores directamente en
+`~mods/CustomNanosuitSystem/Cosmetics`, verifica que los `Package_Id` compartidos
+desaparecieron y recién entonces corrige `Container_Id` repetidos. Si una etapa
+de conversión o instalación falla, restaura los originales automáticamente.
+La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
+juego configurada; requiere confirmación en UI y `--apply` en modo headless.
+Para instalar outfits convertidos también exige encontrar la carpeta o el
+paquete de CNS; si no está instalado, deja todos los mods activos sin cambios.
+Si no puede leer los slots/parámetros de materiales, extraer una textura o
+transportar todos los assets del outfit, aborta antes de mover los originales.
 
 `LivePage` habla con `LiveService`, expuesto a QML como `Live` (context property
 propia, sin pasar por `AppController`: la página no comparte estado con el

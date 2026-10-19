@@ -39,6 +39,7 @@ public:
         QString zipPath;
         QString error;
         QStringList warnings;
+        QStringList blockingWarnings;
         int assetsWritten = 0;
     };
 

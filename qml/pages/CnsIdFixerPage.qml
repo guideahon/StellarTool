@@ -7,7 +7,6 @@ import ".."
 Item {
     id: page
     property string modsPath: App.defaultOutDir()
-    property string appearanceOutput: App.defaultBuildOutDir()
 
     function folderUrl(path) {
         return Qt.resolvedUrl("file:///" + path.replace(/\\/g, "/"))
@@ -76,39 +75,21 @@ Item {
                     }
 
                     Label {
-                        text: I18n.s.cns_fixer_appearance_title
+                        text: I18n.s.cns_fixer_fix_title
                         color: Theme.text
                         font.pixelSize: 17
                         font.bold: true
                     }
                     Label {
                         Layout.fillWidth: true
-                        text: I18n.s.cns_fixer_appearance_desc
+                        text: I18n.s.cns_fixer_fix_desc
                         color: Theme.textDim
                         wrapMode: Text.Wrap
                     }
 
                     Label {
-                        text: I18n.s.output_folder
-                        color: Theme.text
-                        font.bold: true
-                    }
-                    RowLayout {
                         Layout.fillWidth: true
-                        TextField {
-                            Layout.fillWidth: true
-                            text: page.appearanceOutput
-                            color: Theme.text
-                            onTextEdited: page.appearanceOutput = text
-                        }
-                        Button {
-                            text: I18n.s.choose
-                            onClicked: appearanceOutputDialog.open()
-                        }
-                    }
-                    Label {
-                        Layout.fillWidth: true
-                        text: I18n.s.cns_fixer_appearance_note
+                        text: I18n.s.cns_fixer_fix_note
                         color: Theme.textDim
                         wrapMode: Text.Wrap
                     }
@@ -121,20 +102,11 @@ Item {
                             onClicked: App.runCnsIdFixer(page.folderUrl(page.modsPath), false)
                         }
                         Button {
-                            text: I18n.s.fix_duplicates
+                            text: I18n.s.cns_fixer_fix_button
+                            highlighted: true
                             enabled: !App.busy && page.modsPath.length > 0
-                            onClicked: confirmDialog.open()
+                            onClicked: fixConfirmDialog.open()
                         }
-                    }
-                    Button {
-                        Layout.alignment: Qt.AlignRight
-                        text: I18n.s.cns_fixer_appearance_button
-                        highlighted: true
-                        enabled: !App.busy && page.modsPath.length > 0
-                                 && page.appearanceOutput.length > 0
-                        onClicked: App.repairCnsAppearanceConflicts(
-                            page.folderUrl(page.modsPath),
-                            page.folderUrl(page.appearanceOutput))
                     }
                 }
             }
@@ -167,18 +139,11 @@ Item {
             selectedFolder.toString().replace("file:///", ""))
     }
 
-    FolderDialog {
-        id: appearanceOutputDialog
-        title: I18n.s.choose_output_folder
-        onAccepted: page.appearanceOutput = decodeURIComponent(
-            selectedFolder.toString().replace("file:///", ""))
-    }
-
     Dialog {
-        id: confirmDialog
+        id: fixConfirmDialog
         anchors.centerIn: parent
         modal: true
-        title: I18n.s.fix_duplicates_title
+        title: I18n.s.cns_fixer_fix_confirm_title
         standardButtons: Dialog.Yes | Dialog.Cancel
         background: Rectangle {
             color: Theme.panel
@@ -186,10 +151,10 @@ Item {
             radius: Theme.radius
         }
         contentItem: Label {
-            text: I18n.s.fix_duplicates_confirm
+            text: I18n.s.cns_fixer_fix_confirm
             color: Theme.text
             wrapMode: Text.Wrap
         }
-        onAccepted: App.runCnsIdFixer(page.folderUrl(page.modsPath), true)
+        onAccepted: App.fixCnsIdsAndTextures(page.folderUrl(page.modsPath))
     }
 }

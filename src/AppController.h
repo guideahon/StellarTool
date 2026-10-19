@@ -201,8 +201,7 @@ public:
     Q_INVOKABLE QString cnsHistory() const;
     Q_INVOKABLE void openCnsOutputDir();
     Q_INVOKABLE void runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes);
-    Q_INVOKABLE void repairCnsAppearanceConflicts(const QUrl &directoryUrl,
-                                                   const QUrl &outDirUrl);
+    Q_INVOKABLE void fixCnsIdsAndTextures(const QUrl &directoryUrl);
     QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
     bool cnsIdFixerOk() const { return m_cnsIdFixerOk; }
     Q_INVOKABLE void convertSaveToJson(const QUrl &inputUrl, const QUrl &outputUrl, int indent = 2);

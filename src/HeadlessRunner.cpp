@@ -99,10 +99,8 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
             return fail(QStringLiteral("uninstall necesita --paks y/o --helper"));
     } else if (command == QLatin1String("fixids")) {
         if (o.mods.isEmpty()) return fail(QStringLiteral("fixids necesita --mod <dir>"));
-        if (o.isolateTextures && o.outDir.isEmpty())
-            return fail(QStringLiteral("fixids --isolate-textures necesita --out <dir>"));
-        if (o.isolateTextures && o.applyFixes)
-            return fail(QStringLiteral("fixids acepta --apply o --isolate-textures, no ambos en la misma corrida"));
+        if (o.fixTextures && !o.applyFixes)
+            return fail(QStringLiteral("fixids --fix-textures necesita --apply porque instala cambios en ~mods"));
     } else if (command == QLatin1String("save-to-json") || command == QLatin1String("save-from-json")) {
         if (o.input.isEmpty() || o.outDir.isEmpty())
             return fail(QStringLiteral("%1 necesita --input <archivo> y --out <archivo>").arg(command));
@@ -544,11 +542,10 @@ int HeadlessRunner::runUninstall(const Options &o) {
 }
 
 int HeadlessRunner::runFixIds(const Options &o) {
-    if (o.isolateTextures) {
-        out(QStringLiteral("[INFO] Buscando outfits con recursos compartidos en %1")
+    if (o.fixTextures) {
+        out(QStringLiteral("[INFO] Reparando IDs y texturas en %1")
                 .arg(o.mods.value(0)));
-        m_controller->repairCnsAppearanceConflicts(
-            QUrl::fromLocalFile(o.mods.value(0)), QUrl::fromLocalFile(o.outDir));
+        m_controller->fixCnsIdsAndTextures(QUrl::fromLocalFile(o.mods.value(0)));
     } else {
         out(QStringLiteral("[INFO] Revisando IDs CNS en %1%2")
                 .arg(o.mods.value(0), o.applyFixes ? QStringLiteral(" (aplicando cambios)")

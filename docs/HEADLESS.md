@@ -23,7 +23,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera la salida instalable; `cns` también aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta o corrige IDs; `--isolate-textures --out <dir>` busca `Package_Id` compartidos en la carpeta instalada y genera mods CNS aislados para los outfits compatibles. |
+| CNS ID Fixer | `fixids` | Reporta IDs; `--apply` corrige `Container_Id`; `--apply --fix-textures` exige la carpeta `~mods` activa configurada, convierte conflictos `Package_Id` en CNS, reemplaza los archivos activos tras respaldarlos y verifica el resultado. |
 | Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -46,8 +46,9 @@ StellarTool.exe --headless build --preset "Mi preset" --out "C:\salida"
 StellarTool.exe --headless presets
 StellarTool.exe --headless cns --mod "C:\outfit.zip" --out "C:\salida" [--name "Outfit"]
 StellarTool.exe --headless replacer --mod "C:\outfit-cns.zip" --out "C:\salida" --replace "Black Pearl" [--select "2"]
-StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" [--apply]
-StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --isolate-textures --out "C:\StellarTool\reparados"
+StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods"
+StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply
+StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply --fix-textures
 StellarTool.exe --headless baseline --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless detect
 StellarTool.exe --headless status
@@ -68,10 +69,14 @@ texturas incluidas por el mod con copias originales cuando el asset lo permite,
 y sliders para parámetros de rugosidad/metalicidad presentes en los materiales.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
 paks del juego. CNS ID Fixer aplica el mismo aislamiento a los contenedores
-IoStore de la carpeta instalada que comparten `Package_Id`; para cada paquete
-que tenga un outfit compatible genera un CNS con nombre único en la carpeta de
-salida. Los originales permanecen intactos: revisa el reporte, instala las
-salidas y desactiva las versiones originales para evitar que sigan compitiendo.
+IoStore activos que comparten `Package_Id`. Antes de reemplazar nada, prepara
+todos los outfits convertidos; luego instala los CNS y desactiva los originales
+en `~mods/disabled/` agregando `.disabled` a cada nombre. Esa extensión evita
+que el juego, que recorre `~mods` de forma recursiva, vuelva a cargar el backup.
+Verifica que ya no haya conflictos y restaura los originales automáticamente
+si falla la instalación. El comando requiere `--apply --fix-textures`, que es
+la confirmación explícita del cambio productivo. CNS debe estar instalado para
+desplegar los outfits convertidos.
 
 `--input` también puede ser una carpeta `.stpatch` o un archivo comprimido
 `.stpatch`/`.zip` que contenga `manifest.toml` opcional y uno o más `.toml`.
