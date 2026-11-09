@@ -116,6 +116,22 @@ Si falla un Builder o un merge, la herramienta conserva un log en
 Los diagnósticos de merge incluyen los mods analizados y las tablas aplicadas,
 excluidas o descartadas, sin copiar JSON completos ni assets del juego.
 
+#### Minidumps de Stellar Blade
+
+El analizador local `tools/ue4_minidump_report.py` lee el último crash de
+`%LOCALAPPDATA%/SB/Saved/Crashes` y escribe un reporte Markdown junto al dump:
+
+    python tools/ue4_minidump_report.py --mod-match "Valretos Divine Punishment 004"
+
+También acepta la ruta a una carpeta de crash o a UE4Minidump.dmp. Extrae el
+código y la dirección de la excepción, registros x64, módulos cargados, pila de
+CrashContext, referencias PDB y memoria que el dump no alcanzó a guardar.
+Si objdump está disponible, incluye desensamblado alrededor de la instrucción
+que falló. Además correlaciona la hora del crash con el log y el manifiesto de
+despliegue de Vortex. El script solo lee el juego y los dumps; crea únicamente
+el reporte .md. No puede recuperar páginas de memoria omitidas por el juego ni
+resolver nombres de funciones sin los PDB exactos del ejecutable.
+
 ### Stellar Souls Builder
 
 La página **Build Stellar Souls** compila un Stellar Souls personalizado por cambio:
