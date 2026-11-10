@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "%1 konnte nicht neu zugeordnet werden: %2",
   "cns_material_read_failed": "CUE4Parse konnte die Materialien nicht lesen: %1",
   "cns_material_pack_progress": "Isolierte Materialien werden gepackt…",
+  "cns_fusion_slots_missing": "CUE4Parse konnte die Material-Slots von %1 nicht lesen; die Fusion-Kompatibilitätskopien für den Boss wurden ausgelassen.",
+  "cns_fusion_copy_source_missing": "Die Quelldatei für die Fusion-Kompatibilitätskopie wurde nicht gefunden: %1.",
   "cns_material_control_name": "Material %1 %2",
   "cns_texture_option_outfit": "Outfit",
   "cns_texture_option_original": "Original",

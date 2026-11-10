@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "无法重新定位 %1：%2",
   "cns_material_read_failed": "CUE4Parse 无法读取材质：%1",
   "cns_material_pack_progress": "正在打包隔离的材质…",
+  "cns_fusion_slots_missing": "CUE4Parse 无法读取 %1 的材质槽，因此跳过了 Boss 战 Fusion 材质兼容副本。",
+  "cns_fusion_copy_source_missing": "找不到 Fusion 兼容副本的源资源：%1。",
   "cns_material_control_name": "材质 %1 %2",
   "cns_texture_option_outfit": "服装",
   "cns_texture_option_original": "原始",

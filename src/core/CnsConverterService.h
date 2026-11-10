@@ -3,6 +3,7 @@
 #include <QObject>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QList>
 #include <QMap>
 #include <QSet>
 #include <QStringList>
@@ -42,6 +43,10 @@ public:
         QStringList blockingWarnings;
         int assetsWritten = 0;
     };
+    struct CompatibilityCopy {
+        QString sourceAsset;
+        QString targetAsset;
+    };
 
     explicit CnsConverterService(PakService *pak, UAssetService *uasset,
                                  Cue4Service *cue4 = nullptr, QObject *parent = nullptr);
@@ -55,6 +60,10 @@ public:
                                          const QMap<QString, QString> &relocations);
     static QString normalizeAssetPath(const QString &path);
     static QString shortId(const QString &text);
+    static QList<CompatibilityCopy> fusionCompatibilityCopies(
+        const QString &sourceRoot, const QString &targetRoot,
+        const QStringList &targetRootMaterialSlots,
+        const QMap<QString, QString> &relocations);
 
 signals:
     void progress(const QString &message);

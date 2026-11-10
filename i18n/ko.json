@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "%1을(를) 재배치할 수 없습니다: %2",
   "cns_material_read_failed": "CUE4Parse가 머티리얼을 읽지 못했습니다: %1",
   "cns_material_pack_progress": "분리된 머티리얼 패키징 중…",
+  "cns_fusion_slots_missing": "CUE4Parse가 %1의 머티리얼 슬롯을 읽지 못해 보스용 Fusion 머티리얼 호환 복사를 건너뛰었습니다.",
+  "cns_fusion_copy_source_missing": "Fusion 호환 복사에 필요한 원본 에셋을 찾을 수 없습니다: %1.",
   "cns_material_control_name": "머티리얼 %1 %2",
   "cns_texture_option_outfit": "의상",
   "cns_texture_option_original": "원본",

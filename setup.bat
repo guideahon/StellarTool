@@ -17,18 +17,21 @@ REM el .exe arranque en equipos sin el runtime instalado (VCRUNTIME140.dll).
 set VCREDIST_URL=https://aka.ms/vs/17/release/vc_redist.x64.exe
 REM Bases de rutas/dependencias del CNSRepacker original (MIT). El conversor
 REM nativo C++ usa estos datos, no el ejecutable Java.
-set CNS_DATA_URL=https://gitlab.com/DeronFer/cnsrepacker/-/raw/main/data
-set CNS_LICENSE_URL=https://gitlab.com/DeronFer/cnsrepacker/-/raw/main/LICENSE.txt
+REM Snapshot de datos actualizado con CNSRepacker 1.13 (noviembre de 2026).
+REM Fijar el commit permite builds reproducibles y actualizar instalaciones existentes.
+set CNS_DATA_REV=23461dc47171343cb28528aa53e110fbc7b6dba4
+set CNS_DATA_URL=https://gitlab.com/api/v4/projects/73850522/repository/files
 set CNS_RETOC_URL=https://gitlab.com/DeronFer/cnsrepacker/-/raw/main/tools/retoc/retoc.exe
 
 if not exist tools mkdir tools
 
-if not exist tools\CNSRepacker\data\rootAssetToInfo.txt (
-    echo [INFO] Descargando datos MIT de CNSRepacker...
-    if not exist tools\CNSRepacker\data mkdir tools\CNSRepacker\data
-    powershell -NoProfile -Command "$names='rootAssetToInfo.txt','assetToRootAsset.txt','assetToImportAsset.txt','excludedAssets.txt'; foreach($n in $names){Invoke-WebRequest ('%CNS_DATA_URL%/'+$n) -OutFile ('tools\\CNSRepacker\\data\\'+$n)}; Invoke-WebRequest '%CNS_LICENSE_URL%' -OutFile 'tools\\CNSRepacker\\LICENSE.txt'"
-    if not exist tools\CNSRepacker\data\assetToImportAsset.txt ( echo [ERROR] No se pudieron descargar los datos de CNSRepacker & exit /b 1 )
+if exist tools\CNSRepacker\data\source-revision.txt (
+    for /f "usebackq delims=" %%V in ("tools\CNSRepacker\data\source-revision.txt") do if "%%V"=="%CNS_DATA_REV%" goto :cns_data_ready
 )
+echo [INFO] Actualizando datos MIT de CNSRepacker al snapshot %CNS_DATA_REV%...
+powershell -NoProfile -Command "$ErrorActionPreference='Stop'; try { $rev='%CNS_DATA_REV%'; $base='%CNS_DATA_URL%'; $stage=Join-Path $env:TEMP ('StellarTool-CNSRepacker-'+$rev); New-Item -ItemType Directory -Force -Path $stage | Out-Null; $names='rootAssetToInfo.txt','assetToRootAsset.txt','assetToImportAsset.txt','excludedAssets.txt'; foreach($n in $names){$encoded=[Uri]::EscapeDataString('data/'+$n); Invoke-WebRequest ($base+'/'+$encoded+'/raw?ref='+$rev) -OutFile (Join-Path $stage $n)}; Invoke-WebRequest ($base+'/LICENSE.txt/raw?ref='+$rev) -OutFile (Join-Path $stage 'LICENSE.txt'); $data='tools\CNSRepacker\data'; New-Item -ItemType Directory -Force -Path $data | Out-Null; foreach($n in $names){Copy-Item (Join-Path $stage $n) $data -Force}; Copy-Item (Join-Path $stage 'LICENSE.txt') 'tools\CNSRepacker\LICENSE.txt' -Force; [IO.File]::WriteAllText((Join-Path $data 'source-revision.txt'),$rev,[Text.Encoding]::ASCII) } catch { Write-Error $_; exit 1 }"
+if errorlevel 1 ( echo [ERROR] No se pudieron actualizar los datos CNSRepacker & exit /b 1 )
+:cns_data_ready
 if not exist tools\CNSRepacker\retoc.exe (
     echo [INFO] Descargando retoc compatible con CNS --mount-folder...
     powershell -NoProfile -Command "Invoke-WebRequest '%CNS_RETOC_URL%' -OutFile 'tools\\CNSRepacker\\retoc.exe'"

@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "Не удалось переместить %1: %2",
   "cns_material_read_failed": "CUE4Parse не удалось прочитать материалы: %1",
   "cns_material_pack_progress": "Упаковка изолированных материалов…",
+  "cns_fusion_slots_missing": "CUE4Parse не удалось прочитать слоты материалов %1; копии материалов Fusion для совместимости с боссом пропущены.",
+  "cns_fusion_copy_source_missing": "Не найден исходный ресурс для копии совместимости Fusion: %1.",
   "cns_material_control_name": "Материал %1 %2",
   "cns_texture_option_outfit": "Костюм",
   "cns_texture_option_original": "Оригинал",

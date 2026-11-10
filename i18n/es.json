@@ -634,6 +634,8 @@
   "cns_material_properties_missing": "No se pudieron leer los datos del material %1; no se puede verificar el aislamiento de texturas.",
   "cns_material_texture_isolation_failed": "No se pudo aislar el asset de material o textura %1.",
   "cns_material_pack_progress": "Empaquetando materiales aislados…",
+  "cns_fusion_slots_missing": "CUE4Parse no pudo leer los slots de materiales de %1; se omitió la copia de compatibilidad de materiales Fusion para el jefe.",
+  "cns_fusion_copy_source_missing": "No se encontró el asset de origen para la copia de compatibilidad Fusion: %1.",
   "cns_material_control_name": "M%1 %2",
   "cns_texture_option_outfit": "Outfit",
   "cns_texture_option_original": "Original"

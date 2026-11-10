@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "Impossibile rilocalizzare %1: %2",
   "cns_material_read_failed": "CUE4Parse non è riuscito a leggere i materiali: %1",
   "cns_material_pack_progress": "Creazione del pacchetto dei materiali isolati…",
+  "cns_fusion_slots_missing": "CUE4Parse non è riuscito a leggere gli slot dei materiali di %1; le copie di compatibilità Fusion per il boss sono state ignorate.",
+  "cns_fusion_copy_source_missing": "Asset sorgente non trovato per la copia di compatibilità Fusion: %1.",
   "cns_material_control_name": "Materiale %1 %2",
   "cns_texture_option_outfit": "Outfit",
   "cns_texture_option_original": "Originale",

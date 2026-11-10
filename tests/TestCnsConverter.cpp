@@ -11,6 +11,7 @@ private slots:
     void normalizesPaths();
     void createsStableShortId();
     void rewritesUassetReferences();
+    void plansFusionCompatibilityCopies();
 };
 
 void TestCnsConverter::normalizesPaths() {
@@ -65,6 +66,34 @@ void TestCnsConverter::rewritesUassetReferences() {
              QStringLiteral("NewMesh_LOD0"));
     QCOMPARE(out.value(QStringLiteral("OtherAssetsFailedToAccess")).toArray().first().toString(),
              QStringLiteral("/Game/CNSRepacked/abc/NewMaterial.NewMaterial"));
+}
+
+void TestCnsConverter::plansFusionCompatibilityCopies() {
+    const QString sourceRoot = QStringLiteral(
+        "/Game/CNSRepacked/id/Art/Character/PC/CH_P_EVE_Fusion/CH_P_EVE_Fusion");
+    const QString materialSource = QStringLiteral("/Game/CNSRepacked/id/Art/Mods/MI_Custom");
+    const QString materialTarget = QStringLiteral(
+        "/Game/CNSRepacked/id/Art/Mods/MI_Custom");
+    const QStringList materialSlots{materialTarget + QStringLiteral(".MI_Custom")};
+    const QMap<QString, QString> relocations{
+        {sourceRoot.toLower(), sourceRoot},
+        {materialSource.toLower(), materialTarget}
+    };
+
+    const auto copies = CnsConverterService::fusionCompatibilityCopies(
+        sourceRoot, QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_Fusion/CH_P_EVE_Fusion"),
+        materialSlots, relocations);
+    QCOMPARE(copies.size(), 2);
+    QCOMPARE(copies.at(0).sourceAsset, sourceRoot.toLower());
+    QCOMPARE(copies.at(0).targetAsset,
+             QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_Fusion/CH_P_EVE_Fusion_NoAcc"));
+    QCOMPARE(copies.at(1).sourceAsset, materialSource.toLower());
+    QCOMPARE(copies.at(1).targetAsset,
+             QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_Fusion/Materials/MI_CH_P_EVE_Fusion_Suit01"));
+
+    QVERIFY(CnsConverterService::fusionCompatibilityCopies(
+                sourceRoot, QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_08/CH_P_EVE_08"),
+                materialSlots, relocations).isEmpty());
 }
 
 void runTestCnsConverter(int &failures, int argc, char **argv) {

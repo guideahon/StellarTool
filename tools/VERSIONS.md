@@ -16,7 +16,11 @@ También se pueden apuntar con variables de entorno `ST_REPAK` / `ST_UASSETGUI`.
 `rootAssetToInfo.txt`, `assetToRootAsset.txt`, `assetToImportAsset.txt` y
 `excludedAssets.txt` del proyecto
 [StellarBladeCNSRepacker](https://gitlab.com/DeronFer/cnsrepacker), junto con su
-licencia MIT. También descarga el `retoc.exe` usado por ese proyecto, necesario
+licencia MIT. El snapshot está fijado al commit
+[`23461dc4` (CNSRepacker 1.13)](https://gitlab.com/DeronFer/cnsrepacker/-/commit/23461dc47171343cb28528aa53e110fbc7b6dba4),
+con los assets de Stellar Blade de noviembre de 2026. `setup.bat` compara el
+marcador `source-revision.txt` y actualiza también instalaciones existentes
+cuando cambia el snapshot. También descarga el `retoc.exe` usado por ese proyecto, necesario
 porque soporta `to-legacy --mount-folder`; retoc CLI 0.1.5 no incluye esa opción.
 Stellar Tool porta la lógica a C++ y no distribuye ni ejecuta
 `CNSRepacker.exe`. Las variables `ST_CNSREPACKER_DATA` y `ST_CNS_RETOC`

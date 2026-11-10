@@ -117,6 +117,23 @@ QString objectRef(const QString &package) {
     return package + QLatin1Char('.') + package.section(QLatin1Char('/'), -1);
 }
 
+QString fusionMeshPath() {
+    return QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_Fusion/CH_P_EVE_Fusion");
+}
+
+QString fusionNoAccMeshPath() {
+    return QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_Fusion/CH_P_EVE_Fusion_NoAcc");
+}
+
+QStringList fusionSlotMaterialPaths() {
+    const QString folder = QStringLiteral("/Game/Art/Character/PC/CH_P_EVE_Fusion/Materials/");
+    return {folder + QStringLiteral("MI_CH_P_EVE_Fusion_Suit01"),
+            folder + QStringLiteral("MI_CH_P_EVE_Fusion_Suit02"),
+            folder + QStringLiteral("MI_CH_P_EVE_Fusion_Suit03"),
+            folder + QStringLiteral("MI_CH_P_EVE_Fusion_Suit04"),
+            folder + QStringLiteral("MI_CH_P_EVE_Fusion_Skin")};
+}
+
 // "MaterialInstanceConstant'MI_Cowbkn'" -> "MI_Cowbkn".
 QString quotedName(const QString &objectName) {
     const int open = objectName.indexOf(QLatin1Char('\''));
@@ -238,6 +255,36 @@ QString CnsConverterService::normalizeAssetPath(const QString &path) {
 QString CnsConverterService::shortId(const QString &text) {
     return QString::fromLatin1(QCryptographicHash::hash(text.toUtf8(),
                                                         QCryptographicHash::Sha256).toHex().left(16));
+}
+
+QList<CnsConverterService::CompatibilityCopy>
+CnsConverterService::fusionCompatibilityCopies(
+    const QString &sourceRoot, const QString &targetRoot,
+    const QStringList &targetRootMaterialSlots,
+    const QMap<QString, QString> &relocations) {
+    QList<CompatibilityCopy> copies;
+    if (key(targetRoot) != key(fusionMeshPath())) return copies;
+
+    // Fusion is also loaded as a no-accessory mesh and its boss encounter
+    // assigns materials by slot index. Keep the regular CNS relocation and add
+    // these targeted compatibility copies at the original game paths.
+    copies.append({key(sourceRoot), fusionNoAccMeshPath()});
+    const QStringList targets = fusionSlotMaterialPaths();
+    const int count = qMin(targets.size(), targetRootMaterialSlots.size());
+    for (int i = 0; i < count; ++i) {
+        const QString slotPackage = packageOf(targetRootMaterialSlots.at(i));
+        if (slotPackage.isEmpty()) continue;
+        QString source;
+        for (auto it = relocations.cbegin(); it != relocations.cend(); ++it) {
+            if (key(it.value()) == key(slotPackage)) {
+                source = it.key();
+                break;
+            }
+        }
+        if (source.isEmpty() || key(source) == key(targets.at(i))) continue;
+        copies.append({source, targets.at(i)});
+    }
+    return copies;
 }
 
 QString CnsConverterService::dataRoot() {
@@ -815,6 +862,70 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
     emit progress(QStringLiteral("Empaquetando IoStore UE4.26…"));
     if (!m_pak->packZen(packageDir, utoc, &error)) {
         result.error = error; return result;
+    }
+
+    // The game also loads the Fusion Suit mesh without accessories and forces
+    // its five native material slots during a boss encounter. A replacer aimed
+    // at Fusion therefore needs narrowly scoped copies at those native paths,
+    // in addition to the normal relocated assets.
+    if (request.mode == Mode::ToReplacer
+        && key(targetInfo.path) == key(fusionMeshPath())) {
+        const QString targetRoot = relocations.value(key(rootPath));
+        const QString mount = stageWithGame(utoc, temp.path());
+        const QStringList materialSlots = meshMaterialSlots(mount, targetRoot, temp.path());
+        if (materialSlots.isEmpty()) {
+            const QString warning = tr_(QStringLiteral("cns_fusion_slots_missing"))
+                                        .arg(targetRoot);
+            result.warnings << warning;
+            result.blockingWarnings << warning;
+        }
+
+        bool addedFusionAssets = false;
+        const auto copies = fusionCompatibilityCopies(rootPath, targetRoot,
+                                                     materialSlots, relocations);
+        for (const CompatibilityCopy &copy : copies) {
+            const QString sourceUasset = assetFiles.value(key(copy.sourceAsset));
+            if (sourceUasset.isEmpty()) {
+                const QString warning = tr_(QStringLiteral("cns_fusion_copy_source_missing"))
+                                            .arg(copy.sourceAsset);
+                result.warnings << warning;
+                result.blockingWarnings << warning;
+                continue;
+            }
+
+            const QString targetUasset = fileForAsset(copy.targetAsset, packageDir);
+            QMap<QString, QString> copyRelocations = relocations;
+            copyRelocations.insert(key(copy.sourceAsset), copy.targetAsset);
+            QString copyError;
+            if (!writeRelocatedAsset(sourceUasset, targetUasset, copyRelocations, &copyError)
+                || !copyUassetCompanions(sourceUasset, targetUasset, &copyError)) {
+                const QString warning = tr_(QStringLiteral("cns_isolate_asset_relocate_failed"))
+                                            .arg(copy.sourceAsset, copyError);
+                result.warnings << warning;
+                result.blockingWarnings << warning;
+                QFile::remove(targetUasset);
+                const QString targetBase = QFileInfo(targetUasset).completeBaseName();
+                for (const QString &ext : {QStringLiteral("uexp"), QStringLiteral("ubulk")})
+                    QFile::remove(QFileInfo(targetUasset).dir().filePath(
+                        targetBase + QLatin1Char('.') + ext));
+                continue;
+            }
+            addedFusionAssets = true;
+            ++result.assetsWritten;
+        }
+        if (!mount.isEmpty()) QDir(mount).removeRecursively();
+
+        if (addedFusionAssets) {
+            const QString base = QFileInfo(utoc).completeBaseName();
+            for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"),
+                                       QStringLiteral("pak"), QStringLiteral("sig")})
+                QFile::remove(QFileInfo(utoc).dir().filePath(base + QLatin1Char('.') + ext));
+            emit progress(tr_(QStringLiteral("cns_material_pack_progress")));
+            if (!m_pak->packZen(packageDir, utoc, &error)) {
+                result.error = error;
+                return result;
+            }
+        }
     }
 
     if (request.mode == Mode::ToCns) {

@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "Não foi possível realocar %1: %2",
   "cns_material_read_failed": "O CUE4Parse não conseguiu ler os materiais: %1",
   "cns_material_pack_progress": "Empacotando materiais isolados…",
+  "cns_fusion_slots_missing": "O CUE4Parse não conseguiu ler os slots de material de %1; as cópias de compatibilidade dos materiais Fusion para o chefe foram ignoradas.",
+  "cns_fusion_copy_source_missing": "Não foi encontrado o asset de origem para a cópia de compatibilidade Fusion: %1.",
   "cns_material_control_name": "Material %1 %2",
   "cns_texture_option_outfit": "Outfit",
   "cns_texture_option_original": "Original",

@@ -15,7 +15,12 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   una vez creado el ZIP. Al convertir a CNS, aísla materiales y texturas
   compartidos con el juego y agrega opciones en CNS para elegir entre las
   texturas del outfit y las originales, además de controles de rugosidad y
-  metalicidad cuando los materiales los exponen.
+  metalicidad cuando los materiales los exponen. Sus datos corresponden a
+  [CNSRepacker 1.13](https://gitlab.com/DeronFer/cnsrepacker/-/commit/23461dc47171343cb28528aa53e110fbc7b6dba4)
+  e incluyen el contenido de Stellar Blade de noviembre de 2026. Al convertir
+  hacia el replacer Fusion Suit, también genera las variantes de malla y,
+  cuando CUE4Parse puede leer los slots, los materiales que el juego fuerza
+  durante el jefe final.
 - **CNS ID Fixer** analiza mods IoStore, muestra rutas para distinguir
   contenedores con nombres repetidos y corrige `Container_Id` duplicados con
   backup verificable. **Fix IDs and textures** intenta convertir cada

@@ -256,6 +256,8 @@
   "cns_isolate_asset_relocate_failed": "%1 を再配置できませんでした: %2",
   "cns_material_read_failed": "CUE4Parse でマテリアルを読み取れませんでした: %1",
   "cns_material_pack_progress": "分離したマテリアルをパッケージ化中…",
+  "cns_fusion_slots_missing": "CUE4Parse で %1 のマテリアルスロットを読み取れなかったため、ボス用 Fusion マテリアルの互換コピーを省略しました。",
+  "cns_fusion_copy_source_missing": "Fusion 互換コピーのソースアセットが見つかりません: %1。",
   "cns_material_control_name": "マテリアル %1 %2",
   "cns_texture_option_outfit": "衣装",
   "cns_texture_option_original": "オリジナル",

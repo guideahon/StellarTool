@@ -634,6 +634,8 @@
   "cns_material_properties_missing": "No material data could be read for %1; texture isolation cannot be verified.",
   "cns_material_texture_isolation_failed": "Could not isolate material or texture asset %1.",
   "cns_material_pack_progress": "Packaging isolated materials…",
+  "cns_fusion_slots_missing": "CUE4Parse could not read material slots for %1; the Fusion boss material compatibility copy was skipped.",
+  "cns_fusion_copy_source_missing": "Could not find the source asset for the Fusion compatibility copy: %1.",
   "cns_material_control_name": "M%1 %2",
   "cns_texture_option_outfit": "Outfit",
   "cns_texture_option_original": "Original"

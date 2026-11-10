@@ -67,6 +67,9 @@ texturas compartidas bajo el namespace del outfit para que reemplazos globales
 no alteren su aspecto. El descriptor agrega opciones CNS para alternar las
 texturas incluidas por el mod con copias originales cuando el asset lo permite,
 y sliders para parámetros de rugosidad/metalicidad presentes en los materiales.
+`replacer --replace "Fusion Suit"` agrega además las copias de Fusion NoAcc y
+de los materiales de slot que el juego fuerza en el jefe final, si CUE4Parse
+puede leerlos.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
 paks del juego. CNS ID Fixer aplica el mismo aislamiento a los contenedores
 IoStore activos que comparten `Package_Id`. Intenta las conversiones una por una;
