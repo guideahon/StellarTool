@@ -23,7 +23,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera la salida instalable; `cns` también aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta IDs; `--apply` corrige `Container_Id`; `--apply --fix-textures` exige la carpeta `~mods` activa configurada, convierte conflictos `Package_Id` en CNS, reemplaza los archivos activos tras respaldarlos y verifica el resultado. |
+| CNS ID Fixer | `fixids` | Reporta IDs y rutas; `--apply` corrige `Container_Id`; `--apply --fix-textures` exige la carpeta `~mods` activa configurada, intenta cada conversión CNS por separado, respalda solo los originales convertidos y verifica que disminuyan las referencias compartidas. Devuelve código 4 si queda una reparación parcial. |
 | Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -69,14 +69,15 @@ texturas incluidas por el mod con copias originales cuando el asset lo permite,
 y sliders para parámetros de rugosidad/metalicidad presentes en los materiales.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
 paks del juego. CNS ID Fixer aplica el mismo aislamiento a los contenedores
-IoStore activos que comparten `Package_Id`. Antes de reemplazar nada, prepara
-todos los outfits convertidos; luego instala los CNS y desactiva los originales
-en `~mods/disabled/` agregando `.disabled` a cada nombre. Esa extensión evita
-que el juego, que recorre `~mods` de forma recursiva, vuelva a cargar el backup.
-Verifica que ya no haya conflictos y restaura los originales automáticamente
-si falla la instalación. El comando requiere `--apply --fix-textures`, que es
-la confirmación explícita del cambio productivo. CNS debe estar instalado para
-desplegar los outfits convertidos.
+IoStore activos que comparten `Package_Id`. Intenta las conversiones una por una;
+los paquetes que no sean outfits compatibles permanecen activos y aparecen en el
+reporte. Prepara todas las conversiones aceptadas antes de mover sus originales
+a `~mods/disabled/` con extensión `.disabled`, instala los CNS y comprueba que
+bajen las referencias compartidas. Si no hay progreso o falla la instalación,
+restaura los originales. Si algunas conversiones funcionan y otras no, conserva
+las exitosas e informa el resultado parcial; el código de salida es 4. El comando
+requiere `--apply --fix-textures`, que es la confirmación explícita del cambio
+productivo. CNS debe estar instalado para desplegar los outfits convertidos.
 
 `--input` también puede ser una carpeta `.stpatch` o un archivo comprimido
 `.stpatch`/`.zip` que contenga `manifest.toml` opcional y uno o más `.toml`.

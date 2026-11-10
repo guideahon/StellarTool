@@ -58,9 +58,46 @@ private slots:
         QCOMPARE(result.containers, 2);
         QCOMPARE(result.duplicateContainers, 1);
         QCOMPARE(result.packageConflicts, 1);
+        QCOMPARE(result.sharedPackageReferences, 1);
+        QCOMPARE(result.sharedPackageContainerPaths.size(), 2);
         QVERIFY(result.report.contains(QStringLiteral("a.utoc")));
         QVERIFY(result.report.contains(QStringLiteral("b.utoc")));
         QVERIFY(!QFileInfo::exists(dir.filePath("b.utoc.cnsidfixer.bak")));
+    }
+
+    void reportDisambiguatesSameFilenameInDifferentMods() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        QVERIFY(QDir().mkpath(dir.filePath("mod-a")));
+        QVERIFY(QDir().mkpath(dir.filePath("mod-b")));
+        writeUtoc(dir.filePath("mod-a/Minervha_Master_P.utoc"), 0x1001, {0xAA});
+        writeUtoc(dir.filePath("mod-b/Minervha_Master_P.utoc"), 0x1002, {0xAA});
+
+        CnsIdFixerService service;
+        const auto result = service.run(dir.path(), false);
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QCOMPARE(result.packageConflicts, 1);
+        QCOMPARE(result.sharedPackageReferences, 1);
+        QVERIFY(result.report.contains(QStringLiteral("mod-a/Minervha_Master_P.utoc")));
+        QVERIFY(result.report.contains(QStringLiteral("mod-b/Minervha_Master_P.utoc")));
+    }
+
+    void countsAllExtraReferencesForSharedPackages() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        for (const QString &name : {QStringLiteral("mod-a"), QStringLiteral("mod-b"),
+                                    QStringLiteral("mod-c")}) {
+            QVERIFY(QDir().mkpath(dir.filePath(name)));
+            writeUtoc(dir.filePath(name + QStringLiteral("/shared.utoc")),
+                      quint64(0x1000 + name.back().unicode()), {0xAA});
+        }
+
+        CnsIdFixerService service;
+        const auto result = service.run(dir.path(), false);
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QCOMPARE(result.packageConflicts, 1);
+        QCOMPARE(result.sharedPackageReferences, 2);
+        QCOMPARE(result.sharedPackageContainerPaths.size(), 3);
     }
 
     void fixesDuplicateAndCreatesBackup() {

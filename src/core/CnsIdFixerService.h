@@ -14,6 +14,7 @@ public:
         int duplicateContainers = 0;
         int fixedContainers = 0;
         int packageConflicts = 0;
+        int sharedPackageReferences = 0;
         QStringList sharedPackageContainerPaths;
         QString report;
         QString error;

@@ -560,7 +560,8 @@ int HeadlessRunner::runFixIds(const Options &o) {
     }
     out(m_controller->cnsIdFixerOk() ? report
                                      : QStringLiteral("[ERROR] %1").arg(report));
-    return m_controller->cnsIdFixerOk() ? 0 : 5;
+    if (!m_controller->cnsIdFixerOk()) return 5;
+    return m_controller->cnsIdFixerIncomplete() ? 4 : 0;
 }
 
 int HeadlessRunner::runPresets() {

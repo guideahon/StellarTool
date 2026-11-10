@@ -16,13 +16,14 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   compartidos con el juego y agrega opciones en CNS para elegir entre las
   texturas del outfit y las originales, además de controles de rugosidad y
   metalicidad cuando los materiales los exponen.
-- **CNS ID Fixer** analiza mods IoStore y corrige `Container_Id` duplicados con
-  backup verificable. El botón **Fix IDs and textures** convierte outfits con
-  `Package_Id` compartidos a CNS, instala los archivos directamente en
-  `~mods/CustomNanosuitSystem/Cosmetics`, verifica el resultado y mueve los
-  originales a `~mods/disabled/` con extensión `.disabled` para que el juego no
-  los vuelva a cargar. La conversión completa debe funcionar antes de reemplazar
-  ningún original. Requiere CNS instalado.
+- **CNS ID Fixer** analiza mods IoStore, muestra rutas para distinguir
+  contenedores con nombres repetidos y corrige `Container_Id` duplicados con
+  backup verificable. **Fix IDs and textures** intenta convertir cada
+  participante de conflictos `Package_Id` por separado: instala en CNS los
+  outfits compatibles, mantiene activos los paquetes que no puede convertir y
+  detalla los conflictos restantes. Solo conserva conversiones si la verificación
+  confirma que redujeron las referencias compartidas; los originales convertidos
+  se respaldan en `~mods/disabled/`. Requiere CNS instalado.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con

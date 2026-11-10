@@ -83,11 +83,14 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 ### CNS ID Fixer ✅
 - Sección propia para escanear recursivamente mods IoStore instalados.
 - Detección y corrección de `Container_Id` duplicados con backup y verificación.
-- Botón **Fix IDs and textures**: convierte los contenedores con `Package_Id`
-  compartidos a CNS, aísla materiales/texturas y los instala en la carpeta activa
-  `CustomNanosuitSystem/Cosmetics`. Conserva los originales bajo
-  `~mods/disabled/` con extensión `.disabled`, verifica que no queden conflictos
-  y revierte el reemplazo si falla la instalación. Requiere que CNS esté instalado.
+- Botón **Fix IDs and textures**: intenta convertir por separado los contenedores
+  con `Package_Id` compartidos, aísla materiales/texturas y despliega los outfits
+  compatibles en `CustomNanosuitSystem/Cosmetics`. Los paquetes incompatibles
+  permanecen activos y se reportan. Solo conserva las conversiones si reducen
+  las referencias compartidas; si queda algún conflicto, informa una reparación
+  parcial y corrige también los `Container_Id` que sean compatibles.
+- Los reportes del escaneo muestran rutas relativas completas para desambiguar
+  contenedores con el mismo nombre.
 - Compatible con `DirectoryIndex` de UE4.26; formatos perfect-hash se reportan y quedan intactos.
 
 ### Stellar Souls Builder ✅

@@ -207,6 +207,10 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     }
 
     QStringList lines;
+    const QDir rootDir(directory);
+    const auto displayPath = [&rootDir](const Container &container) {
+        return QDir::fromNativeSeparators(rootDir.relativeFilePath(container.path));
+    };
     lines << QStringLiteral("CNS ID Fixer — %1 contenedores escaneados")
                  .arg(containers.size());
     lines << QString();
@@ -222,7 +226,7 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
             const Container &container = containers[index];
             if (!fixDuplicates || pos == 0) {
                 lines << QStringLiteral("  %1%2")
-                    .arg(QFileInfo(container.path).fileName(),
+                    .arg(displayPath(container),
                          pos == 0 ? QStringLiteral(" (se conserva)") : QString());
                 continue;
             }
@@ -242,12 +246,12 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
                 usedIds.insert(newId);
                 ++result.fixedContainers;
                 lines << QStringLiteral("  %1: %2 -> %3")
-                    .arg(QFileInfo(container.path).fileName(),
+                    .arg(displayPath(container),
                          idText(container.containerId), idText(newId));
             } else {
                 warnings << error;
                 lines << QStringLiteral("  %1: NO MODIFICADO — %2")
-                    .arg(QFileInfo(container.path).fileName(), error);
+                    .arg(displayPath(container), error);
             }
         }
     }
@@ -259,10 +263,11 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     for (auto group = byPackageId.cbegin(); group != byPackageId.cend(); ++group) {
         if (group.value().size() < 2) continue;
         ++result.packageConflicts;
+        result.sharedPackageReferences += group.value().size() - 1;
         QStringList names;
         for (int index : group.value()) {
             sharedPackageContainers.insert(index);
-            names << QFileInfo(containers[index].path).fileName();
+            names << displayPath(containers[index]);
         }
         names.sort(Qt::CaseInsensitive);
         lines << QStringLiteral("%1: %2").arg(idText(group.key()), names.join(QStringLiteral(" ↔ ")));

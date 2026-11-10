@@ -185,6 +185,7 @@ void AppController::runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes) {
                 : QStringLiteral("Falló CNS ID Fixer."));
             m_cnsIdFixerReport = result.ok ? result.report : result.error;
             m_cnsIdFixerOk = result.ok;
+            m_cnsIdFixerIncomplete = false;
             if (!result.ok) emit errorOccurred(result.error);
             emit cnsIdFixerFinished(result.ok);
         }, Qt::QueuedConnection);
@@ -202,6 +203,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         || sourceRoot.compare(expectedRoot, Qt::CaseInsensitive) != 0) {
         m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_fix_folder_required"));
         m_cnsIdFixerOk = false;
+        m_cnsIdFixerIncomplete = false;
         emit cnsIdFixerFinished(false);
         return;
     }
@@ -218,21 +220,26 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_fix_stage_failed"))
             .arg(stageRoot, t(QStringLiteral("cns_fixer_fix_reason_stage_exists")));
         m_cnsIdFixerOk = false;
+        m_cnsIdFixerIncomplete = false;
         emit cnsIdFixerFinished(false);
         return;
     }
 
     setBusy(true, t(QStringLiteral("cns_fixer_fix_scanning")));
+    m_cnsIdFixerIncomplete = false;
     std::ignore = QtConcurrent::run([this, sourceRoot, paksRoot, stageRoot, runId] {
         struct ConvertedOutfit {
+            QString sourceContainerPath;
             QStringList stagedFiles;
         };
 
-        auto finish = [this](bool ok, const QString &report, const QString &statusKey) {
-            QMetaObject::invokeMethod(this, [this, ok, report, statusKey] {
+        auto finish = [this](bool ok, const QString &report, const QString &statusKey,
+                             bool incomplete = false) {
+            QMetaObject::invokeMethod(this, [this, ok, report, statusKey, incomplete] {
                 setBusy(false, t(statusKey));
                 m_cnsIdFixerReport = report;
                 m_cnsIdFixerOk = ok;
+                m_cnsIdFixerIncomplete = incomplete;
                 emit cnsIdFixerFinished(ok);
                 if (!ok) emit errorOccurred(report);
             }, Qt::QueuedConnection);
@@ -264,8 +271,12 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             lines << QString() << t(QStringLiteral("cns_fixer_fix_id_summary"))
                                       .arg(idFix.fixedContainers)
                   << idFix.report;
+            const bool incomplete = idFix.packageConflicts > 0
+                || idFix.fixedContainers < idFix.duplicateContainers;
             finish(true, lines.join(QLatin1Char('\n')),
-                   QStringLiteral("cns_fixer_fix_done"));
+                   incomplete ? QStringLiteral("cns_fixer_fix_partial_status")
+                              : QStringLiteral("cns_fixer_fix_done"),
+                   incomplete);
             return;
         } else {
             lines << t(QStringLiteral("cns_fixer_fix_found")).arg(total);
@@ -299,10 +310,12 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
 
             for (int i = 0; i < total; ++i) {
                 const QString containerPath = initial.sharedPackageContainerPaths.at(i);
-                QMetaObject::invokeMethod(this, [this, i, total, containerPath] {
+                const QString relativeContainer = QDir::fromNativeSeparators(
+                    QDir(sourceRoot).relativeFilePath(containerPath));
+                QMetaObject::invokeMethod(this, [this, i, total, relativeContainer] {
                     setStatus(t(QStringLiteral("cns_fixer_fix_progress"))
                                   .arg(i + 1).arg(total)
-                                  .arg(QFileInfo(containerPath).fileName()));
+                                  .arg(relativeContainer));
                 }, Qt::QueuedConnection);
 
                 QString modBase = QFileInfo(containerPath).completeBaseName();
@@ -323,23 +336,21 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                 request.modName = modName;
                 const CnsConverterService::Result result = m_cns->convert(request);
                 if (!result.ok || !result.blockingWarnings.isEmpty()) {
-                    cleanStage();
                     const QString details = result.ok
                         ? result.blockingWarnings.join(QLatin1Char('\n')) : result.error;
-                    finish(false,
-                           t(QStringLiteral("cns_fixer_fix_convert_failed"))
-                               .arg(QFileInfo(containerPath).fileName(), details),
-                           QStringLiteral("cns_fixer_fix_failed_status"));
-                    return;
+                    lines << t(QStringLiteral("cns_fixer_fix_convert_failed"))
+                                 .arg(relativeContainer, details);
+                    QDir(conversionDir).removeRecursively();
+                    QDir(extractedDir).removeRecursively();
+                    continue;
                 }
                 QString extractError;
                 if (!m_pak->extractZip(result.zipPath, extractedDir, &extractError)) {
-                    cleanStage();
-                    finish(false,
-                           t(QStringLiteral("cns_fixer_fix_stage_failed"))
-                               .arg(result.zipPath, extractError),
-                           QStringLiteral("cns_fixer_fix_failed_status"));
-                    return;
+                    lines << t(QStringLiteral("cns_fixer_fix_convert_failed"))
+                                 .arg(relativeContainer, extractError);
+                    QDir(conversionDir).removeRecursively();
+                    QDir(extractedDir).removeRecursively();
+                    continue;
                 }
 
                 const QDir extracted(extractedDir);
@@ -363,28 +374,34 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                         supportedFiles = false;
                 }
                 if (!supportedFiles || !hasUtoc || !hasUcas || !hasDescriptor) {
-                    cleanStage();
-                    finish(false,
-                           t(QStringLiteral("cns_fixer_fix_stage_failed"))
-                               .arg(result.zipPath,
-                                    t(QStringLiteral("cns_fixer_fix_reason_stage_invalid"))),
-                           QStringLiteral("cns_fixer_fix_failed_status"));
-                    return;
+                    lines << t(QStringLiteral("cns_fixer_fix_convert_failed"))
+                                 .arg(relativeContainer,
+                                      t(QStringLiteral("cns_fixer_fix_reason_stage_invalid")));
+                    QDir(conversionDir).removeRecursively();
+                    QDir(extractedDir).removeRecursively();
+                    continue;
                 }
 
                 ConvertedOutfit outfit;
+                outfit.sourceContainerPath = containerPath;
+                QString copyError;
                 for (const QString &fileName : fileNames) {
                     const QString stagedPath = QDir(payloadRoot).filePath(fileName);
                     if (QFileInfo::exists(stagedPath)
                         || !QFile::copy(extracted.filePath(fileName), stagedPath)) {
-                        cleanStage();
-                        finish(false,
-                               t(QStringLiteral("cns_fixer_fix_stage_failed"))
-                                   .arg(fileName, t(QStringLiteral("cns_fixer_fix_reason_stage_copy"))),
-                               QStringLiteral("cns_fixer_fix_failed_status"));
-                        return;
+                        copyError = t(QStringLiteral("cns_fixer_fix_reason_stage_copy"));
+                        break;
                     }
                     outfit.stagedFiles << stagedPath;
+                }
+                if (!copyError.isEmpty()) {
+                    for (const QString &stagedPath : outfit.stagedFiles)
+                        QFile::remove(stagedPath);
+                    lines << t(QStringLiteral("cns_fixer_fix_convert_failed"))
+                                 .arg(relativeContainer, copyError);
+                    QDir(conversionDir).removeRecursively();
+                    QDir(extractedDir).removeRecursively();
+                    continue;
                 }
                 convertedOutfits << outfit;
                 lines << t(QStringLiteral("cns_fixer_fix_converted"))
@@ -392,6 +409,23 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                 for (const QString &warning : result.warnings)
                     lines << t(QStringLiteral("cns_fixer_fix_warning")).arg(warning);
             }
+        }
+
+        if (convertedOutfits.isEmpty()) {
+            cleanStage();
+            lines << QString() << t(QStringLiteral("cns_fixer_fix_partial"));
+            const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true);
+            if (!idFix.ok) {
+                finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
+                                   + idFix.error,
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            lines << t(QStringLiteral("cns_fixer_fix_id_summary")).arg(idFix.fixedContainers)
+                  << idFix.report;
+            finish(true, lines.join(QLatin1Char('\n')),
+                   QStringLiteral("cns_fixer_fix_partial_status"), true);
+            return;
         }
 
         // Stage every conversion successfully before moving any installed file.
@@ -407,7 +441,8 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             QStringLiteral(".utoc"), QStringLiteral(".ucas"), QStringLiteral(".pak"),
             QStringLiteral(".sig"), QStringLiteral(".dekcns.json"),
             QStringLiteral(".dekani.json"), QStringLiteral(".cnslink.json")};
-        for (const QString &containerPath : initial.sharedPackageContainerPaths) {
+        for (const ConvertedOutfit &outfit : convertedOutfits) {
+            const QString &containerPath = outfit.sourceContainerPath;
             const QFileInfo fi(containerPath);
             const QString stem = fi.completeBaseName();
             QStringList family;
@@ -538,10 +573,11 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             }
         }
 
-        // Verify that package conflicts disappeared before fixing Container_Id.
-        // If the check fails, restore the exact source mod files.
+        // Keep a partial repair only when it measurably reduces shared package
+        // references. If it makes no progress, restore the exact source files.
         const CnsIdFixerService::Result verification = m_cnsIdFixer->run(sourceRoot, false);
-        if (!verification.ok || verification.packageConflicts > 0) {
+        if (!verification.ok
+            || verification.sharedPackageReferences >= initial.sharedPackageReferences) {
             removeInstalled(installedFiles);
             const bool restored = restoreOriginals();
             cleanStage();
@@ -571,11 +607,17 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
               << t(QStringLiteral("cns_fixer_fix_disabled")).arg(disabledRoot)
               << t(QStringLiteral("cns_fixer_fix_summary"))
                     .arg(convertedOutfits.size()).arg(originalMoves.size());
+        const bool incomplete = idFix.packageConflicts > 0
+            || idFix.fixedContainers < idFix.duplicateContainers;
+        if (incomplete)
+            lines << t(QStringLiteral("cns_fixer_fix_partial"));
         lines << QString() << idFix.report;
         if (!QDir(stageRoot).removeRecursively())
             lines << t(QStringLiteral("cns_fixer_fix_stage_cleanup_warning")).arg(stageRoot);
         finish(true, lines.join(QLatin1Char('\n')),
-               QStringLiteral("cns_fixer_fix_done"));
+               incomplete ? QStringLiteral("cns_fixer_fix_partial_status")
+                          : QStringLiteral("cns_fixer_fix_done"),
+               incomplete);
     });
 }
 

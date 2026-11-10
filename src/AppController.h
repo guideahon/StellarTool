@@ -60,6 +60,7 @@ class AppController : public QObject {
     Q_PROPERTY(QString cnsHistoryJson READ cnsHistory NOTIFY cnsHistoryChanged)
     Q_PROPERTY(QString cnsIdFixerReport READ cnsIdFixerReport NOTIFY cnsIdFixerFinished)
     Q_PROPERTY(bool cnsIdFixerOk READ cnsIdFixerOk NOTIFY cnsIdFixerFinished)
+    Q_PROPERTY(bool cnsIdFixerIncomplete READ cnsIdFixerIncomplete NOTIFY cnsIdFixerFinished)
     Q_PROPERTY(QString saveConverterResult READ saveConverterResult NOTIFY saveConverterFinished)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
@@ -204,6 +205,7 @@ public:
     Q_INVOKABLE void fixCnsIdsAndTextures(const QUrl &directoryUrl);
     QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
     bool cnsIdFixerOk() const { return m_cnsIdFixerOk; }
+    bool cnsIdFixerIncomplete() const { return m_cnsIdFixerIncomplete; }
     Q_INVOKABLE void convertSaveToJson(const QUrl &inputUrl, const QUrl &outputUrl, int indent = 2);
     Q_INVOKABLE void convertJsonToSave(const QUrl &inputUrl, const QUrl &outputUrl);
     Q_INVOKABLE void fixSave(const QUrl &inputUrl);
@@ -298,6 +300,7 @@ private:
     QString m_lastCnsResult;
     QString m_cnsIdFixerReport;
     bool m_cnsIdFixerOk = false;
+    bool m_cnsIdFixerIncomplete = false;
     QString m_saveConverterResult;
     QString m_movesetCatalogPath;
     QHash<QString, QStringList> m_usmapEnums;
