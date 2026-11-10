@@ -170,8 +170,8 @@ extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
 `Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos
-con rutas relativas completas para distinguir contenedores homónimos. El botón
-**Fix IDs and textures** intenta convertir cada contenedor en conflicto de forma
+con rutas relativas completas para distinguir contenedores homónimos. La acción
+de reparación intenta convertir cada contenedor en conflicto de forma
 independiente y aísla materiales/texturas con `CnsConverterService`. Las
 conversiones no compatibles se registran y sus originales siguen activos; las
 conversiones válidas se preparan antes de cambiar archivos. La instalación mueve
@@ -184,6 +184,8 @@ archivos preparados; si hay progreso parcial, conserva las conversiones exitosas
 y reporta los conflictos restantes. Después corrige `Container_Id` repetidos.
 La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
 juego configurada; requiere confirmación en UI y `--apply` en modo headless.
+En headless, `--apply` ejecuta la reparación completa; `--ids-only` conserva la
+corrección limitada a `Container_Id`.
 Para instalar outfits convertidos también exige encontrar la carpeta o el
 paquete de CNS; si no está instalado, deja todos los mods activos sin cambios.
 Si no puede leer los slots/parámetros de materiales, extraer una textura o

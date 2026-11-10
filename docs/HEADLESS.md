@@ -23,7 +23,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera la salida instalable; `cns` también aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta IDs y rutas; `--apply` corrige `Container_Id`; `--apply --fix-textures` exige la carpeta `~mods` activa configurada, intenta cada conversión CNS por separado, respalda solo los originales convertidos y verifica que disminuyan las referencias compartidas. Devuelve código 4 si queda una reparación parcial. |
+| CNS ID Fixer | `fixids` | Reporta IDs y rutas; `--apply` repara `Container_Id` y convierte a CNS los outfits compatibles que participan en conflictos `Package_Id`. Exige la carpeta `~mods` activa configurada, respalda solo los originales convertidos y verifica que disminuyan las referencias compartidas. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
 | Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -48,7 +48,7 @@ StellarTool.exe --headless cns --mod "C:\outfit.zip" --out "C:\salida" [--name "
 StellarTool.exe --headless replacer --mod "C:\outfit-cns.zip" --out "C:\salida" --replace "Black Pearl" [--select "2"]
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods"
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply
-StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply --fix-textures
+StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply --ids-only
 StellarTool.exe --headless baseline --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless detect
 StellarTool.exe --headless status
