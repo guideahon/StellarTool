@@ -150,10 +150,10 @@ Set-ExecutionPolicy -Scope Process Bypass
 & "C:\ruta\a\Stellar Tool\tools\stellarblade_crash_trace.ps1"
 ```
 
-El capturador inicia una traza File I/O de Windows, espera hasta 10 minutos a
-que abras Stellar Blade desde Vortex y la detiene al cerrarse el proceso (o a
-los 20 minutos). No termina el juego ni cambia mods o archivos del juego. La
-traza cruda se guarda en
+El capturador inicia una traza File I/O de Windows filtrada al proceso de
+Stellar Blade, espera hasta 10 minutos a que lo abras desde Vortex y la detiene
+al cerrarse el proceso (o a los 20 minutos). No termina el juego ni cambia mods
+o archivos del juego. La traza cruda se guarda en
 `%LOCALAPPDATA%/StellarTool/CrashTraces/<fecha-hora>/system_fileio.etl`; los
 reportes filtrados por PID quedan en esa misma carpeta. `fileio_report.md`
 lista los archivos leídos, los estados de I/O fallidos y, cuando un manifiesto
@@ -162,9 +162,9 @@ del log de UE4SS, `mods.txt`, los manifiestos desplegados y el análisis del
 CrashContext si Windows lo generó.
 
 Compartí `fileio_report.md`, `crash_analysis.md` (si existe) y
-`capture_info.txt`. El `.etl` crudo registra nombres de archivos de otros
-procesos del sistema y conviene mantenerlo local. Una lectura exitosa justo
-antes del crash no demuestra por sí sola que ese archivo lo causó; la traza
+`capture_info.txt`. El `.etl` crudo conserva rutas completas y conviene
+mantenerlo local. Una lectura exitosa justo antes del crash no demuestra por sí
+sola que ese archivo lo causó; la traza
 ayuda a identificar errores de acceso y qué paquetes/mods estaba leyendo el
 juego. No puede señalar un asset interno de un `.pak`/`.ucas` si el juego no
 expone ese nombre en el sistema de archivos.

@@ -9,6 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $toolDir = $PSScriptRoot
+$wprProfile = Join-Path $toolDir 'stellarblade_fileio.wprp'
 $gameExe = Join-Path $GameRoot 'SB\Binaries\Win64\SB-Win64-Shipping.exe'
 $gameProcessName = [IO.Path]::GetFileNameWithoutExtension($gameExe)
 $wpr = Get-Command 'wpr.exe' -ErrorAction SilentlyContinue
@@ -18,6 +19,7 @@ $python = Get-Command 'python.exe' -ErrorAction SilentlyContinue
 if (-not $wpr) { throw 'Windows Performance Recorder (wpr.exe) is not available.' }
 if (-not $tracerpt) { throw 'Windows Performance Recorder tools (tracerpt.exe) are not available.' }
 if (-not $python) { throw 'python.exe is not available in PATH; install Python 3 or add it to PATH.' }
+if (-not (Test-Path -LiteralPath $wprProfile -PathType Leaf)) { throw "WPR profile not found: $wprProfile" }
 if (-not (Test-Path -LiteralPath $gameExe -PathType Leaf)) { throw "Game executable not found: $gameExe" }
 
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -77,10 +79,12 @@ if (Test-Path -LiteralPath $modsTxt -PathType Leaf) {
 $captureStarted = $false
 $gameProcessId = $null
 $gameExitObserved = $false
+$wprDroppedEvents = 'not reported'
 try {
     Write-Host "Report folder: $outputDir"
     Write-Host 'Starting Windows File I/O trace...'
-    $startOutput = & $wpr.Source -start FileIO -filemode 2>&1
+    $profileSpec = "$wprProfile!StellarBladeFileIO.Light"
+    $startOutput = & $wpr.Source -start $profileSpec -filemode 2>&1
     $startOutput | Set-Content -LiteralPath (Join-Path $outputDir 'wpr_start.txt') -Encoding UTF8
     if ($LASTEXITCODE -ne 0) { throw "WPR could not start (exit $LASTEXITCODE). See wpr_start.txt." }
     $captureStarted = $true
@@ -118,18 +122,38 @@ try {
 finally {
     if ($captureStarted) {
         Write-Host 'Stopping and saving the ETW trace...'
-        $stopOutput = & $wpr.Source -stop $etlPath 'Stellar Blade file I/O crash trace' 2>&1
+        $stopOutput = & $wpr.Source -stop $etlPath 'Stellar Blade file I/O crash trace' -skipPdbGen 2>&1
         $stopOutput | Set-Content -LiteralPath (Join-Path $outputDir 'wpr_stop.txt') -Encoding UTF8
         if ($LASTEXITCODE -ne 0) { throw "WPR could not save the ETL (exit $LASTEXITCODE). See wpr_stop.txt." }
+        $stopText = [string]::Join("`n", @($stopOutput | ForEach-Object { [string]$_ }))
+        $dropMatch = [regex]::Match($stopText, '(?i)dropped\s+([\d,]+)\s+events?')
+        if ($dropMatch.Success) {
+            $wprDroppedEvents = $dropMatch.Groups[1].Value
+            Write-Warning "WPR reported $wprDroppedEvents dropped events. Treat the file trace as incomplete."
+        }
+        elseif ($stopText -match '(?i)successfully saved') {
+            $wprDroppedEvents = '0 reported'
+        }
     }
 }
+
+$captureInfoPath = Join-Path $outputDir 'capture_info.txt'
+@(
+    "Capture started: $($captureStart.ToString('o'))",
+    "ETL saved: $(Test-Path -LiteralPath $etlPath -PathType Leaf)",
+    "Game PID: $(if ($gameProcessId) { $gameProcessId } else { 'not observed' })",
+    "Game exit observed: $gameExitObserved",
+    "WPR dropped events: $wprDroppedEvents",
+    "Deployment manifests snapshotted: $($manifestPaths.Count)",
+    'Trace conversion: pending'
+) | Set-Content -LiteralPath $captureInfoPath -Encoding UTF8
 
 $ue4ssLog = Join-Path $GameRoot 'SB\Binaries\Win64\ue4ss\UE4SS.log'
 if (Test-Path -LiteralPath $ue4ssLog -PathType Leaf) {
     Copy-Item -LiteralPath $ue4ssLog -Destination (Join-Path $contextDir 'UE4SS.log') -Force
 }
 
-$tracerptOutput = & $tracerpt.Source $etlPath -o $xmlPath -of XML -y 2>&1
+$tracerptOutput = & $tracerpt.Source $etlPath -o $xmlPath -of XML -y -lr 2>&1
 $tracerptOutput | Set-Content -LiteralPath (Join-Path $outputDir 'tracerpt.txt') -Encoding UTF8
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $xmlPath -PathType Leaf)) {
     throw "tracerpt could not convert the ETL (exit $LASTEXITCODE). See tracerpt.txt. The raw ETL was kept."
@@ -142,6 +166,7 @@ $parserArgs = @(
     '--pid', $(if ($gameProcessId) { [string]$gameProcessId } else { '0' }),
     '--game-root', $GameRoot,
     '--mods-root', $modsRoot,
+    '--dropped-events', $wprDroppedEvents,
     '--output-dir', $outputDir
 )
 foreach ($manifestPath in $manifestPaths) {
@@ -183,10 +208,11 @@ Remove-Item -LiteralPath $xmlPath -Force
     "Capture ended: $((Get-Date).ToString('o'))",
     "Game PID: $(if ($gameProcessId) { $gameProcessId } else { 'not observed' })",
     "Game exit observed: $gameExitObserved",
+    "WPR dropped events: $wprDroppedEvents",
     "Deployment manifests snapshotted: $($manifestPaths.Count)",
     "Crash context: $(if ($crashContext) { $crashContext.FullName } else { 'not found' })",
-    'The raw ETL records system-wide file names; keep it local unless you review it before sharing.'
-) | Set-Content -LiteralPath (Join-Path $outputDir 'capture_info.txt') -Encoding UTF8
+    'The ETL is filtered to Stellar Blade file events; keep it local unless you review it before sharing.'
+) | Set-Content -LiteralPath $captureInfoPath -Encoding UTF8
 
 Write-Host ''
 Write-Host 'Capture finished.'

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WindowsPerformanceRecorder Version="1.0" Author="Stellar Tool">
+  <Profiles>
+    <EventCollector Id="StellarBladeFileCollector" Name="Stellar Blade file activity">
+      <BufferSize Value="256" />
+      <Buffers Value="512" />
+    </EventCollector>
+    <EventProvider Id="StellarBladeKernelFile" Name="Microsoft-Windows-Kernel-File"
+                   NonPagedMemory="true" ProcessExeFilter="SB-Win64-Shipping.exe" Level="4">
+      <Keywords>
+        <Keyword Value="0x00000000000003F0" />
+      </Keywords>
+    </EventProvider>
+    <Profile Id="StellarBladeFileIO.Light.File" Name="StellarBladeFileIO"
+             Description="Stellar Blade process file activity" LoggingMode="File" DetailLevel="Light">
+      <Collectors>
+        <EventCollectorId Value="StellarBladeFileCollector">
+          <EventProviders>
+            <EventProviderId Value="StellarBladeKernelFile" />
+          </EventProviders>
+        </EventCollectorId>
+      </Collectors>
+    </Profile>
+  </Profiles>
+</WindowsPerformanceRecorder>

@@ -20,6 +20,7 @@ from pathlib import Path
 PATH_RE = re.compile(
     r'(?i)(?:[a-z]:\\|\\\\\?\\|\\device\\harddiskvolume\d+\\)[^"\x00\r\n<>|]+'
 )
+HEX_PAYLOAD_RE = re.compile(r"\A\s*(?:[0-9a-fA-F]{2}\s*)+\Z")
 MOD_EXTENSIONS = {
     ".pak", ".utoc", ".ucas", ".uasset", ".uexp", ".ubulk", ".uptnl",
     ".dll", ".lua", ".json", ".ini", ".sig",
@@ -83,6 +84,23 @@ def extract_paths(text: str, devices: list[tuple[str, str]]) -> list[str]:
                 if path.casefold() not in {item.casefold() for item in found}:
                     found.append(path)
     return found
+
+
+def decode_hex_payload(value: str) -> str:
+    """Recover UTF-16 strings when tracerpt cannot decode a kernel event schema."""
+    value = value.strip()
+    if not value or not HEX_PAYLOAD_RE.fullmatch(value):
+        return ""
+    try:
+        payload = bytes.fromhex(value)
+    except ValueError:
+        return ""
+    decoded = []
+    for offset in (0, 1):
+        usable = payload[offset:len(payload) - ((len(payload) - offset) % 2)]
+        if usable:
+            decoded.append(usable.decode("utf-16-le", errors="ignore"))
+    return "\n".join(decoded)
 
 
 def canonical(path: str | Path) -> str:
@@ -183,6 +201,9 @@ def parse_xml(xml_path: Path, pid: int, source_map: dict[str, str],
         path_candidates: list[str] = []
         for value in flat_fields.values():
             path_candidates.extend(extract_paths(value, devices))
+        for node in event.iter():
+            if local_name(node.tag) in {"BinaryEventData", "EventPayload"}:
+                path_candidates.extend(extract_paths(decode_hex_payload(element_text(node)), devices))
         if not path_candidates:
             path_candidates.extend(extract_paths(element_text(event), devices))
         path_candidates = list(dict.fromkeys(path_candidates))
@@ -250,7 +271,7 @@ def markdown_cell(value: str) -> str:
 
 
 def write_report(rows: list[dict[str, str]], output_csv: Path, output_md: Path,
-                 pid: int, game_root: Path) -> None:
+                 pid: int, game_root: Path, dropped_events: str) -> None:
     columns = [
         "timestamp_utc", "pid", "tid", "provider", "event_id", "task", "opcode",
         "file_object", "path", "source_mod", "size", "status", "fields_json",
@@ -278,6 +299,7 @@ def write_report(rows: list[dict[str, str]], output_csv: Path, output_md: Path,
         f"- Distinct paths: {len(file_counts)}",
         f"- Paths mapped to Vortex mods: {sum(bool(row['source_mod']) for row in ordered)} events",
         f"- Events with a non-success status field: {len(failures)}",
+        f"- WPR dropped events: {dropped_events}",
         "",
         "## Vortex sources seen in game file activity",
         "",
@@ -318,7 +340,9 @@ def write_report(rows: list[dict[str, str]], output_csv: Path, output_md: Path,
         "",
         "## Reading this report",
         "",
-        "A non-success file status can indicate an I/O problem, though the event and status need context. "
+        ("WPR reported dropped events, so missing file activity may not appear here. "
+         if dropped_events not in {"0 reported", "not reported"} else "")
+        + "A non-success file status can indicate an I/O problem, though the event and status need context. "
         "The last path accessed is only a lead; "
         "successful reads can precede a crash caused by invalid asset data or incompatible code. "
         "Unmapped paths remain in the CSV and can be matched against the Vortex staging folder.",
@@ -335,6 +359,8 @@ def main() -> int:
     parser.add_argument("--mods-root", type=Path, help="Vortex staging mods folder")
     parser.add_argument("--manifest", action="append", type=Path, default=[],
                         help="Vortex deployment manifest; may be repeated")
+    parser.add_argument("--dropped-events", default="not reported",
+                        help="WPR event-loss count, if reported")
     parser.add_argument("--output-dir", required=True, type=Path)
     args = parser.parse_args()
 
@@ -354,7 +380,7 @@ def main() -> int:
         return 5
     csv_path = args.output_dir / "game_fileio.csv"
     md_path = args.output_dir / "fileio_report.md"
-    write_report(rows, csv_path, md_path, args.pid, args.game_root)
+    write_report(rows, csv_path, md_path, args.pid, args.game_root, args.dropped_events)
     print(f"File-I/O events for PID {args.pid}: {len(rows)}")
     print(f"Report: {md_path}")
     print(f"CSV: {csv_path}")
