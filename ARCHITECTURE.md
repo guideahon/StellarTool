@@ -444,23 +444,26 @@ llevamos puesto nada ajeno.
 
 `CPSPlugin/` es un proyecto CMake x64 separado de la aplicación Qt. Usa el SDK
 CPS local que aporta el mantenedor y genera `stellar_tool_gameplay.cps`; no se
-incluye en el paquete desktop ni en el pipeline de mods estáticos. La primera
-versión agrega una página CPS con sliders y toggles para valores numéricos de
-`CharacterTable / Player` que el Builder ya produce: vida, escudo, reducción de
-daño, regeneración, velocidad de ataque, capacidad de barras, pilas de
-munición/consumibles, curación y poder de pesca.
+incluye en el paquete desktop ni en el pipeline de mods estáticos. La versión
+0.3.0 agrega controles runtime de Stellar Souls para propiedades numéricas
+seleccionadas en `CharacterTable`, `SkillTable`, `EffectTable` y tablas de
+tienda/progresión/pesca.
 
 Las modificaciones ocurren solo en el hilo del juego. Antes de escribir se
-verifican el nombre de la fila, el tipo y el tamaño de cada propiedad. Al
-desactivar un control o descargar el plugin, restaura el valor capturado solo si
-sigue siendo el último que escribió Stellar Tool. Si otro plugin cambió ese
-campo entretanto, lo deja intacto y registra el detalle en `CPS.log`. La
-configuración queda en `CPS/Configs/StellarToolGameplay/settings.json`.
+verifican tabla, fila, nombre/tipo/tamaño de propiedad. Los snapshots identifican
+tabla + fila + propiedad; al apagar un control o descargar el plugin, restaura
+solo si el valor aún coincide con el último que escribió Stellar Tool. Si otro
+mod cambió el campo, se deja intacto y se registra en `CPS.log`. Las preferencias
+se guardan en `CPS/Configs/StellarToolGameplay/settings.json`.
 
-La primera versión no cubre otras tablas, filas nuevas, assets, `EffectTable`,
-spawns, outfits ni archivos `.pak`. Esos flujos siguen en Stellar Tool desktop y
-en `--headless build`. Compilación, instalación manual y límites están en
-[`docs/CPS_PLUGIN.md`](docs/CPS_PLUGIN.md).
+El plugin cubre controles numéricos reversibles: ajustes del jugador, tuning de
+habilidades/efectos y porcentajes de mundo. La probabilidad de drop queda fuera
+porque requiere clasificar `DropType`; también quedan fuera perfiles completos,
+outfits/helpers, arrays/enums/referencias, spawns, creación de filas, assets y
+`.pak`. Esos flujos siguen en Stellar Tool desktop y `--headless build`. La matriz
+completa, incluida la cobertura parcial, está en
+[`docs/STELLAR_SOULS_CPS_MIGRATION.md`](docs/STELLAR_SOULS_CPS_MIGRATION.md);
+compilación e instalación, en [`docs/CPS_PLUGIN.md`](docs/CPS_PLUGIN.md).
 El plan paso a paso de migración de **Stellar Souls Builder** (no de toda la app
 Stellar Tool) y el handoff para agentes está en
 [`docs/STELLAR_SOULS_CPS_MIGRATION.md`](docs/STELLAR_SOULS_CPS_MIGRATION.md).

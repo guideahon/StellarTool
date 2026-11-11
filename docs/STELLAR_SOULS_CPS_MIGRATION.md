@@ -1,205 +1,186 @@
-# Manual de migración de Stellar Souls Builder a CPS
+# Migrar Stellar Souls Builder a CPS: manual paso a paso
 
-## Objetivo y alcance
+## 1. Objetivo correcto
 
-La migración deseada es **Stellar Souls Builder → plugin CPS**. Stellar Tool es
-la aplicación de escritorio que contiene ese Builder y otras herramientas; el
-objetivo no es convertir toda la aplicación Qt en una DLL CPS.
+La solicitud es migrar **Stellar Souls Builder** al menú CPS. Stellar Tool es la
+aplicación de escritorio que contiene ese Builder y varias funciones distintas;
+no se pretende convertir toda la aplicación Qt en una DLL de CPS.
 
-La app desktop debe seguir compilando mods estáticos cuando una opción crea
-assets, filas, spawns, cambios complejos o paquetes `.pak`. CPS permite exponer
-en el juego las opciones que puedan cambiarse de forma segura en las estructuras
-ya cargadas. Las dos vías pueden convivir: Builder genera un mod persistente y
-el plugin CPS modifica la sesión actual.
+El criterio es ofrecer en juego los ajustes que puedan hacerse de forma
+reversible sobre valores escalares de tablas ya cargadas. El Builder de
+escritorio sigue siendo necesario cuando una opción genera `.pak`, assets,
+filas, referencias, spawns o archivos helper. Si una opción se migra a medias,
+la UI y este manual deben decir qué parte falta.
 
-## Estado actual
+## 2. Archivos que se consultan primero
 
-El plugin separado vive en `CPSPlugin/`. Usa el CPS SDK local del mantenedor,
-implementa su página de opciones y empaqueta un `.cps`. La versión actual del
-plugin es 0.2.0. Requiere CPS 1.2.0+; el juego todavía debe validar cada ajuste.
+En la raíz del repo leer `AGENTS.md`, `README.md` y `ARCHITECTURE.md`; luego:
 
-### Opciones portadas
+1. `Builder/features/manifest.json`: catálogo de opciones del cuestionario.
+2. `Builder/compiler/build_specs.py`: mapea respuestas a tablas y transforms.
+3. `Builder/compiler/table_compiler.py`: transforms de tablas y dependencias.
+4. El módulo real de cada transformación: `extras.py`, `skill_extras.py`,
+   `effect_extras.py`, `world_extras.py`, `enemy_tweaks.py`,
+   `hardcore_enemies.py`, `miniboss_builder.py` o `overworld_bosses.py`.
+5. `Builder/compiler/build_custom.py`: valores graduables, normalización,
+   empaquetado, helper y composición de presets.
+6. `CPSPlugin/src/plugin.cpp`, `CPSPlugin/locale/en.json` y
+   `CPSPlugin/locale/es.json`: controles runtime actuales.
+7. `CPS-SDK/cpp/ue/tables.hpp` y `ue.hpp`: reflexión que realmente expone el
+   SDK local. No inventar APIs a partir de versiones online.
 
-Todas las opciones de esta lista operan sobre `CharacterTable / Player` y
-validan nombre de propiedad, tipo (`IntProperty` o `FloatProperty`) y tamaño
-antes de escribir:
+El manifest enumera las opciones públicas, pero `build_custom.py` y la UI
+desktop también admiten opciones avanzadas (perfiles de desafío, tuning granular
+de enemigos, hardcore, movesets y variantes de assets). Buscar esas rutas antes
+de afirmar que el inventario está completo.
 
-| Control CPS | Campos del juego | Fuente del Builder |
+## 3. Clasificar cada transformación
+
+Antes de programar, responder:
+
+1. ¿Qué tabla, fila y propiedad toca?
+2. ¿Qué tipo tiene la propiedad en el juego: int, float, enum/FName, array,
+   struct o referencia?
+3. ¿La operación es un valor fijo, una escala sobre el original, o depende de
+   otra tabla/baseline?
+4. ¿La tabla está cargada en la sesión cuando se aplica? ¿Cuándo vuelve a
+   consultarla el juego?
+5. ¿Se puede capturar y restaurar sin sobrescribir un cambio de otro mod?
+6. ¿El resultado sería equivalente al Builder completo o solo una parte?
+
+**Apta para CPS actual:** escalar existente `IntProperty`/`FloatProperty`, con
+fila localizable y valor original capturable.
+
+**Mantener en Builder:** filas/actores/spawns nuevos; arrays/structs; enums,
+`FName`, SoftObject references, assets, paquetes, configuraciones Lua/helper o
+efectos de outfit dependientes de CNS. Una operación con dos tablas debe migrar
+ambas como unidad; no exponer solo una mitad.
+
+## 4. Arquitectura runtime vigente
+
+- Proyecto CMake x64 separado: `CPSPlugin/`.
+- SDK local, no versionado: `CPS-SDK/`.
+- API CPS 1.2.0 o posterior; reflexión UE 4.26 del SDK.
+- Todas las lecturas y escrituras UObject ocurren en `on_game_tick`, hilo del
+  juego. Los callbacks UI solo copian/guardan settings.
+- Tablas permitidas: `CharacterTable`, `SkillTable`, `EffectTable`,
+  `ShopItemTable`, `RewardGroupTable`, `SPLevelTable`,
+  `CharacterLevelTable`, `ItemFishTable`.
+- Snapshot: objeto de tabla débil + fila + propiedad + tipo/valor original +
+  último valor escrito. Al apagar o descargar se restaura solo si el valor
+  actual sigue siendo el último escrito por el plugin.
+- Escaneo de tablas cada dos segundos para capturar las que aparecen al cargar
+  zonas. Si hay más de una tabla homónima, se omite esa tabla y se registra en
+  `CPS.log`.
+- Configuración: `CPS/Configs/StellarToolGameplay/settings.json`.
+- UI en inglés y español. Todo texto se traduce con `CPSPlugin/locale/*.json`.
+
+No ampliar a un barrido indiscriminado de propiedades. Cada transform debe
+declarar tabla/filtro/fila/campo y validar tipo, tamaño, rango y finitud antes de
+escribir. La UI debe explicar alcances parciales.
+
+## 5. Matriz completa del Builder frente al plugin
+
+### Portado en el plugin 0.3.0
+
+| Opción o grupo | Cobertura runtime | Transform/origen |
 |---|---|---|
-| Vida, escudo y reducción de daño | `MaxHP`, `MaxShield`, `DamageReductionPerShieldBock` | `Builder/compiler/extras.py`: `base_attributes` |
-| Regeneración de escudo | `ShieldRegenPerSecond`, `ShieldRegenPerSecondWhenBattle` | `shield_regen` |
-| Velocidad de ataque | `AttackSpeed` | `attack_speed` / `player_qol` |
-| Capacidad Beta, Burst y Tachy | `MaxBetaGauge`, `MaxBurstGauge`, `MaxTachyGauge` | `high_gauge_capacity`, `longer_tachy` |
-| Pilas de munición y consumibles | `StackBullet1..6`, `StackConsumable1..7` | `ammo_stacks`, `consumable_stacks`, `player_qol` |
-| Regeneración pasiva de vida | `HPRegenPerSecond` | `passive_hp_regen` |
-| Curación al golpear | `DrainHpByAttackPowerRate`, `DrainHpFixedValue` | `hp_drain` |
-| Poder de pesca | `FishingAttackPower` | `fishing_power` |
+| Atributos base | `CharacterTable / Player`: vida, escudo y reducción | `extras.py:base_attributes` |
+| Regeneración de escudo y velocidad de ataque | `CharacterTable / Player` | `shield_regen`, `attack_speed`, subconjunto de `playerQol` |
+| Capacidad Beta/Burst/Tachy | `CharacterTable / Player` con sliders | `high_gauge_capacity`, `longer_tachy` |
+| Munición, consumibles, HP pasiva, curación al golpear y pesca | `CharacterTable / Player`; incluye `ammo100x` con valores individuales por tipo de bala | `ammo_stacks`, `ammo100x`, `consumable_stacks`, `passive_hp_regen`, `hp_drain`, `fishing_power` |
+| Economía de gauges | Ganancia Beta `-0.5`, capacidades `400/800` | `combat.slowerGain`, `combat.lowerCapacity`, valores de `public_1_2_19_overrides.json` |
+| Cooldowns/costos de habilidades | Valores de tuning de 18 filas Beta/Burst | `combat.antiSpamSkill`, overrides públicos |
+| Daño Railgun x2 | `SkillTable`, disparos `P_Eve_Gun_ShootRailgun*`, campos de daño existentes | `combat.blasterCellDamageX2` |
+| Ventana de parry/esquive | `JustActionTime × slider` para skills existentes `P_Eve_*` con valor positivo | `skill_extras.py:forgiving_just` |
+| Esquive aéreo adicional | `UsableCount >= 2` en skills `P_Eve_*Air*Evade*` | `skill_extras.py:extra_air_dodge` |
+| Cooldown de dash attack | 4 segundos, tres filas nombradas | `skill_extras.py:dash_cooldown_4s` |
+| Reducción de consumo Tachy | `EffectTable / P_Eve_SkillTree_TachyGaugeReduceConsumeRate / CalculationValue = 0.6` | `effect_extras.py:tachy_reduce` |
+| Mejores gears | `Gear_*` positivos, excepto `_HitDmgUp`, multiplicador configurable | `effect_extras.py:stronger_gear` |
+| Curación Tumbler | `EffectTable / Item_HP_RPotion / CalculationValue`, 10–100 | `effect_extras.py:tumbler_heal` |
+| Precios de tiendas | campos `MoneyItemCount1..4` y `Discount_...`, porcentaje editable | `world_extras.py:shop_prices` |
+| Cantidades de drop | `ItemMinCount`/`ItemMaxCount` de `RewardGroupTable`, porcentaje editable | parte de `world_extras.py:drop_rates` |
+| EXP SP | `SPLevelTable / RequiredSPExp`, porcentaje editable | `world_extras.py:sp_exp` |
+| Costos de mejora | `CharacterLevelTable / RequiredItemAmount1/2`, porcentaje editable | `world_extras.py:upgrade_costs` |
+| Pesca del mundo | `ItemFishTable / Stamina` y `FightingTime`, porcentajes independientes | parte de `world_extras.py:fishing` |
 
-Los valores se pueden ajustar desde CPS y se guardan en
-`CPS/Configs/StellarToolGameplay/settings.json`. Los grupos se inician apagados.
-Al apagarlos, el plugin intenta restaurar el valor que observó antes de
-escribir. Solo restaura si el campo conserva el último valor escrito por el
-plugin; si otro mod lo cambió, no lo pisa y registra el detalle en `CPS.log`.
+La curación del Tumbler aparece como gauge/world control en distintas versiones
+del formulario; se expone una sola vez porque ambos caminos escriben la misma
+fila/campo.
 
-## Paso a paso para portar una opción nueva
+### Parcial o pendiente, con motivo
 
-### 1. Seguir la opción desde la UI hasta su transform
+| Opción | Qué falta y por qué |
+|---|---|
+| `combatProfile`: none/full/firstRun | Los perfiles combinan numerosos cambios de `SkillTable`, `SkillResultTable` y `CharacterTable`; First Run calcula puntos medios respecto de baseline. Un grupo parcial no equivale al paquete compilado. |
+| `combatFeatures`: Beta/Burst, dron, dash, EVE, enemigos | Los transforms copian valores alterados del paquete Full con reglas de selección. CPS no tiene ese baseline estático cargado para preservar equivalencia. `tachyDuration` puede cubrirse con el slider de capacidad, pero no reproduce por sí sola el perfil. |
+| `perfectDodge` | Restaura `JustSkillActiveAlias`, una referencia/FName; reflexión actual solo escribe escalares numéricos. La ventana temporal sí está portada por separado. |
+| `enemyVulnerability` | Necesita filtrar enemigos normales por `ActorType` y aplicar la escala del perfil. El lector tipado de enum/clasificación no está disponible. |
+| `burstGaugeReduce` | Quita condiciones/aliases de arreglos de `EffectTable`; no es escalar. |
+| `dropRates` (probabilidad) | `DropRate` solo debe escalarse en filas enum `RandomEach`; modificar `RandomWeight` cambiaría el balance relativo. Se migraron las cantidades, no el porcentaje de probabilidad. |
+| `noFallDamage`, `noEnvDeath` | Sustituye acciones enum, borra referencias y cambia efectos/estados. |
+| `autoGaugeRecovery` y recuperación en el tiempo | Limpia alias/condiciones y modifica campos de loop y arreglos. No migrado a medias. |
+| `harderEnemies`, `harderBosses`, `bossStaggerImmunity`, challenge profiles y Hardcore | Dependen de enums de tipo de actor/dificultad para separar bosses, enemigos normales y Maelstrom; varios también cambian Skill/Reward/Difficulty tables. Sin ese filtro, un toggle escalar podría afectar clases equivocadas. |
+| `outfitMode`, `outfitVanillaShieldRegen`, helper CNS/vanilla, helperMode/interval | Depende de arreglos de `EffectTable`, QTE/campamento, eventos de equipamiento y archivos Lua/helper. El runtime CPS actual no integra esos eventos/helper. |
+| `miniBoss`, densidad, dificultad, variedad enemiga, `overworldBosses` | Clona filas y aliases, filtra pools/regiones, altera recompensas y modifica `EventSpawnTable`. Requiere un pak generado y verificación de referencias. |
+| Movesets y variantes de assets | Pueden cambiar assets y tablas de rutas/comandos; se distribuyen en bundles `.pak`/Zen. |
 
-Leer solo los archivos relacionados, en este orden:
+## 6. Paso a paso para agregar otro control
 
-1. `Builder/features/manifest.json`: pregunta, opción y transforms declarados.
-2. `Builder/compiler/build_specs.py`: tablas y dependencias de cada grupo.
-3. `Builder/compiler/table_compiler.py`: registro del transform y tabla base.
-4. El módulo concreto, por ejemplo `extras.py`, `skill_extras.py`,
-   `effect_extras.py` o `world_extras.py`.
-5. `Builder/compiler/build_custom.py`: valores configurables, escalas y cómo
-   se combinan los transforms seleccionados.
+1. Agrega una línea en esta matriz con el ID público del manifest y la
+   propiedad concreta; marca si es total o parcial.
+2. Lee la función del transform en su módulo fuente; confirma límites, reglas
+   de filtrado y dependencia de baseline. No deduzcas el comportamiento solo
+   por el nombre del toggle.
+3. Agrega settings con defaults apagados; agrega parseo acotado y serialización
+   en `plugin.cpp`.
+4. Construye targets explícitos usando table + row + field. Si el valor es un
+   multiplicador, calcula siempre desde el `Snapshot.original`, nunca desde el
+   valor ya modificado.
+5. Lee y escribe solo tipos/tamaños comprobados (`IntProperty` de 4 bytes o
+   `FloatProperty` de 4 bytes). Rechaza NaN/infinito y valores fuera de rango.
+6. Asegura que apagar y descargar restaure solo si el valor actual coincide con
+   `last_written`; si hay conflicto, deja el valor externo intacto y loguea el
+   nombre completo de tabla/fila/campo.
+7. Expone el control en `draw_page()` y agrega traducciones inglesas/españolas.
+   Si es parcial, explica en la misma UI qué no incluye.
+8. Actualiza `docs/CPS_PLUGIN.md`, esta matriz, `ARCHITECTURE.md`, `PLAN.md` y
+   `README.md` cuando cambie el alcance.
+9. Compila con `CPSPlugin\build.bat`; no inicies ni automatices el juego. El
+   usuario confirma comportamiento en su instalación.
 
-No asumir que un transform interno es una opción visible del cuestionario: el
-`manifest.json` es la fuente de preguntas públicas; `build_specs.py` muestra
-también transform IDs internos y dependencias.
+## 7. Compilar e instalar para una prueba manual
 
-### 2. Clasificar la operación antes de escribir código CPS
-
-**Candidata a runtime:** solo cambia valores escalares de filas que ya existen
-en una DataTable cargada, y hay una forma de capturar/restaurar el valor
-anterior. Ejemplos: int/float de un jugador, multiplicadores o tiempos.
-
-**Mantener en desktop:** crea/quita filas o assets; modifica arrays/structs o
-enums; cambia referencias; clona enemigos; reubica spawns; genera materiales,
-meshes, outfits o `.pak`; depende del paso de empaquetado UAssetGUI/retoc.
-
-**Requiere prototipo separado:** edita múltiples tablas o tiene dependencias,
-por ejemplo una opción que cambia tanto `SkillTable` como `EffectTable`. CPS
-debe aplicar todas las partes o mostrarla como incompleta; no ofrecer un toggle
-que deje el juego en un estado parcial.
-
-### 3. Definir contrato de datos
-
-Antes de agregar un control, anotar en la tabla de cobertura:
-
-- ID público del manifest y transform interno.
-- DataTable exacta, fila(s), propiedad(s) y tipos esperados.
-- Fórmula y unidad (por ejemplo porcentaje almacenado como `0.03`).
-- Valor por defecto y límites de UI, siguiendo `build_custom.py`.
-- Dependencias y si otra feature puede escribir el mismo campo.
-- Cuándo vuelve a leer el juego la tabla y si requiere recargar zona/personaje.
-- Cómo se restaura si otro plugin escribe después.
-
-No inventar offsets ni parsear `.uasset`: el plugin debe usar las helpers UE
-del CPS SDK y reflection. Para filas de DataTable, reutilizar
-`ue::data_tables()`, `ue::table_rows()`, `ue::table_struct()` y
-`ue::row_field<T>()` solo en el callback del hilo de juego.
-
-### 4. Implementar un control reversible
-
-En `CPSPlugin/src/plugin.cpp`:
-
-1. Agregar la opción y sus valores a `Settings`.
-2. Leerlos con validación y límites desde `settings.json`; serializarlos en
-   `encode_settings()`.
-3. Agregar el target en `make_targets()` con fila y propiedad explícitas.
-4. Capturar el valor original antes de la primera escritura.
-5. Validar tipo y tamaño exactos; rechazar cualquier valor no finito.
-6. En cada cambio de slider/toggle, pasar una copia sincronizada de la
-   configuración al callback de game tick. No leer ni escribir UObjects desde
-   el callback de dibujo/render.
-7. Al apagar, restaurar condicionalmente. Al descargar, usar
-   `cps_plugin_unload()` para restaurar desde el hilo de juego.
-8. Registrar fallos concretos con tabla/fila/propiedad en CPS Logs.
-
-Para operaciones por filas (como `SkillTable`) hacer una implementación
-separada/probada del selector de filas. No ampliar el caso actual de Player con
-un barrido indiscriminado de todas las tablas.
-
-### 5. Agregar presentación bilingüe
-
-Todo texto visible va por `api->translate()` y sus archivos:
-
-- `CPSPlugin/locale/en.json`
-- `CPSPlugin/locale/es.json`
-
-Actualizar ambas traducciones y comprobar que no se pasen placeholders de
-formato como texto literal. En `cps_ui::slider`, el último argumento es el
-formato del valor; la etiqueta debe ser estable y no contener el valor mutable.
-
-### 6. Compilar y empaquetar
-
-Desde la raíz del repo:
+Desde la raíz del repositorio:
 
 ```bat
 CPSPlugin\build.bat
 ```
 
-El SDK se busca por defecto en `CPS-SDK/`. Si está en otro lugar, configurar
-CMake con `-DCPS_SDK_DIR="C:\ruta\CPS-SDK"`. El paquete sale en
-`build\CPSPlugin\Release\stellar_tool_gameplay.cps`.
+Debe actualizar `build\CPSPlugin\Release\StellarToolGameplay.dll` y producir
+`build\CPSPlugin\Release\stellar_tool_gameplay.cps`. Copia el `.cps` a
+`SB\Binaries\Win64\CPS\Plugins`; no se instala automáticamente. En el juego,
+abre CPS con F10, entra a Gameplay/Jugabilidad y prueba primero un solo control.
+Revisa la página Logs de CPS y `SB\Binaries\Win64\CPS\CPS.log`. El paquete se
+compila localmente, pero no hay afirmación de prueba dentro del juego hasta que
+el usuario lo confirme.
 
-`cps_pack.exe` valida manifest, DLL x64, export `cps_plugin_load` y bundle. El
-paquete incluye las licencias/notas necesarias del SDK, no el SDK ni
-`cps_pack.exe`.
+## 8. Handoff para otra IA
 
-### 7. Validación dentro del juego
-
-El agente compila y revisa el paquete, pero no debe iniciar ni automatizar el
-juego. El usuario prueba copiando el `.cps` a
-`SB\Binaries\Win64\CPS\Plugins`, inicia Stellar Blade y abre CPS con F10.
-
-Prueba manual recomendada, un control a la vez:
-
-1. Confirmar que CPS lista **Stellar Tool Gameplay** como cargado.
-2. Abrir **Gameplay/Jugabilidad** y verificar el estado del plugin.
-3. Activar un solo control, aplicar el cambio dentro de una sesión, comprobar
-   si el juego lo refleja y si hace falta recargar personaje/zona.
-4. Desactivar el control y comprobar la restauración.
-5. Revisar `SB\Binaries\Win64\CPS\CPS.log` si falta tabla/campo o el valor no
-   se refleja.
-6. Desactivar todo antes de comparar con otras modificaciones. Si el plugin se
-   descarga desde CPS, el callback de limpieza también intenta restaurar.
-
-No interpretar que la lista Enabled de mods de Vortex confirme que una función
-runtime se aplicó: revisar el estado/log de CPS y el resultado en juego.
-
-## Mapa de Stellar Souls Builder y orden sugerido
-
-| Familia del Builder | Tablas/operación | Estado CPS | Siguiente decisión |
-|---|---|---|---|
-| Atributos/QoL del jugador | `CharacterTable / Player`, int/float | Portada en la versión actual | Validar efecto/tiempo de aplicación en juego |
-| Ventana de parry perfecto y esquive aéreo | `SkillTable`, selección de varias filas y escalares | Pendiente | Próxima familia candidata; respetar filas de `skill_extras.py` |
-| Cooldowns de habilidad/drone scan | `SkillTable` y, para scan, también `EffectTable` | Pendiente | Portar primero como una unidad completa; no exponer mitad de `droneScanBoost` |
-| Combate y economía | `SkillTable`, `SkillResultTable`, `CharacterTable` | Mayormente estática | Separar cada transform y revisar conflictos de perfiles Full/First Run |
-| Outfit / SkinSuit on break | `EffectTable`, arrays y helper CNS | Desktop | No portar hasta diseñar dependencia/integración con CNS y helper |
-| No fall/no environment death, gears, recuperación | `EffectTable`; algunos campos son arrays/FName/efectos | Desktop | Requiere soporte tipado, referencias y restauración de arrays |
-| Mini-boss, variedad y bosses de overworld | clonado de filas + `EventSpawnTable`/recompensas | Desktop | No es un toggle scalar; requiere generación y verificación de mod |
-| Ajustes de mundo | `ShopItemTable`, `RewardGroupTable`, `SPLevelTable`, `CharacterLevelTable`, `ItemFishTable` | Desktop | Futuro candidato si se implementa selector multi-tabla y porcentaje sobre valor capturado |
-| Helper CNS | helper Lua, hotkeys, wardrobe events | Desktop/UE4SS | Diseñar port nativo CPS; no copiar el helper a ciegas |
-| Movesets/outfits | assets Zen/IoStore y paquetes | Desktop | CPS no reemplaza la generación de `.pak` ni assets cocinados |
-
-Fuentes para confirmar detalles: `Builder/ARCHITECTURE.md`,
-`Builder/compiler/extras.py`, `skill_extras.py`, `effect_extras.py`,
-`world_extras.py` y `build_specs.py`.
-
-## Handoff para la próxima IA
-
-Al retomar este trabajo:
-
-1. Leer `AGENTS.md`, este manual, `ARCHITECTURE.md` §12 y
+1. Lee `AGENTS.md`, `README.md`, `ARCHITECTURE.md` §12, este manual y
    `docs/CPS_PLUGIN.md`.
-2. Ejecutar `git status --short --branch`; conservar cambios locales ajenos y
-   no asumir que el working tree está limpio.
-3. No agregar `CPS-SDK/` al repo: es una copia local que aportó el usuario. No
-   versionar el `.cps` de `build/` ni ningún asset del juego.
-4. Continuar desde el plugin existente; no rehacer el prototipo ni integrar CPS
-   en el proceso Qt desktop.
-5. Confirmar que el usuario probó la versión anterior antes de ampliar el
-   siguiente grupo si el cambio puede afectar el arranque del juego.
-6. Para la siguiente implementación, preferir `forgivingJust` y
-   `extraAirDodge` de `Builder/compiler/skill_extras.py`; ambas usan campos
-   numéricos de filas existentes de `SkillTable`. Extender el snapshot para
-   conservar tabla + fila + propiedad y hacer restauración por valor previo;
-   no generalizar a `EffectTable` en el mismo cambio.
-7. Actualizar este manual, `docs/CPS_PLUGIN.md`, `ARCHITECTURE.md`, `PLAN.md` y
-   `README.md` al añadir cobertura; incrementar `plugin.toml` y volver a generar
-   el paquete con `CPSPlugin/build.bat`.
-8. Distinguir siempre “compila/empaqueta” de “probado en juego”. Solo el usuario
-   puede confirmar el segundo estado en su instalación.
+2. Revisa `git status --short --branch` antes de editar; conserva cambios
+   locales ajenos.
+3. No agregues `CPS-SDK/`, `.cps` de build, archivos del juego, assets de juego
+   ni trazas/logs pesados al repo.
+4. Continúa el plugin existente y la matriz de arriba. No reconstruyas la
+   aplicación desktop como plugin.
+5. Si el usuario reporta fallo, solicita/revisa `CPS.log` y la propiedad/tabla
+   concreta. Distingue crash del juego de opción no aplicada.
+6. El siguiente trabajo pendiente recomendado es investigar una API segura de
+   lectura de enums/FName en el SDK y diseñar soporte transaccional para arrays;
+   solo después evaluar probabilidad de drops, perfect dodge y efectos. No usar
+   offsets adivinados.
+7. Antes de terminar, actualizar los documentos de alcance, compilar el `.cps`,
+   revisar el diff y respetar los cambios ajenos. No se puede declarar prueba en
+   juego desde el agente.

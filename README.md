@@ -56,9 +56,11 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
   él por archivos de texto. No toca partidas guardadas, inventario ni progresión,
   y se desinstala desde la misma página.
-- **Plugin CPS experimental**: agrega al menú del juego controles para valores
-  numéricos del jugador que ya existen en Stellar Souls Builder. Es un proyecto
-  separado que requiere CPS 1.2.0 o posterior. [Manual del plugin](docs/CPS_PLUGIN.md) ·
+- **Plugin CPS experimental**: agrega al menú del juego controles runtime para
+  valores numéricos de jugador, habilidades, efectos, tienda y progresión de
+  Stellar Souls Builder. Es un proyecto separado que requiere CPS 1.2.0 o
+  posterior; perfiles completos, outfits, spawns y assets siguen en el Builder
+  de escritorio. [Manual del plugin](docs/CPS_PLUGIN.md) ·
   [migración de Stellar Souls Builder y handoff para IA](docs/STELLAR_SOULS_CPS_MIGRATION.md).
 - **ReShade** detecta la configuración del juego, guarda/restaura presets `.ini`,
   permite importar/exportar y renombrar/eliminar presets, y crea un backup de

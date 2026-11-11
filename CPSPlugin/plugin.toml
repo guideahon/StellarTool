@@ -1,8 +1,8 @@
 id = "stellar_tool_gameplay"
 name = "Stellar Tool Gameplay"
-version = "0.2.0"
+version = "0.3.0"
 author = "Stellar Tool"
-description = "Runtime player gameplay settings based on Stellar Tool Builder options."
+description = "Runtime Stellar Souls gameplay settings based on Builder options."
 dll = "StellarToolGameplay.dll"
 min_api_version = 2
 min_cps_version = "1.2.0"

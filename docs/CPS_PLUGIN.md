@@ -1,69 +1,107 @@
-# Plugin CPS para Stellar Tool
+# Plugin CPS para Stellar Souls
 
-El proyecto `CPSPlugin/` crea un plugin complementario para el menú CPS. No
-convierte la aplicación Qt en una DLL ni reemplaza Stellar Tool desktop: permite
-cambiar en juego un primer grupo de valores numéricos del jugador.
+`CPSPlugin/` es un complemento de runtime para el Builder de Stellar Souls. No
+convierte la aplicación Qt en un plugin ni reemplaza el Builder de escritorio:
+permite ajustar, durante una sesión, los cambios que CPS puede aplicar con
+seguridad a escalares de DataTables que el juego ya cargó.
 
 ## Requisitos y compilación
 
-- Windows x64 y Visual Studio Build Tools 2022 o posterior.
-- CMake 3.20 o posterior.
-- CPS SDK local en `CPS-SDK/` junto al proyecto. El SDK lo aporta el usuario y
-  no se incorpora al paquete desktop.
+- Windows x64, Visual Studio Build Tools 2022 y CMake 3.20 o posterior.
+- CPS SDK local en `CPS-SDK/` junto al repo (no se redistribuye).
 - CPS 1.2.0 o posterior instalado en Stellar Blade.
 
-Desde la raíz del repo, ejecutar:
+Desde la raíz del repositorio:
 
 ```bat
 CPSPlugin\build.bat
 ```
 
-El resultado es `build\CPSPlugin\Release\stellar_tool_gameplay.cps`. También se
-puede indicar otra ubicación del SDK al configurar CMake con
-`-DCPS_SDK_DIR="C:\ruta\CPS-SDK"`.
+El paquete sale en `build\CPSPlugin\Release\stellar_tool_gameplay.cps`.
+Copialo manualmente a `SB\Binaries\Win64\CPS\Plugins`, inicia el juego y abre
+CPS con F10. La página se llama **Gameplay/Jugabilidad**. Compilar no modifica
+ni despliega archivos del juego.
 
-Para probarlo, copiar el `.cps` a `SB\Binaries\Win64\CPS\Plugins`, iniciar el
-juego y abrir el menú CPS con F10. La página aparece como **Gameplay** en inglés
-o **Jugabilidad** en español. El plugin no se despliega automáticamente ni
-modifica el juego al compilarse.
+## Controles runtime disponibles
 
-## Controles incluidos
+Los ajustes empiezan apagados. Los cambios se aplican en el hilo del juego y se
+guardan en `CPS/Configs/StellarToolGameplay/settings.json`.
 
-- Vida máxima, escudo máximo y reducción de daño mientras EVE tiene escudo.
-- Regeneración de escudo fuera y dentro de combate.
-- Velocidad de ataque.
-- Capacidad de las barras Beta, Burst y Tachy.
-- Tamaño de pilas de munición y consumibles.
-- Regeneración pasiva de vida, curación al golpear y poder de pesca.
+### Personaje y QoL
 
-Cada grupo tiene un toggle y sus valores usan los mismos campos que las opciones
-correspondientes del Builder. Las selecciones y valores quedan en
-`CPS/Configs/StellarToolGameplay/settings.json`. El botón **Disable all and
-restore captured values** (o su traducción) desactiva los grupos y restaura los
-valores que el plugin guardó al aplicarlos.
+- Vida/escudo/reducción de daño, regeneración de escudo, velocidad de ataque y
+  capacidad Beta/Burst/Tachy.
+- Cantidad de munición/consumibles, opción de pilas individuales `ammo100x`,
+  regeneración de vida, curación al golpear y poder de pesca.
+- Ganancia Beta reducida y capacidades Beta/Burst de 400/800.
 
-El plugin cambia la tabla cargada en memoria; el momento en que un cambio afecte
-al personaje depende de cuándo Stellar Blade vuelva a consultar ese dato.
+### Habilidades y efectos
 
-## Seguridad y alcance
+- Valores de enfriamiento/costo de las 18 habilidades Beta/Burst de la tuning
+  pública 1.2.19.
+- Daño Railgun x2, ventana de parry/esquive perfecto graduable, un uso adicional
+  de esquive aéreo y enfriamiento de 4 segundos para tres ataques de embestida.
+- Consumo Tachy reducido, efectos positivos de equipo graduables y curación del
+  Tumbler graduable.
 
-Solo se busca un `CharacterTable` único y su fila `Player`. Antes de cada cambio
-se comprueban el tipo y tamaño numérico de la propiedad. Los arrays, structs,
-enums, efectos, filas, assets, spawns, equipamiento y outfits no se modifican.
+### Mundo y progresión
 
-Al restaurar, el plugin compara el valor actual con el último que escribió. Si
-otro plugin lo cambió, no sobrescribe ese cambio y deja el detalle en `CPS.log`.
-Al descargar el plugin, CPS ejecuta su callback de limpieza en el hilo de juego
-y el plugin intenta restaurar los campos que controla. Si el juego o la tabla no
-están disponibles, el resultado queda registrado en ese mismo log.
+- Precios de tienda, requisitos SP, costos de mejoras EVE y atributos de pesca
+  como porcentaje del valor original.
+- Cantidades mínima/máxima de objetos en `RewardGroupTable` como porcentaje del
+  original. Esto no incluye la probabilidad del drop: el plugin no interpreta
+  el enum `DropType` para distinguir `RandomEach` de `RandomWeight`.
 
-El código compila, pero la primera validación dentro del juego le corresponde al
-usuario: la presencia y el layout de la tabla pueden variar según la versión del
-juego. Si CPS muestra el plugin como fallido, revisar la entrada
-`Stellar Tool Gameplay` en la página Logs de CPS antes de volver a activarlo.
+Cada grupo tiene su propio toggle y sliders. Al apagarlo, CPS intenta restaurar
+los datos capturados. El plugin solo restaura un campo si aún conserva el último
+valor que escribió; si otro mod o sistema lo cambió, lo deja intacto y explica
+el conflicto en `CPS.log`. El botón **Disable all and restore captured values**
+desactiva todos los controles portados.
 
-## Desarrollo y licencias
+## Opciones que siguen en el Builder de escritorio
 
-La integración enlaza los helpers `cps_sdk_ue` y `cps_sdk_log` del SDK. El
-paquete `.cps` incluye las licencias/notas exigidas por el SDK; el ejecutable
-`cps_pack.exe` y el resto del SDK no se redistribuyen.
+| Opción del Builder | Motivo por el que no se migra al runtime actual |
+|---|---|
+| Perfiles de combate Full/First Run y perfiles de daño por Beta/Burst, dron, dash, EVE y enemigos | Componen muchas filas/propiedades de varias tablas; algunos valores son diferencias contra un baseline empaquetado. Aplicar solo una fracción sería distinto al mod generado. |
+| Perfect dodge como alias y tuning de vulnerabilidad enemiga | El primero requiere escribir un `FName`/referencia; el segundo necesita la clasificación de bosses y el conjunto exacto de valores del preset. |
+| Reducir recuperación Burst tras esquive perfecto | Limpia arreglos de efectos y condiciones de habilidades. |
+| SkinSuit al romperse, modos helper CNS/vanilla y restauración en QTE/campamento | Cambia arreglos de aliases/efectos y depende de helper UE4SS o eventos de equipo que CPS no proporciona. |
+| Mini-bosses, densidad/dificultad, variedad enemiga y bosses del mundo | Clona filas, cambia referencias/recompensas y edita tablas de spawns. |
+| Daño por caída/muerte ambiental, recuperación automática de barras y recuperación gradual | Cambia acciones, enums, condiciones y arreglos de `EffectTable`. |
+| Harder enemies/bosses, perfiles challenge y Hardcore | La selección depende de enums/clasificación de actor y combina Character, Skill, Difficulty y Reward tables. |
+| Probabilidad de drops | Requiere leer `DropType` como enum para evitar alterar los pesos relativos de los grupos `RandomWeight`. Las cantidades sí están portadas. |
+| Movesets, variantes de assets y outfits | Requieren assets Zen/IoStore y empaquetado en `.pak`, no un cambio de valor runtime. |
+
+Las opciones de esta tabla siguen disponibles por el flujo de build estático y
+headless. La página CPS muestra esta limitación en el juego para evitar que se
+confunda la cobertura parcial con una selección que no hace nada.
+
+## Implementación y límites de seguridad
+
+El plugin busca de forma única las DataTables `CharacterTable`, `SkillTable`,
+`EffectTable`, `ShopItemTable`, `RewardGroupTable`, `SPLevelTable`,
+`CharacterLevelTable` e `ItemFishTable`. Las escrituras se limitan a propiedades
+`IntProperty`/`FloatProperty` del tamaño esperado. No parsea `.uasset`, no altera
+archivos del juego y no crea filas.
+
+Los snapshots identifican tabla + fila + propiedad y conservan el tipo original.
+Cada dos segundos se vuelven a buscar tablas cargadas; por eso una tabla que se
+cargue al entrar a una zona puede recibir el ajuste más tarde. Una tabla con
+objetos homónimos se omite para evitar escribir en la instancia equivocada.
+Al descargar el plugin, su callback de CPS intenta restaurar los snapshots en
+el hilo del juego.
+
+## Prueba manual en juego
+
+1. Instala el `.cps` compilado y confirma en CPS > Plugins que **Stellar Tool
+   Gameplay** aparece como cargado.
+2. Abre la página y activa un solo ajuste. Comprueba el estado y los mensajes de
+   CPS Logs.
+3. Verifica en el juego el comportamiento; algunas tablas solo vuelven a leerse
+   tras cargar una zona o reaparecer el personaje.
+4. Apaga el ajuste y confirma la restauración; prueba también **Disable all**.
+5. Repite con otras opciones de a una y reporta `CPS.log` si un campo falta o el
+   juego no refleja el cambio.
+
+El agente compila y valida el empaquetado; solo el usuario puede confirmar el
+comportamiento dentro de su instalación real.

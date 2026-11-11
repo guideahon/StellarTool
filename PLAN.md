@@ -72,20 +72,20 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 
 ## Extensiones implementadas
 
-### Plugin CPS complementario (MVP; falta validación en juego)
-- Proyecto CMake x64 aislado, compilado con el SDK local de CPS y empaquetado como `.cps`.
-- Menú en juego con controles configurables para vida/escudo, regeneración,
-  reducción de daño, velocidad de ataque, capacidad Beta/Burst/Tachy,
-  munición, consumibles, regeneración de vida, curación al golpear y pesca.
-- Solo escribe números existentes de `CharacterTable / Player` tras validar la
-  fila y el tipo. Restaura valores propios al desactivar o descargar; no pisa un
-  valor que otro plugin haya cambiado después.
+### Plugin CPS complementario (runtime parcial; falta validación en juego)
+- Proyecto CMake x64 aislado, compilado con el SDK local de CPS y empaquetado
+  como `.cps` versión 0.3.0.
+- Controles configurables para jugador, economía de gauges/habilidades, varios
+  efectos de combate y mundo/progresión (tienda, cantidad de drops, EXP,
+  mejoras EVE y pesca).
+- Escribe escalares numéricos existentes en ocho DataTables seleccionadas tras
+  validar tabla/fila/tipo/tamaño. Restaura por snapshots y evita pisar cambios
+  posteriores de otros mods.
 - Configuración persistente y textos en inglés/español.
-- Queda pendiente portar otras funciones del Builder que sean seguras en
-  runtime. Assets, outfits, creación de filas y cambios de `.pak` siguen siendo
-  operaciones desktop/headless.
-- El procedimiento y handoff están en
-  [`docs/STELLAR_SOULS_CPS_MIGRATION.md`](docs/STELLAR_SOULS_CPS_MIGRATION.md).
+- Probabilidad de drops, perfiles completos, outfits/helpers, enums/arrays,
+  spawns, nuevas filas y assets siguen en desktop/headless porque el runtime CPS
+  actual no puede reproducirlos de forma equivalente y reversible.
+- Mapa completo de opciones y razones: [`docs/STELLAR_SOULS_CPS_MIGRATION.md`](docs/STELLAR_SOULS_CPS_MIGRATION.md).
 
 ### Conversor CNS ✅
 - Conversor nativo C++ replacer → CNS y CNS → replacer.
