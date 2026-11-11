@@ -152,6 +152,36 @@ destrabó el problema fue instrumentar **qué difería exactamente** en el verif
   ya se mergean (a **manakaiser** y en el hilo de **MrZzzzzzzzzzzzz**).
 - Los textos y el changelog de Nexus están actualizados para 0.3.8 (`Nexus/`).
 
+## 7. Regresión de replacers del skinsuit tras actualización del juego (2026-11-11)
+
+**Conclusión confirmada por prueba del usuario:** el outfit `zYgSkinSuit_v4` funciona
+convertido a CNS, pero falla al usarlo como replacer del skinsuit. El replacer
+original también crashea por sí solo, sin CNS ni UE4SS, aunque funcionaba antes
+de la actualización del juego. El usuario observa el mismo problema con otros
+outfits que reemplazan el skinsuit.
+
+Evidencia de los dumps al equipar el skinsuit:
+
+- 16:52:12 y 16:55:40: `EXCEPTION_ACCESS_VIOLATION` leyendo `0x0` en
+  `SB-Win64-Shipping.exe+0x29bbe70`, estado `SBGameState`, a los 34–35 s del
+  inicio; ambos tienen el hash de stack
+  `633EECCD0B4F8FBAEB2CF76A69548A75C06C89E9`.
+- En la corrida de 16:55:40 solo estaba habilitado el mod replacer y el dump no
+  contiene `UE4SS.dll`; por tanto, UE4SS y CNS no son requisito para esta caída.
+- El control `VanillaMesh_Control_Diagnostic` también llegó al mismo hash de
+  crash al equipar. El crash anterior al arrancar con CNS/UE4SS tenía otro hash
+  (`78621A0C…`) y stack de UE4SS; es un problema distinto y no debe mezclarse
+  con el crash al equipar.
+- `zYgSkinSuit_v4_CNS_Test.zip` (conversión de la misma entrada mediante el modo
+  CNS de Stellar Tool) fue probado por el usuario y funciona.
+
+**Hipótesis de trabajo:** el fallo está en la ruta de reemplazo del asset
+vanilla del skinsuit tras el update, o en el asset/container reserializado para
+esa ruta; la geometría específica de zYg y la carga de CNS no bastan para
+explicarlo. Sin PDB del ejecutable no se ha identificado la función nativa ni
+la causa exacta. No volver a recomendar quitar CNS/UE4SS como solución a este
+crash de equipamiento; probar el outfit por CNS evita el reemplazo directo.
+
 ---
 
 ## Cómo medir cualquier cambio en el merge
