@@ -1,6 +1,10 @@
 #include "CnsIdFixerService.h"
 
+#include "PakService.h"
+#include "Translator.h"
+
 #include <QCryptographicHash>
+#include <QDateTime>
 #include <QDataStream>
 #include <QDir>
 #include <QDirIterator>
@@ -8,6 +12,8 @@
 #include <QFileInfo>
 #include <QHash>
 #include <QSet>
+#include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QtEndian>
 #include <algorithm>
 
@@ -46,7 +52,8 @@ struct CnsIdFixerService::Container {
     QList<qint64> containerChunkOffsets;
 };
 
-CnsIdFixerService::CnsIdFixerService(QObject *parent) : QObject(parent) {}
+CnsIdFixerService::CnsIdFixerService(PakService *pak, QObject *parent)
+    : QObject(parent), m_pak(pak) {}
 
 QString CnsIdFixerService::idText(quint64 id) {
     return QStringLiteral("0x%1").arg(id, 16, 16, QLatin1Char('0')).toUpper();
@@ -160,7 +167,8 @@ bool CnsIdFixerService::patchContainer(const Container &container, quint64 newId
 }
 
 CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
-                                                  bool fixDuplicates) const {
+                                                  bool fixDuplicates,
+                                                  bool verifyContents) const {
     Result result;
     const QFileInfo root(directory);
     if (!root.isDir()) {
@@ -170,6 +178,7 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
 
     QList<Container> containers;
     QStringList warnings;
+    QSet<QString> integrityFailurePaths;
     QDirIterator it(directory, {QStringLiteral("*.utoc")}, QDir::Files,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
@@ -185,8 +194,32 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
             continue;
         Container container;
         QString error;
-        if (readContainer(path, &container, &error)) containers << container;
-        else warnings << error;
+        if (!readContainer(path, &container, &error)) {
+            warnings << error;
+            if (verifyContents) {
+                result.integrityIssues << IntegrityIssue{path, error, false};
+                integrityFailurePaths.insert(QDir::cleanPath(
+                    QFileInfo(path).absoluteFilePath()).toCaseFolded());
+            }
+            continue;
+        }
+        if (verifyContents && m_pak) {
+            QString verifyError;
+            if (!m_pak->verifyIoStoreContainer(path, &verifyError)) {
+                IntegrityIssue issue;
+                issue.path = path;
+                issue.detail = verifyError;
+                issue.repairableHeaderHash = !container.containerChunkOffsets.isEmpty()
+                    && verifyError.contains(QStringLiteral("hash mismatch for chunk #0"),
+                                            Qt::CaseInsensitive);
+                integrityFailurePaths.insert(QDir::cleanPath(
+                    QFileInfo(path).absoluteFilePath()).toCaseFolded());
+                if (issue.repairableHeaderHash)
+                    result.repairableHeaderHashPaths << path;
+                result.integrityIssues << issue;
+            }
+        }
+        containers << container;
     }
     result.containers = containers.size();
     if (containers.isEmpty()) {
@@ -228,6 +261,13 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
                 lines << QStringLiteral("  %1%2")
                     .arg(displayPath(container),
                          pos == 0 ? QStringLiteral(" (se conserva)") : QString());
+                continue;
+            }
+            if (integrityFailurePaths.contains(QDir::cleanPath(
+                    QFileInfo(container.path).absoluteFilePath()).toCaseFolded())) {
+                const QString reason = tr_(QStringLiteral("cns_id_skip_integrity_failure"));
+                warnings << QStringLiteral("%1: %2").arg(displayPath(container), reason);
+                lines << QStringLiteral("  %1: %2").arg(displayPath(container), reason);
                 continue;
             }
             QByteArray seed = QFileInfo(container.path).canonicalFilePath().toUtf8();
@@ -284,6 +324,227 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
         lines << QString() << QStringLiteral("Advertencias:") << warnings;
     result.ok = true;
     result.report = lines.join(QLatin1Char('\n'));
+    return result;
+}
+
+bool CnsIdFixerService::packageIdsMatch(const QString &firstUtoc,
+                                        const QString &secondUtoc,
+                                        QString *error) const {
+    Container first;
+    Container second;
+    if (!readContainer(firstUtoc, &first, error)
+        || !readContainer(secondUtoc, &second, error))
+        return false;
+    std::sort(first.packageIds.begin(), first.packageIds.end());
+    std::sort(second.packageIds.begin(), second.packageIds.end());
+    if (first.packageIds != second.packageIds) {
+        if (error) *error = tr_(QStringLiteral("cns_id_repair_package_ids_changed"));
+        return false;
+    }
+    return true;
+}
+
+CnsIdFixerService::RepairResult CnsIdFixerService::repairHeaderHashMismatches(
+    const QString &directory, const QStringList &containerPaths) const {
+    RepairResult result;
+    if (!m_pak) {
+        for (const QString &path : containerPaths)
+            result.outcomes << HeaderHashRepair{
+                path, false, tr_(QStringLiteral("cns_id_repair_no_pak"))};
+        return result;
+    }
+
+    const QDir root(directory);
+    QString backupRoot;
+    for (const QString &path : containerPaths) {
+        HeaderHashRepair outcome;
+        outcome.path = path;
+
+        QString currentIntegrity;
+        if (m_pak->verifyIoStoreContainer(path, &currentIntegrity)
+            || !currentIntegrity.contains(QStringLiteral("hash mismatch for chunk #0"),
+                                          Qt::CaseInsensitive)) {
+            outcome.detail = currentIntegrity.isEmpty()
+                ? tr_(QStringLiteral("cns_id_repair_not_repairable"))
+                : currentIntegrity;
+            result.outcomes << outcome;
+            continue;
+        }
+
+        Container original;
+        QString error;
+        if (!readContainer(path, &original, &error)
+            || original.containerChunkOffsets.isEmpty()) {
+            outcome.detail = error.isEmpty()
+                ? tr_(QStringLiteral("cns_id_repair_missing_header")) : error;
+            result.outcomes << outcome;
+            continue;
+        }
+
+        QTemporaryDir temp(QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+                           + QStringLiteral("/StellarToolHeaderHash-XXXXXX"));
+        if (!temp.isValid()) {
+            outcome.detail = QStringLiteral("No se pudo crear la carpeta temporal.");
+            result.outcomes << outcome;
+            continue;
+        }
+        const QString stagedDir = QDir(temp.path()).filePath(QStringLiteral("repacked"));
+        QStringList stagedFiles;
+        if (!m_pak->repackIoStoreContainer(path, stagedDir, &stagedFiles, &error)) {
+            outcome.detail = error;
+            result.outcomes << outcome;
+            continue;
+        }
+
+        const QString stagedUtoc = QDir(stagedDir).filePath(QFileInfo(path).fileName());
+        if (!packageIdsMatch(path, stagedUtoc, &error)) {
+            outcome.detail = error;
+            result.outcomes << outcome;
+            continue;
+        }
+        if (!m_pak->verifyIoStoreContainer(stagedUtoc, &error)) {
+            outcome.detail = error;
+            result.outcomes << outcome;
+            continue;
+        }
+
+        const QString relativeUtoc = QDir::fromNativeSeparators(root.relativeFilePath(path));
+        if (relativeUtoc == QLatin1String("..")
+            || relativeUtoc.startsWith(QLatin1String("../"))
+            || QDir::isAbsolutePath(relativeUtoc)) {
+            outcome.detail = tr_(QStringLiteral("cns_id_repair_outside_mod_dir"));
+            result.outcomes << outcome;
+            continue;
+        }
+
+        const QString runStamp = QDateTime::currentDateTimeUtc().toString(
+            QStringLiteral("yyyyMMdd_HHmmss_zzz"));
+        if (backupRoot.isEmpty()) {
+            backupRoot = root.filePath(QStringLiteral("disabled/StellarTool_IoStoreRepair_")
+                                       + runStamp);
+            int suffix = 1;
+            const QString base = backupRoot;
+            while (QFileInfo::exists(backupRoot))
+                backupRoot = base + QLatin1Char('_') + QString::number(suffix++);
+        }
+
+        const QFileInfo sourceInfo(path);
+        const QString stem = sourceInfo.completeBaseName();
+        QStringList originalFiles;
+        for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"),
+                                   QStringLiteral("pak")}) {
+            const QString source = sourceInfo.dir().filePath(stem + QLatin1Char('.') + ext);
+            if (QFileInfo::exists(source)) originalFiles << source;
+        }
+        if (!originalFiles.contains(path, Qt::CaseInsensitive)) {
+            outcome.detail = tr_(QStringLiteral("cns_id_repair_missing_original"));
+            result.outcomes << outcome;
+            continue;
+        }
+
+        QList<QPair<QString, QString>> moves;
+        QSet<QString> sourceSet;
+        bool destinationError = false;
+        for (const QString &source : originalFiles) {
+            const QString relative = QDir::fromNativeSeparators(root.relativeFilePath(source));
+            const QString backup = QDir(backupRoot).filePath(relative + QStringLiteral(".disabled"));
+            if (relative == QLatin1String("..") || relative.startsWith(QLatin1String("../"))
+                || QDir::isAbsolutePath(relative) || QFileInfo::exists(backup)) {
+                destinationError = true;
+                break;
+            }
+            sourceSet.insert(QDir::cleanPath(QFileInfo(source).absoluteFilePath()).toCaseFolded());
+            moves.append(qMakePair(source, backup));
+        }
+        if (destinationError) {
+            outcome.detail = tr_(QStringLiteral("cns_id_repair_backup_invalid"));
+            result.outcomes << outcome;
+            continue;
+        }
+
+        QStringList finalFiles;
+        for (const QString &staged : stagedFiles) {
+            const QString destination = sourceInfo.dir().filePath(QFileInfo(staged).fileName());
+            const QString normalized = QDir::cleanPath(
+                QFileInfo(destination).absoluteFilePath()).toCaseFolded();
+            if (QFileInfo::exists(destination) && !sourceSet.contains(normalized)) {
+                destinationError = true;
+                break;
+            }
+            finalFiles << destination;
+        }
+        if (destinationError) {
+            outcome.detail = tr_(QStringLiteral("cns_id_repair_output_conflict"));
+            result.outcomes << outcome;
+            continue;
+        }
+
+        if (!QDir().mkpath(backupRoot)) {
+            outcome.detail = tr_(QStringLiteral("cns_id_repair_backup_create_failed"))
+                                 .arg(backupRoot);
+            result.outcomes << outcome;
+            continue;
+        }
+
+        QList<QPair<QString, QString>> moved;
+        QStringList installedFiles;
+        auto restore = [&moved, &installedFiles, &backupRoot] {
+            for (const QString &installed : installedFiles) QFile::remove(installed);
+            bool restored = true;
+            for (auto it = moved.crbegin(); it != moved.crend(); ++it) {
+                QDir().mkpath(QFileInfo(it->first).absolutePath());
+                if (QFileInfo::exists(it->second) && !QFile::rename(it->second, it->first))
+                    restored = false;
+            }
+            if (restored && QDir(backupRoot).exists()
+                && QDir(backupRoot).entryList(QDir::NoDotAndDotDot | QDir::AllEntries).isEmpty())
+                QDir().rmdir(backupRoot);
+            return restored;
+        };
+
+        bool transactionOk = true;
+        for (const auto &move : moves) {
+            if (!QDir().mkpath(QFileInfo(move.second).absolutePath())
+                || !QFile::rename(move.first, move.second)) {
+                error = tr_(QStringLiteral("cns_id_repair_backup_move_failed"))
+                            .arg(QFileInfo(move.first).fileName());
+                transactionOk = false;
+                break;
+            }
+            moved << move;
+        }
+        if (transactionOk) {
+            for (int i = 0; i < stagedFiles.size(); ++i) {
+                if (!QFile::copy(stagedFiles.at(i), finalFiles.at(i))) {
+                    QFile::remove(finalFiles.at(i));
+                    error = tr_(QStringLiteral("cns_id_repair_install_failed"))
+                                .arg(QFileInfo(finalFiles.at(i)).fileName());
+                    transactionOk = false;
+                    break;
+                }
+                installedFiles << finalFiles.at(i);
+            }
+        }
+        if (transactionOk
+            && !m_pak->verifyIoStoreContainer(path, &error))
+            transactionOk = false;
+        if (!transactionOk) {
+            const bool restored = restore();
+            outcome.detail = error;
+            if (!restored)
+                outcome.detail += QLatin1Char(' ')
+                    + tr_(QStringLiteral("cns_id_repair_rollback_incomplete"))
+                          .arg(backupRoot);
+            result.outcomes << outcome;
+            continue;
+        }
+
+        outcome.repaired = true;
+        outcome.detail = backupRoot;
+        ++result.repairedContainers;
+        result.outcomes << outcome;
+    }
+    if (result.repairedContainers > 0) result.backupDirectory = backupRoot;
     return result;
 }
 

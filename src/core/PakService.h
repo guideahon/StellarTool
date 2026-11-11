@@ -51,6 +51,12 @@ public:
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
     // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
     bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
+    // Verifica los chunks de un contenedor IoStore con retoc.
+    bool verifyIoStoreContainer(const QString &utocPath, QString *error = nullptr);
+    // Reconstruye un contenedor desde sus assets legacy conservando sus rutas
+    // dentro del juego. Se usa para reparar hash inválido del ContainerHeader.
+    bool repackIoStoreContainer(const QString &utocPath, const QString &outDir,
+                                QStringList *outputFiles, QString *error = nullptr);
     // Global "compat" para revertir mods Zen. El global.utoc del juego es
     // versión PartitionSize y los paks de mods son DirectoryIndex; retoc no
     // compone contenedores de versiones distintas, así que sin esto to-legacy

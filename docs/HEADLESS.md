@@ -23,7 +23,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera la salida instalable; `cns` también aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta IDs y rutas; `--apply` repara `Container_Id` y convierte a CNS los outfits compatibles que participan en conflictos `Package_Id`. Exige la carpeta `~mods` activa configurada, respalda solo los originales convertidos y verifica que disminuyan las referencias compartidas. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
+| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. `--apply` repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles que participan en conflictos `Package_Id`. La reconstrucción de cabecera respalda la familia original en `~mods/disabled/`; no cambia el tipo de mod. Exige la carpeta `~mods` activa configurada y verifica la salida. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
 | Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -79,8 +79,19 @@ a `~mods/disabled/` con extensión `.disabled`, instala los CNS y comprueba que
 bajen las referencias compartidas. Si no hay progreso o falla la instalación,
 restaura los originales. Si algunas conversiones funcionan y otras no, conserva
 las exitosas e informa el resultado parcial; el código de salida es 4. El comando
-requiere `--apply --fix-textures`, que es la confirmación explícita del cambio
-productivo. CNS debe estar instalado para desplegar los outfits convertidos.
+requiere `--apply`, que es la confirmación explícita del cambio productivo.
+`--fix-textures` se conserva como alias compatible y también requiere `--apply`.
+CNS debe estar instalado para desplegar los outfits convertidos.
+
+Además, `fixids --apply` verifica los `.utoc` con `retoc verify`. Si el único
+fallo es el hash del chunk `ContainerHeader` y la tabla de chunks sigue presente,
+reconstruye el contenedor con el mismo contenido y las mismas rutas de assets,
+comprueba que se conserven los `Package_Id`, y verifica el resultado antes de
+reemplazarlo. La familia anterior queda en `~mods/disabled/` con extensión
+`.disabled`. Los errores de integridad que no se puedan reparar se reportan y
+esos mods no se convierten a CNS; sus conflictos `Package_Id` permanecen
+pendientes. `--apply --ids-only` solo corrige `Container_Id` y no reconstruye
+los contenedores.
 
 `--input` también puede ser una carpeta `.stpatch` o un archivo comprimido
 `.stpatch`/`.zip` que contenga `manifest.toml` opcional y uno o más `.toml`.

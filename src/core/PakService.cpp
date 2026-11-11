@@ -16,6 +16,7 @@
 #include <QProcessEnvironment>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QTemporaryDir>
 #include <QLoggingCategory>
 
 #ifdef Q_OS_WIN
@@ -222,6 +223,102 @@ bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QStr
                             QStringLiteral("--version"), QStringLiteral("UE4_26")}, error))
         return false;
     return runProcess(retoc, {QStringLiteral("verify"), outUtoc}, error);
+}
+
+bool PakService::verifyIoStoreContainer(const QString &utocPath, QString *error) {
+    const QString retoc = retocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral("retoc.exe no encontrado en tools/.");
+        return false;
+    }
+    return runProcess(retoc, {QStringLiteral("verify"), utocPath}, error, 300000);
+}
+
+bool PakService::repackIoStoreContainer(const QString &utocPath, const QString &outDir,
+                                        QStringList *outputFiles, QString *error) {
+    if (outputFiles) outputFiles->clear();
+    const QFileInfo sourceUtoc(utocPath);
+    if (!sourceUtoc.isFile() || sourceUtoc.suffix().compare(QLatin1String("utoc"),
+                                                             Qt::CaseInsensitive) != 0) {
+        if (error) *error = tr_(QStringLiteral("pak_iostore_repair_invalid_input"));
+        return false;
+    }
+
+    const QString stem = sourceUtoc.completeBaseName();
+    const QString sourceDir = sourceUtoc.absolutePath();
+    const QString sourceUcas = QDir(sourceDir).filePath(stem + QStringLiteral(".ucas"));
+    if (!QFileInfo::exists(sourceUcas)) {
+        if (error) *error = tr_(QStringLiteral("pak_iostore_repair_missing_companion"))
+                                .arg(QFileInfo(sourceUcas).fileName());
+        return false;
+    }
+    const QString sourceSig = QDir(sourceDir).filePath(stem + QStringLiteral(".sig"));
+    if (QFileInfo::exists(sourceSig)) {
+        if (error) *error = tr_(QStringLiteral("pak_iostore_repair_signed"));
+        return false;
+    }
+
+    QTemporaryDir temp(QStandardPaths::writableLocation(QStandardPaths::TempLocation)
+                       + QStringLiteral("/StellarToolIoStoreRepair-XXXXXX"));
+    if (!temp.isValid()) {
+        if (error) *error = tr_(QStringLiteral("pak_iostore_repair_temp_failed"));
+        return false;
+    }
+    const QString stagedSource = QDir(temp.path()).filePath(QStringLiteral("source"));
+    const QString legacyDir = QDir(temp.path()).filePath(QStringLiteral("legacy"));
+    if (!QDir().mkpath(stagedSource)) {
+        if (error) *error = tr_(QStringLiteral("pak_iostore_repair_stage_failed"));
+        return false;
+    }
+    for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"), QStringLiteral("pak")}) {
+        const QString source = QDir(sourceDir).filePath(stem + QLatin1Char('.') + ext);
+        if (!QFileInfo::exists(source)) continue;
+        const QString destination = QDir(stagedSource).filePath(QFileInfo(source).fileName());
+        if (!linkOrCopy(source, destination)) {
+            if (error) *error = tr_(QStringLiteral("pak_iostore_repair_stage_copy_failed"))
+                                    .arg(QFileInfo(source).fileName());
+            return false;
+        }
+    }
+
+    QString extractionError;
+    if (toLegacyMounted(stagedSource, legacyDir, &extractionError) <= 0) {
+        if (error) *error = extractionError.isEmpty()
+            ? QStringLiteral("retoc no extrajo assets del contenedor.") : extractionError;
+        return false;
+    }
+
+    if (!QDir().mkpath(outDir)) {
+        if (error) *error = tr_(QStringLiteral("pak_iostore_repair_output_dir_failed"))
+                                .arg(outDir);
+        return false;
+    }
+    QStringList expectedFiles;
+    for (const QString &ext : {QStringLiteral("utoc"), QStringLiteral("ucas"), QStringLiteral("pak")})
+        expectedFiles << QDir(outDir).filePath(stem + QLatin1Char('.') + ext);
+    for (const QString &path : expectedFiles) {
+        if (QFileInfo::exists(path)) {
+            if (error) *error = tr_(QStringLiteral("pak_iostore_repair_output_exists"))
+                                    .arg(QFileInfo(path).fileName());
+            return false;
+        }
+    }
+
+    const QString outputUtoc = expectedFiles.first();
+    QString packError;
+    if (!packZen(legacyDir, outputUtoc, &packError)) {
+        if (error) *error = packError;
+        return false;
+    }
+    for (const QString &path : expectedFiles) {
+        if (!QFileInfo::exists(path)) {
+            if (error) *error = tr_(QStringLiteral("pak_iostore_repair_output_missing"))
+                                    .arg(QFileInfo(path).fileName());
+            return false;
+        }
+    }
+    if (outputFiles) *outputFiles = expectedFiles;
+    return true;
 }
 
 bool PakService::runProcess(const QString &exe, const QStringList &args, QString *error, int timeoutMs) {

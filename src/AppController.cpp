@@ -127,7 +127,7 @@ AppController::AppController(Translator *i18n, QObject *parent)
       m_usmap(new UsmapService(this)),
       m_cue4(new Cue4Service(this)),
       m_cns(new CnsConverterService(m_pak, m_uasset, m_cue4, this)),
-      m_cnsIdFixer(new CnsIdFixerService(this)),
+      m_cnsIdFixer(new CnsIdFixerService(m_pak, this)),
       m_saveConverter(new SaveConverterService(this)),
       m_importer(new ModImporter(m_pak, m_uasset, m_cue4, i18n, this)),
       m_baseline(new BaselineManager(m_uasset, m_cue4, this)),
@@ -174,18 +174,32 @@ void AppController::runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes) {
     if (m_busy) return;
     const QString directory = directoryUrl.isLocalFile()
         ? directoryUrl.toLocalFile() : directoryUrl.toString();
-    setBusy(true, applyFixes ? QStringLiteral("Corrigiendo Container_Id…")
-                            : QStringLiteral("Escaneando IDs IoStore…"));
+    setBusy(true, t(QStringLiteral("cns_fixer_scan_status")));
     std::ignore = QtConcurrent::run([this, directory, applyFixes] {
-        const auto result = m_cnsIdFixer->run(directory, applyFixes);
-        QMetaObject::invokeMethod(this, [this, result, applyFixes] {
+        const auto result = m_cnsIdFixer->run(directory, applyFixes, true);
+        QMetaObject::invokeMethod(this, [this, result, applyFixes, directory] {
             setBusy(false, result.ok
                 ? (applyFixes ? QStringLiteral("Corrección de IDs terminada.")
                               : QStringLiteral("Escaneo de IDs terminado."))
                 : QStringLiteral("Falló CNS ID Fixer."));
-            m_cnsIdFixerReport = result.ok ? result.report : result.error;
+            QStringList reportLines{result.ok ? result.report : result.error};
+            if (result.ok) {
+                const QDir root(directory);
+                for (const auto &issue : result.integrityIssues) {
+                    const QString relative = QDir::fromNativeSeparators(
+                        root.relativeFilePath(issue.path));
+                    reportLines << t(QStringLiteral("cns_fixer_integrity_issue"))
+                                       .arg(relative, issue.detail);
+                    if (issue.repairableHeaderHash)
+                        reportLines << t(QStringLiteral("cns_fixer_integrity_repackable"));
+                }
+            }
+            m_cnsIdFixerReport = reportLines.join(QLatin1Char('\n'));
             m_cnsIdFixerOk = result.ok;
-            m_cnsIdFixerIncomplete = false;
+            m_cnsIdFixerIncomplete = result.ok && applyFixes
+                && (!result.integrityIssues.isEmpty()
+                    || result.packageConflicts > 0
+                    || result.fixedContainers < result.duplicateContainers);
             if (!result.ok) emit errorOccurred(result.error);
             emit cnsIdFixerFinished(result.ok);
         }, Qt::QueuedConnection);
@@ -249,19 +263,68 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         };
 
         QStringList lines;
-        const CnsIdFixerService::Result initial = m_cnsIdFixer->run(sourceRoot, false);
+        CnsIdFixerService::Result initial = m_cnsIdFixer->run(sourceRoot, false, true);
         if (!initial.ok) {
             finish(false, initial.error,
                    QStringLiteral("cns_fixer_fix_failed_status"));
             return;
         }
         lines << initial.report << QString();
+        const QDir sourceDir(sourceRoot);
+        QStringList integrityPaths;
+        for (const auto &issue : initial.integrityIssues) {
+            const QString relative = QDir::fromNativeSeparators(
+                sourceDir.relativeFilePath(issue.path));
+            integrityPaths << issue.path;
+            lines << t(QStringLiteral("cns_fixer_integrity_issue"))
+                         .arg(relative, issue.detail);
+            if (issue.repairableHeaderHash)
+                lines << t(QStringLiteral("cns_fixer_integrity_repackable"));
+        }
+
+        QStringList repackedReplacerPaths;
+        if (!initial.repairableHeaderHashPaths.isEmpty()) {
+            const int count = initial.repairableHeaderHashPaths.size();
+            QMetaObject::invokeMethod(this, [this, count] {
+                setStatus(t(QStringLiteral("cns_fixer_repack_progress")).arg(count));
+            }, Qt::QueuedConnection);
+            const CnsIdFixerService::RepairResult repairs =
+                m_cnsIdFixer->repairHeaderHashMismatches(
+                    sourceRoot, initial.repairableHeaderHashPaths);
+            for (const auto &repair : repairs.outcomes) {
+                const QString relative = QDir::fromNativeSeparators(
+                    sourceDir.relativeFilePath(repair.path));
+                if (repair.repaired) {
+                    repackedReplacerPaths << repair.path;
+                    lines << t(QStringLiteral("cns_fixer_repack_success"))
+                                 .arg(relative, repair.detail);
+                } else {
+                    lines << t(QStringLiteral("cns_fixer_repack_failed"))
+                                 .arg(relative, repair.detail);
+                }
+            }
+            if (repairs.repairedContainers > 0) {
+                lines << t(QStringLiteral("cns_fixer_repack_summary"))
+                             .arg(repairs.repairedContainers)
+                             .arg(repairs.backupDirectory);
+            }
+        }
 
         QList<ConvertedOutfit> convertedOutfits;
-        const int total = initial.sharedPackageContainerPaths.size();
+        QStringList packageConflictCandidates;
+        for (const QString &path : initial.sharedPackageContainerPaths) {
+            // A damaged replacer stays a replacer. If its Package_Id conflict
+            // remains, report it instead of silently changing its outfit mode.
+            if (!integrityPaths.contains(path, Qt::CaseInsensitive))
+                packageConflictCandidates << path;
+        }
+        const int total = packageConflictCandidates.size();
         if (total == 0) {
-            lines << t(QStringLiteral("cns_fixer_fix_no_conflicts"));
-            const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true);
+            lines << (initial.packageConflicts == 0
+                ? t(QStringLiteral("cns_fixer_fix_no_conflicts"))
+                : t(QStringLiteral("cns_fixer_fix_replacer_conflicts_remain"))
+                      .arg(initial.packageConflicts));
+            const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
             if (!idFix.ok) {
                 finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
                                    + idFix.error,
@@ -272,7 +335,9 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                                       .arg(idFix.fixedContainers)
                   << idFix.report;
             const bool incomplete = idFix.packageConflicts > 0
-                || idFix.fixedContainers < idFix.duplicateContainers;
+                || idFix.fixedContainers < idFix.duplicateContainers
+                || initial.integrityIssues.size() > repackedReplacerPaths.size();
+            cleanStage();
             finish(true, lines.join(QLatin1Char('\n')),
                    incomplete ? QStringLiteral("cns_fixer_fix_partial_status")
                               : QStringLiteral("cns_fixer_fix_done"),
@@ -284,8 +349,9 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                 QStringLiteral("LogicMods/DekCNS_P"));
             if (!QFileInfo::exists(cnsLogic + QStringLiteral(".utoc"))
                 && !QFileInfo::exists(cnsLogic + QStringLiteral(".pak"))) {
-                finish(false, t(QStringLiteral("cns_fixer_fix_cns_required")),
-                       QStringLiteral("cns_fixer_fix_failed_status"));
+                lines << QString() << t(QStringLiteral("cns_fixer_fix_cns_required"));
+                finish(true, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_partial_status"), true);
                 return;
             }
             if (!QDir().mkpath(stageRoot)) {
@@ -309,7 +375,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             }
 
             for (int i = 0; i < total; ++i) {
-                const QString containerPath = initial.sharedPackageContainerPaths.at(i);
+                const QString containerPath = packageConflictCandidates.at(i);
                 const QString relativeContainer = QDir::fromNativeSeparators(
                     QDir(sourceRoot).relativeFilePath(containerPath));
                 QMetaObject::invokeMethod(this, [this, i, total, relativeContainer] {
@@ -414,7 +480,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         if (convertedOutfits.isEmpty()) {
             cleanStage();
             lines << QString() << t(QStringLiteral("cns_fixer_fix_partial"));
-            const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true);
+            const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
             if (!idFix.ok) {
                 finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
                                    + idFix.error,
@@ -590,7 +656,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             return;
         }
 
-        const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true);
+        const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
         if (!idFix.ok) {
             removeInstalled(installedFiles);
             const bool restored = restoreOriginals();
@@ -608,7 +674,8 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
               << t(QStringLiteral("cns_fixer_fix_summary"))
                     .arg(convertedOutfits.size()).arg(originalMoves.size());
         const bool incomplete = idFix.packageConflicts > 0
-            || idFix.fixedContainers < idFix.duplicateContainers;
+            || idFix.fixedContainers < idFix.duplicateContainers
+            || initial.integrityIssues.size() > repackedReplacerPaths.size();
         if (incomplete)
             lines << t(QStringLiteral("cns_fixer_fix_partial"));
         lines << QString() << idFix.report;

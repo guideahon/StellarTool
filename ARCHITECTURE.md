@@ -112,7 +112,7 @@ Claves de diseño:
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
 | `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Conserva los tipos declarados por el usmap y completa FNames/tipos de arrays vacíos antes de escribir. |
 | `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con las bases CNSRepacker 1.13, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. Al convertir a CNS aísla materiales/texturas compartidos en el namespace del outfit y genera opciones para alternar texturas reemplazadas y ajustar rugosidad/metalicidad desde CNS. Al convertir hacia el replacer Fusion Suit agrega la malla NoAcc y las copias de materiales que el jefe asigna por índice de slot. |
-| `CnsIdFixerService` | escanea mods IoStore, corrige `Container_Id` duplicados con backup verificable y devuelve los contenedores que comparten `Package_Id` para el aislamiento CNS. |
+| `CnsIdFixerService` | verifica la integridad de mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta `Package_Id` compartidos y reconstruye hashes inválidos de `ContainerHeader` conservando assets y rutas del replacer. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
 | `ReShadePresetService` | detecta `SB/Binaries/Win64/ReShade.ini`, mantiene la biblioteca de presets en `%LOCALAPPDATA%/StellarTool/reshade/`, importa/exporta y restaura copias administradas en el juego con backup previo. Comprueba de forma best-effort los shaders referenciados. |
 | `SaveConverterService` | fachada async para el conversor de partidas de lotress: `.sav` ↔ JSON y reparación CNS, ejecutado con el Python embebido del paquete Builder. |
@@ -136,7 +136,7 @@ Páginas (`qml/pages`):
 5. **EasyMergePage** — flujo simplificado de merge.
 6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
 7. **CnsConverterPage** — conversor de outfits replacer ↔ CNS.
-8. **CnsIdFixerPage** — escaneo y corrección de Container_Id duplicados; además detecta `Package_Id` compartidos en la carpeta instalada y genera CNS aislados para outfits compatibles.
+8. **CnsIdFixerPage** — escaneo de IDs e integridad IoStore; corrige hashes reparables de `ContainerHeader` conservando replacers y genera CNS aislados para outfits compatibles con conflictos `Package_Id`.
 9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
 10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
 11. **SaveConverterPage** — conversor y reparador de partidas, con backup automático y crédito a lotress.
@@ -168,12 +168,20 @@ extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `QSettings` (`cns/history`).
 
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
-servicio valida el encabezado y la tabla de chunks de cada `.utoc`, agrupa
-`Container_Id` repetidos y enumera los `Package_Id` de ExportBundle compartidos
+servicio valida el encabezado y la tabla de chunks de cada `.utoc`, ejecuta
+`retoc verify`, agrupa `Container_Id` repetidos y enumera los `Package_Id` de
+ExportBundle compartidos
 con rutas relativas completas para distinguir contenedores homónimos. La acción
-de reparación intenta convertir cada contenedor en conflicto de forma
-independiente y aísla materiales/texturas con `CnsConverterService`. Las
-conversiones no compatibles se registran y sus originales siguen activos; las
+de reparación puede reconstruir un hash inválido del chunk `ContainerHeader`:
+extrae y vuelve a empaquetar el mismo contenido IoStore, comprueba que los
+`Package_Id` no cambiaron y verifica el resultado antes de instalarlo. Este
+camino conserva las rutas originales del replacer y respalda la familia anterior
+en `~mods/disabled/StellarTool_IoStoreRepair_<run>/` con sufijo `.disabled`.
+Solo se repara automáticamente el error de hash del chunk 0 cuando el
+contenedor conserva su `ContainerHeader`; otros errores quedan en el informe y
+no se convierten a CNS. La acción también convierte cada contenedor en conflicto
+de forma independiente y aísla materiales/texturas con `CnsConverterService`.
+Las conversiones no compatibles se registran y sus originales siguen activos; las
 conversiones válidas se preparan antes de cambiar archivos. La instalación mueve
 solo los originales convertidos a `~mods/disabled/StellarTool_Fix_<run>/`,
 conservando sus rutas y agregando `.disabled` para que el cargador recursivo del
@@ -182,6 +190,9 @@ juego no los monte. Despliega los paquetes y descriptores directamente en
 `Package_Id` compartidas. Si no hay progreso o falla la instalación, revierte los
 archivos preparados; si hay progreso parcial, conserva las conversiones exitosas
 y reporta los conflictos restantes. Después corrige `Container_Id` repetidos.
+Los contenedores con errores de integridad no reparables se mantienen como
+replacers activos y no se convierten a CNS de forma implícita; si aún participan
+en conflictos `Package_Id`, el conflicto se informa como pendiente.
 La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
 juego configurada; requiere confirmación en UI y `--apply` en modo headless.
 En headless, `--apply` ejecuta la reparación completa; `--ids-only` conserva la

@@ -22,15 +22,20 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   cuando CUE4Parse puede leer los slots, los materiales que el juego fuerza
   durante el jefe final.
 - **CNS ID Fixer** analiza mods IoStore, muestra rutas para distinguir
-  contenedores con nombres repetidos y corrige `Container_Id` duplicados con
-  backup verificable. La acción de reparación también procesa conflictos
+  contenedores con nombres repetidos, verifica la integridad y corrige
+  `Container_Id` duplicados con backup verificable. Si encuentra un hash
+  inválido en el chunk `ContainerHeader`, reconstruye el contenedor preservando
+  las rutas del replacer y respalda los archivos anteriores en
+  `~mods/disabled/`; no convierte ese mod a CNS. La acción de reparación
+  también procesa conflictos
   `Package_Id`: intenta convertir cada participante por separado, instala en
   CNS los outfits compatibles, mantiene activos los paquetes que no puede
   convertir y detalla los conflictos restantes. Solo conserva conversiones si
   la verificación confirma que redujeron las referencias compartidas; los
   originales convertidos se respaldan en `~mods/disabled/`. Requiere CNS
-  instalado. En modo headless, `fixids --apply` hace la reparación completa;
-  `--apply --ids-only` limita el cambio a `Container_Id`.
+  instalado únicamente para esas conversiones de conflictos `Package_Id`. En
+  modo headless, `fixids --apply` hace la reparación completa; con
+  `--apply --ids-only` se limita el cambio a `Container_Id`.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con

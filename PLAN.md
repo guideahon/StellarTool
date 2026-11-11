@@ -92,6 +92,9 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
   parcial y corrige también los `Container_Id` que sean compatibles.
 - Los reportes del escaneo muestran rutas relativas completas para desambiguar
   contenedores con el mismo nombre.
+- Verifica la integridad IoStore y reconstruye hashes dañados del `ContainerHeader`
+  cuando son reparables, preservando assets/rutas de replacer, verificando los
+  `Package_Id` y respaldando la familia original en `~mods/disabled/`.
 - Compatible con `DirectoryIndex` de UE4.26; formatos perfect-hash se reportan y quedan intactos.
 
 ### Stellar Souls Builder ✅
