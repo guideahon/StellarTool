@@ -338,6 +338,7 @@
   "cns_history": "Conversion history",
   "cns_empty": "No outfit conversions have been created yet.",
   "cns_replacer_input_label": "Outfit mod ZIP",
+  "cns_replacer_root_missing": "В исходном ZIP отсутствует корневой ресурс костюма (%1), поэтому его нельзя преобразовать в replacer. Выберите ZIP с этим ресурсом.",
   "cns_zip_placeholder": "Choose one outfit mod ZIP…",
   "cns_choose_zip": "Choose ZIP…",
   "cns_select_default_outfit": "Select a default outfit…",

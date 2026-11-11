@@ -286,6 +286,15 @@ QString CnsConverterService::normalizeAssetPath(const QString &path) {
     return QStringLiteral("/Game/") + p.mid(6);
 }
 
+bool CnsConverterService::hasReplacerRootAsset(const QStringList &assetPaths,
+                                                const QString &rootPath) {
+    const QString rootKey = key(rootPath);
+    return !rootKey.isEmpty()
+        && std::any_of(assetPaths.cbegin(), assetPaths.cend(), [&](const QString &path) {
+               return key(path) == rootKey;
+           });
+}
+
 QString CnsConverterService::shortId(const QString &text) {
     return QString::fromLatin1(QCryptographicHash::hash(text.toUtf8(),
                                                         QCryptographicHash::Sha256).toHex().left(16));
@@ -795,6 +804,11 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
     }
     // Una conversión interactiva produce una variante por corrida.
     const QString rootPath = roots.first();
+    if (request.mode == Mode::ToReplacer
+        && !hasReplacerRootAsset(moddedAssets, rootPath)) {
+        result.error = tr_(QStringLiteral("cns_replacer_root_missing")).arg(rootPath);
+        return result;
+    }
     QString omittedAnimBlueprintPath;
     if (request.mode == Mode::ToReplacer && request.omitPostProcessAnimBlueprint) {
         const QString rootFile = assetFiles.value(key(rootPath));

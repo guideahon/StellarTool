@@ -58,6 +58,8 @@ public:
     static QString dataRoot();
 
     // Helpers puros expuestos para pruebas de regresión.
+    static bool hasReplacerRootAsset(const QStringList &assetPaths,
+                                     const QString &rootPath);
     static QJsonObject relocateAssetJson(const QJsonObject &asset,
                                          const QMap<QString, QString> &relocations,
                                          const QString &omittedAssetPath = {});

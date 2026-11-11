@@ -9,6 +9,7 @@ class TestCnsConverter : public QObject {
     Q_OBJECT
 private slots:
     void normalizesPaths();
+    void replacerRequiresItsRootAsset();
     void createsStableShortId();
     void rewritesUassetReferences();
     void plansFusionCompatibilityCopies();
@@ -25,6 +26,16 @@ void TestCnsConverter::normalizesPaths() {
                  QStringLiteral("/Game/Art/Suit/Mesh.Mesh")),
              QStringLiteral("/Game/Art/Suit/Mesh"));
     QVERIFY(CnsConverterService::normalizeAssetPath(QStringLiteral("not/an/asset")).isEmpty());
+}
+
+void TestCnsConverter::replacerRequiresItsRootAsset() {
+    const QString root = QStringLiteral(
+        "/Game/Art/Character/PC/CH_P_EVE_61/CH_P_EVE_61");
+    const QString texture = QStringLiteral(
+        "/Game/Art/Character/PC/CH_P_EVE_61/Textures/CH_P_EVE_61_A");
+
+    QVERIFY(!CnsConverterService::hasReplacerRootAsset({texture}, root));
+    QVERIFY(CnsConverterService::hasReplacerRootAsset({texture, root.toUpper()}, root));
 }
 
 void TestCnsConverter::createsStableShortId() {

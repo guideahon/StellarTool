@@ -338,6 +338,7 @@
   "cns_history": "Conversion history",
   "cns_empty": "No outfit conversions have been created yet.",
   "cns_replacer_input_label": "Outfit mod ZIP",
+  "cns_replacer_root_missing": "源 ZIP 不包含服装根资源（%1），因此无法转换为替换包。请选择包含此资源的 ZIP。",
   "cns_zip_placeholder": "Choose one outfit mod ZIP…",
   "cns_choose_zip": "Choose ZIP…",
   "cns_select_default_outfit": "Select a default outfit…",

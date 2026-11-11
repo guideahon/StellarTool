@@ -9,7 +9,9 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
 - Detecta conflictos entre mods y permite elegir con qué valor quedarse.
 - Genera un único `zzz_StellarTool_Merged.pak` verificado, listo para `~mods`.
 - Convierte outfits **replacer ↔ CNS** desde la sección **CNS Converter**, sin
-  modificar el mod de entrada. El flujo abre en modo rápido para crear un
+  modificar el mod de entrada. Para crear un replacer, el ZIP fuente debe incluir
+  el asset raíz del outfit; los ZIPs que solo modifican texturas no pueden
+  reemplazar la malla y se rechazan. El flujo abre en modo rápido para crear un
   replacer: elegís un ZIP, el outfit vanilla del catálogo y **Crear replacer**.
   Stellar Tool genera el ZIP instalable para Vortex en la carpeta de salida
   predeterminada; las opciones avanzadas permiten cambiarla o elegir un outfit

@@ -670,6 +670,7 @@
   "cns_id_repair_rollback_incomplete": "Rollback was incomplete; backup: %1",
   "cns_id_skip_integrity_failure": "Skipped Container_Id changes because the container failed its integrity check.",
   "cns_replacer_input_label": "Outfit mod ZIP",
+  "cns_replacer_root_missing": "The source ZIP does not include the outfit root asset (%1), so it cannot be converted to a replacer. Choose a ZIP that includes this asset.",
   "cns_zip_placeholder": "Choose one outfit mod ZIP…",
   "cns_choose_zip": "Choose ZIP…",
   "cns_select_default_outfit": "Select a default outfit…",

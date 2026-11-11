@@ -338,6 +338,7 @@
   "cns_history": "Conversion history",
   "cns_empty": "No outfit conversions have been created yet.",
   "cns_replacer_input_label": "Outfit mod ZIP",
+  "cns_replacer_root_missing": "O ZIP de origem não inclui o asset raiz da roupa (%1), então não pode ser convertido em replacer. Escolha um ZIP que inclua esse asset.",
   "cns_zip_placeholder": "Choose one outfit mod ZIP…",
   "cns_choose_zip": "Choose ZIP…",
   "cns_select_default_outfit": "Select a default outfit…",
