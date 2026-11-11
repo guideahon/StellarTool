@@ -437,3 +437,26 @@ deshabilitada con el motivo.
 **Desinstalar** borra solo `Mods/StellarToolLive`, y únicamente si adentro está
 nuestro `Scripts/main.lua`: si el usuario apuntó el juego a otra carpeta, no nos
 llevamos puesto nada ajeno.
+
+---
+
+## 12. Plugin CPS complementario
+
+`CPSPlugin/` es un proyecto CMake x64 separado de la aplicación Qt. Usa el SDK
+CPS local que aporta el mantenedor y genera `stellar_tool_gameplay.cps`; no se
+incluye en el paquete desktop ni en el pipeline de mods estáticos. La primera
+versión agrega una página CPS con sliders y toggles para valores numéricos de
+`CharacterTable / Player` que el Builder ya produce: vida, escudo, regeneración,
+velocidad de ataque, capacidad de barras y pilas de munición/consumibles.
+
+Las modificaciones ocurren solo en el hilo del juego. Antes de escribir se
+verifican el nombre de la fila, el tipo y el tamaño de cada propiedad. Al
+desactivar un control o descargar el plugin, restaura el valor capturado solo si
+sigue siendo el último que escribió Stellar Tool. Si otro plugin cambió ese
+campo entretanto, lo deja intacto y registra el detalle en `CPS.log`. La
+configuración queda en `CPS/Configs/StellarToolGameplay/settings.json`.
+
+La primera versión no cubre otras tablas, filas nuevas, assets, `EffectTable`,
+spawns, outfits ni archivos `.pak`. Esos flujos siguen en Stellar Tool desktop y
+en `--headless build`. Compilación, instalación manual y límites están en
+[`docs/CPS_PLUGIN.md`](docs/CPS_PLUGIN.md).

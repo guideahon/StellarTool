@@ -72,6 +72,18 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 
 ## Extensiones implementadas
 
+### Plugin CPS complementario (MVP; falta validación en juego)
+- Proyecto CMake x64 aislado, compilado con el SDK local de CPS y empaquetado como `.cps`.
+- Menú en juego con controles configurables para vida/escudo, regeneración,
+  velocidad de ataque, capacidad Beta/Burst/Tachy, munición y consumibles.
+- Solo escribe números existentes de `CharacterTable / Player` tras validar la
+  fila y el tipo. Restaura valores propios al desactivar o descargar; no pisa un
+  valor que otro plugin haya cambiado después.
+- Configuración persistente y textos en inglés/español.
+- Queda pendiente portar otras funciones del Builder que sean seguras en
+  runtime. Assets, outfits, creación de filas y cambios de `.pak` siguen siendo
+  operaciones desktop/headless.
+
 ### Conversor CNS ✅
 - Conversor nativo C++ replacer → CNS y CNS → replacer.
 - Entrada `.zip`, `.pak`, `.utoc` o carpeta; selección de variante CNS y slot vanilla de destino.

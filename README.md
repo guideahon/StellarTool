@@ -56,6 +56,9 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
   él por archivos de texto. No toca partidas guardadas, inventario ni progresión,
   y se desinstala desde la misma página.
+- **Plugin CPS experimental**: agrega al menú del juego controles para valores
+  numéricos del jugador que ya existen en Stellar Souls Builder. Es un proyecto
+  separado que requiere CPS 1.2.0 o posterior. [Instrucciones y límites](docs/CPS_PLUGIN.md).
 - **ReShade** detecta la configuración del juego, guarda/restaura presets `.ini`,
   permite importar/exportar y renombrar/eliminar presets, y crea un backup de
   `ReShade.ini` antes de cambiar el preset activo. Advierte si faltan shaders
@@ -119,6 +122,15 @@ tests.bat Release           :: corre la suite de unit tests (diff/merge)
 Si tu Qt está en otra ruta, editá `QT_DIR` al inicio de `build.bat` y `tests.bat`.
 Los binarios externos no se versionan; `setup.bat` los baja de sus releases oficiales
 (ver [tools/VERSIONS.md](tools/VERSIONS.md)).
+
+El plugin CPS se compila aparte con el SDK opcional que aporta el usuario:
+
+```bat
+CPSPlugin\build.bat
+```
+
+El resultado queda en `build\CPSPlugin\Release\stellar_tool_gameplay.cps`; no se
+incluye en el paquete desktop ni se instala dentro del juego automáticamente.
 
 ## Uso
 

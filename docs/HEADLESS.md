@@ -19,6 +19,7 @@ Antes de usar un comando:
 
 | Sección GUI | Comandos headless | Efecto |
 |---|---|---|
+| Plugin CPS en juego | No aplica; `CPSPlugin` registra una página nativa dentro del proceso del juego. | Los controles runtime actúan sobre la sesión abierta. Para generar un mod estático con opciones compatibles del Builder, usar `build --answers`. |
 | Mods / Cambios | `analyze` | Importa mods, analiza tablas y lista cambios/conflictos. |
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
@@ -208,6 +209,9 @@ acciones con efectos y requieren autorización del usuario.
 
 ## Limitaciones deliberadas
 
+- El plugin CPS opera sobre tablas ya cargadas en un proceso del juego; no tiene
+  modo headless. `build --answers` genera archivos de mod y no modifica una
+  sesión en ejecución.
 - No hay una operación headless para abrir carpetas, mostrar diálogos, cambiar
   temas/idioma o abrir la ventana de Settings.
 - `analyze` y `merge` requieren los binarios externos y, para mods Zen, la ruta
