@@ -2,7 +2,7 @@
 
 Herramienta de escritorio (Windows) para inspeccionar y **mergear mods de Stellar Blade**, con UI en **Qt 6 / QML** (mismo stack y convenciones que LlamaCode: core en C++ bajo `src/core`, UI en `qml/pages` + `qml/components`).
 
-Versión actual: **0.6.9**.
+Versión actual: **0.6.10**.
 
 ---
 
@@ -106,6 +106,15 @@ Claves de diseño:
 |---|---|
 | `PakService` | wrapper QProcess de repak/retoc: unpack/pack legacy, to-legacy/to-zen de contenedores IoStore, compat-global para revertir mods Zen, extracción de zips. |
 | `StoragePaths` | ruta elegida en Ajustes para `work` y caché Zen, con valor predeterminado en AppLocalDataLocation. No mueve baseline, logs ni salidas finales. |
+
+El merge excluye una DataTable si se omitió cualquier cambio seleccionado:
+una tabla parcial de prioridad alta ocultaría la versión íntegra del mod fuente.
+Ante `DummyFNameSerializationException` registra el nombre faltante denunciado
+por UAssetGUI y reintenta de forma acotada. Para el error concreto de
+`BoneBlendType` en `CharacterStanceTable`, prueba el ordinal del usmap solo en
+esa propiedad. Ambos reintentos siguen sujetos a la relectura y comparación
+de valores. `PakService` comprueba las rutas antes de `retoc to-zen` y reporta
+el asset incompatible.
 | `UAssetService` | wrapper QProcess de UAssetGUI: tojson/fromjson, con detección de versión y reporte de fallos por asset. |
 | `Cue4Service` | wrapper QProcess de cue4parse.exe: lee contenedores Zen/IoStore que retoc no puede revertir, exportando DataTables a JSON. |
 | `BaselineManager` | cache de tablas vanilla en `%LOCALAPPDATA%/StellarTool/baseline/`, extracción bajo demanda desde el juego (CUE4Parse) o importación. Detecta staleness y tablas ausentes. |
@@ -300,13 +309,12 @@ exportación CUE4Parse incompleta y se bloquean sus borrados.
 
 ### Enums numerados (`FName_3`)
 
-UE puede mostrar `"Valor_3"` como un FName numerado. La conversión a
-`BytePropertyData` existe como utilidad de diagnóstico, pero no se aplica de
-forma global: en DataTables Zen con schemas densos cambia el header unversioned
-y puede hacer que UAssetGUI lea las filas con un índice de schema inválido.
-El camino de escritura conserva `EnumPropertyData`, agrega los `EnumType` que
-falten al `NameMap` y deja que el `.usmap` resuelva el enum. La prueba real con
-`SkillCommandTable` demostró 25 cambios aplicados y round-trip completo.
+La conversión de enums a `BytePropertyData` existe como utilidad de diagnóstico,
+pero no se aplica globalmente: en DataTables Zen con schemas densos puede
+desalinear el header unversioned. Para el error concreto de
+`CharacterStanceTable/BoneBlendType` se hace un intento limitado y se acepta
+solo si la relectura conserva los valores. La comparación convierte el enum
+releído por UAssetGUI a su ordinal del `.usmap`.
 
 ### Trampa al depurar: instancias colgadas de UAssetGUI
 

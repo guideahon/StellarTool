@@ -49,6 +49,9 @@ public:
     // convertir. Útil para informar qué tablas toca un mod Zen no convertible.
     QStringList listZenAssets(const QString &utocPath);
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
+    // retoc UE4.26 only maps <project>/Content/... or plugin Content paths
+    // to package names. Reject unsupported input with the offending path.
+    static bool validZenAssetPath(const QString &relativePath);
     // Empaqueta a contenedor Zen/IoStore (.utoc/.ucas/.pak) con retoc y verifica.
     bool packZen(const QString &contentDir, const QString &outUtoc, QString *error = nullptr);
     // Verifica los chunks de un contenedor IoStore con retoc.

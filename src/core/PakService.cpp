@@ -213,7 +213,34 @@ static bool copyOodleBeside(const QString &exe) {
     return true;
 }
 
+bool PakService::validZenAssetPath(const QString &relativePath) {
+    const QString path = QDir::fromNativeSeparators(relativePath);
+    if (path.startsWith(QLatin1Char('/')) || path.contains(QLatin1String("../"))) return false;
+    const QStringList parts = path.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    if (parts.size() < 3) return false;
+    if (parts.at(1).compare(QLatin1String("Content"), Qt::CaseInsensitive) == 0)
+        return true;
+    if (parts.at(1).compare(QLatin1String("Plugins"), Qt::CaseInsensitive) == 0)
+        for (int i = 2; i + 1 < parts.size(); ++i)
+            if (parts.at(i).compare(QLatin1String("Content"), Qt::CaseInsensitive) == 0)
+                return true;
+    return false;
+}
+
 bool PakService::packZen(const QString &contentDir, const QString &outUtoc, QString *error) {
+    QDirIterator assets(contentDir, {QStringLiteral("*.uasset")}, QDir::Files,
+                        QDirIterator::Subdirectories);
+    while (assets.hasNext()) {
+        const QString file = assets.next();
+        const QString relative = QDir(contentDir).relativeFilePath(file);
+        if (!validZenAssetPath(relative)) {
+            if (error) *error = QStringLiteral(
+                "retoc no puede resolver la ruta de paquete '%1'. "
+                "El asset debe estar bajo <proyecto>/Content/ o <proyecto>/Plugins/.../Content/.")
+                .arg(relative);
+            return false;
+        }
+    }
     const QString retoc = retocPath();
     if (retoc.isEmpty()) {
         if (error) *error = QStringLiteral("retoc.exe no encontrado en tools/.");

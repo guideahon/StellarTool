@@ -15,6 +15,7 @@ private slots:
     void conflictDetected();
     void identicalChangesNoConflict();
     void noBaselineRowsAsAdded();
+    void serializerMetadataDoesNotAppearAsChange();
 };
 
 static QJsonObject baseTable() {
@@ -41,6 +42,23 @@ void TestDiffEngine::modifiedLeaf() {
     QCOMPARE(items[0].displayPath(), QStringLiteral("MaxHP"));
     QVERIFY(items[0].summary().contains(QStringLiteral("100 → 250")));
     QVERIFY(items[0].summary().contains(QStringLiteral("+150%")));
+}
+
+void TestDiffEngine::serializerMetadataDoesNotAppearAsChange() {
+    QJsonObject base = baseTable();
+    QJsonObject changed = base;
+    QJsonArray rows = dataTableRows(changed);
+    QJsonObject first = rows.first().toObject();
+    first.insert(QStringLiteral("$type"), QStringLiteral("DifferentSerializerType"));
+    QJsonArray props = first.value(QStringLiteral("Value")).toArray();
+    QJsonObject health = props.first().toObject();
+    health.insert(QStringLiteral("PropertyGuid"), QStringLiteral("metadata-only"));
+    props.replace(0, health);
+    first.insert(QStringLiteral("Value"), props);
+    rows.replace(0, first);
+    changed = withDataTableRows(changed, rows);
+    QVERIFY(TableDiffEngine::diffTable(base, changed, QStringLiteral("CharacterTable.uasset"),
+                                      QStringLiteral("m1"), QStringLiteral("Mod 1")).isEmpty());
 }
 
 void TestDiffEngine::rowAddedRemoved() {

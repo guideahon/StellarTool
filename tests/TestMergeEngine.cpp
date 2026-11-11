@@ -23,6 +23,10 @@ private slots:
     void cleanRowAddedNormalizesNestedEmptyFNames();
     void cleanModifiedClearedFNameBecomesNull();
     void numberedEnumsRewrittenAsByte();
+    void targetedEnumRetryKeepsOtherEnums();
+    void missingFNameRetryRegistersOnlyOneName();
+    void effectNoneRoundTripNormalizes();
+    void byteEnumReadbackCanonicalizesToSameOrdinal();
     void cleanRowRemoved();
     void cleanRowRemovedMassLossGuard();
 };
@@ -411,6 +415,64 @@ void TestMergeEngine::numberedEnumsRewrittenAsByte() {
     // Sin enums del usmap no se toca nada.
     QJsonObject untouched = table({row(QStringLiteral("Eve"), {numbered})});
     QCOMPARE(MergeEngine::rewriteNumberedEnums(untouched, {}), 0);
+}
+
+void TestMergeEngine::targetedEnumRetryKeepsOtherEnums() {
+    QJsonObject bone = prop(QStringLiteral("BoneBlendType"), QStringLiteral("BoneBlendType_2"),
+                            QStringLiteral("EnumPropertyData"));
+    bone.insert(QStringLiteral("EnumType"), QStringLiteral("ESBBoneBlendType"));
+    QJsonObject other = prop(QStringLiteral("CombatType"), QStringLiteral("Melee"),
+                             QStringLiteral("EnumPropertyData"));
+    other.insert(QStringLiteral("EnumType"), QStringLiteral("ESBCombatType"));
+    QJsonObject root = table({row(QStringLiteral("Eve"), {bone, other})});
+    const QHash<QString, QStringList> enums{
+        {QStringLiteral("ESBBoneBlendType"), {QStringLiteral("BoneBlendType_0"),
+                                              QStringLiteral("BoneBlendType_1"),
+                                              QStringLiteral("BoneBlendType_2")}},
+        {QStringLiteral("ESBCombatType"), {QStringLiteral("Melee")}}};
+    QCOMPARE(MergeEngine::rewriteEnumPropertyAsByte(root, QStringLiteral("BoneBlendType"), enums), 1);
+    const QJsonArray props = dataTableRows(root).first().toObject().value(QStringLiteral("Value")).toArray();
+    QCOMPARE(props.first().toObject().value(QStringLiteral("Value")).toInt(), 2);
+    QVERIFY(props.first().toObject().value(QStringLiteral("$type")).toString().contains(QStringLiteral("BytePropertyData")));
+    QCOMPARE(props.at(1).toObject(), other);
+}
+
+void TestMergeEngine::missingFNameRetryRegistersOnlyOneName() {
+    QJsonObject root = table({row(QStringLiteral("Eve"), {})});
+    root.insert(QStringLiteral("NameMap"), QJsonArray{QStringLiteral("Existing")});
+    QVERIFY(MergeEngine::registerMissingFName(root, QStringLiteral("P_EveScarlet_Sword_Combo_DashAttack1_1")));
+    QVERIFY(!MergeEngine::registerMissingFName(root, QStringLiteral("P_EveScarlet_Sword_Combo_DashAttack1_1")));
+    QVERIFY(!MergeEngine::registerMissingFName(root, QString()));
+    QCOMPARE(root.value(QStringLiteral("NameMap")).toArray().size(), 2);
+}
+
+void TestMergeEngine::effectNoneRoundTripNormalizes() {
+    const QJsonObject input = table({row(QStringLiteral("NewEffect"),
+        {prop(QStringLiteral("EffectAttributeType"), QStringLiteral("EffectAttributeType_None"),
+              QStringLiteral("EnumPropertyData"))})});
+    const QJsonObject readBack = table({row(QStringLiteral("NewEffect"),
+        {prop(QStringLiteral("EffectAttributeType"), QJsonValue(QJsonValue::Null),
+              QStringLiteral("EnumPropertyData"))})});
+    QVERIFY(jsonValueEquals(dataTableRows(normalizeDataTableDoc(input)),
+                            dataTableRows(normalizeDataTableDoc(readBack))));
+}
+
+void TestMergeEngine::byteEnumReadbackCanonicalizesToSameOrdinal() {
+    const QHash<QString, QStringList> enums{
+        {QStringLiteral("ESBBoneBlendType"), {QStringLiteral("BoneBlendType_0"),
+                                              QStringLiteral("BoneBlendType_1"),
+                                              QStringLiteral("BoneBlendType_2")}}};
+    QJsonObject expectedProp = prop(QStringLiteral("BoneBlendType"), 2,
+                                    QStringLiteral("BytePropertyData"));
+    expectedProp.insert(QStringLiteral("ByteType"), QStringLiteral("Byte"));
+    QJsonObject actualProp = prop(QStringLiteral("BoneBlendType"), QStringLiteral("BoneBlendType_2"),
+                                  QStringLiteral("EnumPropertyData"));
+    actualProp.insert(QStringLiteral("EnumType"), QStringLiteral("ESBBoneBlendType"));
+    QJsonObject expected = table({row(QStringLiteral("Eve"), {expectedProp})});
+    QJsonObject actual = table({row(QStringLiteral("Eve"), {actualProp})});
+    QCOMPARE(MergeEngine::canonicalizeEnumOrdinals(actual, enums), 1);
+    QVERIFY(jsonValueEquals(dataTableRows(normalizeDataTableDoc(expected)),
+                            dataTableRows(normalizeDataTableDoc(actual))));
 }
 
 void TestMergeEngine::cleanRowRemoved() {

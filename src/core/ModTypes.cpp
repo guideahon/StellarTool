@@ -236,7 +236,8 @@ static QJsonValue cleanValue(const QJsonValue &v) {
             return QJsonValue(0);
         const int sep = s.lastIndexOf(QLatin1String("::"));
         if (sep >= 0) s = s.mid(sep + 2);
-        if (s == QLatin1String("None")) s.clear();
+        if (s == QLatin1String("None") || s == QLatin1String("EffectAttributeType_None"))
+            s.clear();
         return s;
     }
     if (v.isArray())

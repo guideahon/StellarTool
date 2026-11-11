@@ -31,6 +31,13 @@ void TableDiffEngine::diffValue(const QJsonValue &base, const QJsonValue &mod,
         for (auto it = mo.begin(); it != mo.end(); ++it)
             if (!bo.contains(it.key())) keys << it.key();
         for (const QString &k : keys) {
+            // Identificadores del serializador UAssetAPI, no valores del juego.
+            // El JSON base conserva su forma original durante el merge.
+            if (k == QLatin1String("$type") || k == QLatin1String("ArrayIndex")
+                || k == QLatin1String("PropertyGuid") || k == QLatin1String("IsZero")
+                || k == QLatin1String("DuplicationIndex")
+                || k == QLatin1String("PropertyTagFlags")
+                || k == QLatin1String("PropertyTagExtensions")) continue;
             const QJsonValue bv = bo.contains(k) ? bo.value(k) : QJsonValue(QJsonValue::Undefined);
             const QJsonValue mv = mo.contains(k) ? mo.value(k) : QJsonValue(QJsonValue::Undefined);
             QStringList p = path; p << (QStringLiteral("K:") + k);

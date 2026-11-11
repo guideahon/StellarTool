@@ -17,6 +17,11 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
 - Lista cada cambio de DataTable (fila/propiedad) con checkbox.
 - Detecta conflictos entre mods y permite elegir con qué valor quedarse.
 - Genera un único `zzz_StellarTool_Merged.pak` verificado, listo para `~mods`.
+- Evita generar tablas parciales que oculten cambios del mod original: si un
+  cambio seleccionado no round-tripea, excluye esa tabla y detalla el motivo
+  en `merge_report.txt`. Reintenta FNames faltantes y el caso conocido del
+  enum `BoneBlendType`, siempre con verificación posterior. El diff omite la
+  metadata `$type` de UAssetAPI; retoc informa qué ruta de paquete no reconoce.
 - Convierte outfits **replacer ↔ CNS** desde la sección **CNS Converter**, sin
   modificar el mod de entrada. Para crear un replacer, el ZIP fuente debe incluir
   el asset raíz del outfit; los ZIPs que solo modifican texturas no pueden

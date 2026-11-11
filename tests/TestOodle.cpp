@@ -19,6 +19,7 @@ private slots:
     void userOverrideDirCaseInsensitive();
     void clearedOverrideIsForgotten();
     void reportMentionsGameFolder();
+    void retocPackagePaths();
 
 private:
     QString m_savedOverride;
@@ -40,6 +41,15 @@ void TestOodle::initTestCase() {
 
 void TestOodle::cleanupTestCase() {
     PakService::setUserOodlePath(m_savedOverride);
+}
+
+void TestOodle::retocPackagePaths() {
+    QVERIFY(PakService::validZenAssetPath(QStringLiteral("SB/Content/Local/Data/EffectTable.uasset")));
+    QVERIFY(PakService::validZenAssetPath(QStringLiteral("Engine/Content/Test.uasset")));
+    QVERIFY(PakService::validZenAssetPath(QStringLiteral("SB/Plugins/MyPlugin/Content/Asset.uasset")));
+    QVERIFY(!PakService::validZenAssetPath(QStringLiteral("StellarBlade/SB/Content/EffectTable.uasset")));
+    QVERIFY(!PakService::validZenAssetPath(QStringLiteral("EffectTable.uasset")));
+    QVERIFY(!PakService::validZenAssetPath(QStringLiteral("../SB/Content/Bad.uasset")));
 }
 
 void TestOodle::userOverrideFile() {

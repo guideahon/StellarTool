@@ -367,14 +367,15 @@ static void registerFNames(QJsonObject &root, const QJsonArray &rows,
 }
 
 // Reescribe in-place las EnumProperty con FName numerado. Devuelve cuántas.
-static int rewriteEnumsIn(QJsonValue &value, const QSet<QString> &nameMap,
-                          const QHash<QString, QStringList> &enums) {
+static int rewriteEnumsIn(QJsonValue &value, const QHash<QString, QStringList> &enums,
+                          const QString &propertyName = {},
+                          bool targetedProperty = false) {
     if (value.isArray()) {
         QJsonArray arr = value.toArray();
         int n = 0;
         for (int i = 0; i < arr.size(); ++i) {
             QJsonValue e = arr.at(i);
-            n += rewriteEnumsIn(e, nameMap, enums);
+            n += rewriteEnumsIn(e, enums, propertyName, targetedProperty);
             arr.replace(i, e);
         }
         value = arr;
@@ -385,11 +386,13 @@ static int rewriteEnumsIn(QJsonValue &value, const QSet<QString> &nameMap,
     QJsonObject obj = value.toObject();
     int n = 0;
     QJsonValue inner = obj.value(QLatin1String("Value"));
-    n += rewriteEnumsIn(inner, nameMap, enums);
+    n += rewriteEnumsIn(inner, enums, propertyName, targetedProperty);
     obj.insert(QLatin1String("Value"), inner);
 
     const QJsonValue v = obj.value(QLatin1String("Value"));
-    if (obj.value(QLatin1String("$type")).toString().contains(QLatin1String("EnumPropertyData"))
+    if ((propertyName.isEmpty() || obj.value(QLatin1String("Name")).toString() == propertyName)
+        && (!targetedProperty || obj.value(QLatin1String("Name")).toString() == propertyName)
+        && obj.value(QLatin1String("$type")).toString().contains(QLatin1String("EnumPropertyData"))
         && v.isString()) {
         const QStringList values = enums.value(obj.value(QLatin1String("EnumType")).toString());
         const int ordinal = values.indexOf(v.toString());
@@ -410,13 +413,70 @@ static int rewriteEnumsIn(QJsonValue &value, const QSet<QString> &nameMap,
 int MergeEngine::rewriteNumberedEnums(QJsonObject &root,
                                       const QHash<QString, QStringList> &enums) {
     if (enums.isEmpty()) return 0;
-    QSet<QString> nameMap;
-    for (const QJsonValue &n : root.value(QLatin1String("NameMap")).toArray())
-        nameMap.insert(n.toString());
     QJsonValue rows = dataTableRows(root);
-    const int n = rewriteEnumsIn(rows, nameMap, enums);
+    const int n = rewriteEnumsIn(rows, enums);
     if (n > 0) root = withDataTableRows(root, rows.toArray());
     return n;
+}
+
+int MergeEngine::rewriteEnumPropertyAsByte(QJsonObject &root, const QString &propertyName,
+                                           const QHash<QString, QStringList> &enums) {
+    if (propertyName.isEmpty() || enums.isEmpty()) return 0;
+    QJsonValue rows = dataTableRows(root);
+    const int n = rewriteEnumsIn(rows, enums, propertyName, true);
+    if (n > 0) root = withDataTableRows(root, rows.toArray());
+    return n;
+}
+
+static int canonicalizeEnumValues(QJsonValue &value,
+                                 const QHash<QString, QStringList> &enums) {
+    if (value.isArray()) {
+        QJsonArray array = value.toArray();
+        int changed = 0;
+        for (int i = 0; i < array.size(); ++i) {
+            QJsonValue child = array.at(i);
+            changed += canonicalizeEnumValues(child, enums);
+            array.replace(i, child);
+        }
+        value = array;
+        return changed;
+    }
+    if (!value.isObject()) return 0;
+    QJsonObject object = value.toObject();
+    int changed = 0;
+    QJsonValue inner = object.value(QLatin1String("Value"));
+    changed += canonicalizeEnumValues(inner, enums);
+    object.insert(QLatin1String("Value"), inner);
+    if (object.value(QLatin1String("$type")).toString().contains(QLatin1String("EnumPropertyData"))
+        && inner.isString()) {
+        const QStringList values = enums.value(object.value(QLatin1String("EnumType")).toString());
+        const int ordinal = values.indexOf(inner.toString());
+        if (ordinal >= 0) {
+            object.insert(QLatin1String("Value"), ordinal);
+            ++changed;
+        }
+    }
+    value = object;
+    return changed;
+}
+
+int MergeEngine::canonicalizeEnumOrdinals(QJsonObject &root,
+                                           const QHash<QString, QStringList> &enums) {
+    if (enums.isEmpty()) return 0;
+    QJsonValue rows = dataTableRows(root);
+    const int changed = canonicalizeEnumValues(rows, enums);
+    if (changed > 0) root = withDataTableRows(root, rows.toArray());
+    return changed;
+}
+
+bool MergeEngine::registerMissingFName(QJsonObject &root, const QString &name) {
+    if (name.isEmpty() || name.size() > 1024) return false;
+    QJsonArray names = root.value(QLatin1String("NameMap")).toArray();
+    for (const QJsonValue &entry : names)
+        if (entry.toString() == name) return false;
+    names.append(name);
+    root.insert(QLatin1String("NameMap"), names);
+    return true;
 }
 
 static int fillArrayTypesIn(QJsonValue &value,

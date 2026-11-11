@@ -1457,7 +1457,37 @@ QString AppController::runMerge(const QString &outDir) {
             jf.write(QJsonDocument(base).toJson(QJsonDocument::Indented));
             jf.close();
             QString err;
-            if (!m_uasset->fromJson(mergedJson, outUasset, &err)) return err;
+            bool written = m_uasset->fromJson(mergedJson, outUasset, &err);
+            const auto retryWithJson = [&] {
+                QFile::remove(outUasset);
+                QFile::remove(outUasset.left(outUasset.size() - 7) + QStringLiteral(".uexp"));
+                QFile retry(mergedJson);
+                if (!retry.open(QIODevice::WriteOnly | QIODevice::Truncate)) return false;
+                retry.write(QJsonDocument(base).toJson(QJsonDocument::Indented));
+                retry.close();
+                err.clear();
+                return m_uasset->fromJson(mergedJson, outUasset, &err);
+            };
+            // UAssetGUI 1.1.1 cannot serialize BoneBlendType's enum wrapper in
+            // some stance tables. Try only this property as its usmap ordinal;
+            // the normal toJson + value comparison below still gates output.
+            if (!written && tableBase == QLatin1String("CharacterStanceTable")
+                && err.contains(QLatin1String("BoneBlendType as ByteProperty"))) {
+                if (MergeEngine::rewriteEnumPropertyAsByte(
+                        base, QStringLiteral("BoneBlendType"),
+                        UsmapService::loadEnums(UAssetService::usmapPath())) > 0)
+                    written = retryWithJson();
+            }
+            // UAssetGUI reports dummy FNames one at a time. Add only the exact
+            // missing name, with a bounded retry, rather than changing types.
+            const QRegularExpression missingName(QStringLiteral("dummy FName '([^']+)'"));
+            for (int attempt = 0; !written && attempt < 16; ++attempt) {
+                const auto match = missingName.match(err);
+                if (!match.hasMatch()
+                    || !MergeEngine::registerMissingFName(base, match.captured(1))) break;
+                written = retryWithJson();
+            }
+            if (!written) return err;
             const QString verifyJson = mergedJson + QStringLiteral(".verify.json");
             if (!m_uasset->toJson(outUasset, verifyJson, &err))
                 return tr("Verificación falló en %1: %2").arg(gamePath, err);
@@ -1477,9 +1507,14 @@ QString AppController::runMerge(const QString &outDir) {
                 return tr("Verificación: no se pudo releer %1").arg(mergedJson);
             const QJsonObject serializedBase =
                 QJsonDocument::fromJson(ef.readAll()).object();
+            const auto enums = UsmapService::loadEnums(UAssetService::usmapPath());
+            QJsonObject expectedCanonical = serializedBase;
+            QJsonObject actualCanonical = verifyRoot;
+            MergeEngine::canonicalizeEnumOrdinals(expectedCanonical, enums);
+            MergeEngine::canonicalizeEnumOrdinals(actualCanonical, enums);
             const QJsonArray expectedRows =
-                dataTableRows(normalizeDataTableDoc(serializedBase));
-            const QJsonArray actualRows = dataTableRows(normalizeDataTableDoc(verifyRoot));
+                dataTableRows(normalizeDataTableDoc(expectedCanonical));
+            const QJsonArray actualRows = dataTableRows(normalizeDataTableDoc(actualCanonical));
             if (!jsonValueEquals(expectedRows, actualRows)) {
                 verifyDiff = firstJsonDifference(expectedRows, actualRows,
                                                  QStringLiteral("DataTable.Data"));
@@ -1492,10 +1527,9 @@ QString AppController::runMerge(const QString &outDir) {
         QString buildErr = tryBuild(res, it.value());
         int omittedComplex = 0;
         if (!buildErr.isEmpty()) {
-            // A table may mix safe scalar changes with arrays/objects from a
-            // Zen/CUE4Parse export. Retry only the scalar leaves: this keeps
-            // the useful part of the patch while preserving the hard
-            // round-trip guard for complex values.
+            // Retry only scalars to determine whether the complex changes are
+            // the cause. The table stays excluded if any complex change was
+            // omitted: a partial high-priority asset would mask the source.
             QList<ChangeItem> scalarItems;
             for (const ChangeItem &candidate : it.value()) {
                 const bool scalar = candidate.type == ChangeItem::Modified
@@ -1508,6 +1542,10 @@ QString AppController::runMerge(const QString &outDir) {
                 buildErr = tryBuild(res, scalarItems);
             }
         }
+        if (buildErr.isEmpty() && (omittedComplex > 0 || res.skipped > 0))
+            buildErr = QStringLiteral("partial table unsafe: %1 selected change(s) "
+                                      "were skipped; source mod must remain active")
+                           .arg(omittedComplex + res.skipped);
         if (!buildErr.isEmpty()) {
             // Una tabla problemática no debe abortar ni invalidar las demás.
             // Se elimina cualquier salida parcial y se deja fuera del contenedor;

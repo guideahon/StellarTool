@@ -21,15 +21,23 @@ public:
     // mod de mayor prioridad si no hay baseline). items: solo los de esta tabla.
     static Result applyToTable(QJsonObject &root, const QList<ChangeItem> &items);
 
-    // UE guarda "Valor_3" como el FName "Valor" con número, y UAssetGUI lo lee
-    // expandido ("Valor_3") pero no sabe volver a escribirlo: el uasset no se
-    // genera y la tabla entera queda fuera del merge. Se detectan por no estar
-    // en el NameMap del asset y se reescriben como ByteProperty numérica (el
-    // índice dentro del enum), forma que sí round-tripea al mismo valor.
+    // Reescribe enums conocidos como ByteProperty numérica (ordinal). Útil
+    // para diagnóstico y pruebas de round-trip; no se aplica globalmente.
     // 'enums' viene de UsmapService::loadEnums; vacío = no se toca nada.
     // Devuelve cuántas propiedades se reescribieron.
     static int rewriteNumberedEnums(QJsonObject &root,
                                     const QHash<QString, QStringList> &enums);
+    // Reintento acotado para un EnumProperty que UAssetGUI exige como byte.
+    // Solo se usa tras el error exacto y siempre se valida con round-trip.
+    static int rewriteEnumPropertyAsByte(QJsonObject &root, const QString &propertyName,
+                                         const QHash<QString, QStringList> &enums);
+    // Canonicaliza enums releídos por UAssetGUI desde ByteProperty a ordinal
+    // para comparar semánticamente con el JSON de entrada.
+    static int canonicalizeEnumOrdinals(QJsonObject &root,
+                                        const QHash<QString, QStringList> &enums);
+    // UAssetGUI puede descubrir un FName nuevo durante fromjson. Registrar
+    // exactamente el nombre denunciado y reintentar, sin alterar los assets.
+    static bool registerMissingFName(QJsonObject &root, const QString &name);
 
     // Completa ArrayType en arrays vacíos a partir del schema del .usmap.
     // UAssetGUI deja ArrayType=null cuando no hay elementos y UAssetAPI no

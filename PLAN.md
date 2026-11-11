@@ -2,7 +2,7 @@
 
 Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termina con criterios de aceptación verificables (ver también CHECKS.md).
 
-**Estado actual (v0.6.9)**: Fases 0-6 completas. Extensiones CNS Converter, CNS ID Fixer, Builder con selección granular, ajustes de mundo y presets compartibles implementadas. Modo headless completo.
+**Estado actual (v0.6.10)**: Fases 0-6 completas. Extensiones CNS Converter, CNS ID Fixer, Builder con selección granular, ajustes de mundo y presets compartibles implementadas. Modo headless completo.
 
 ---
 
