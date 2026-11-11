@@ -112,6 +112,40 @@ QString packageOf(const QString &objectPath) {
     return dot < 0 ? objectPath : objectPath.left(dot);
 }
 
+QString packagePathForImport(const QJsonArray &imports, int objectIndex) {
+    int current = objectIndex;
+    for (int depth = 0; depth <= imports.size(); ++depth) {
+        if (current >= 0) return {};
+        const qint64 importIndex = -static_cast<qint64>(current) - 1;
+        if (importIndex < 0 || importIndex >= imports.size()) return {};
+        const QJsonObject entry = imports.at(static_cast<qsizetype>(importIndex)).toObject();
+        if (entry.value(QStringLiteral("ClassName")).toString() == QLatin1String("Package")
+            && entry.value(QStringLiteral("OuterIndex")).toInt() == 0)
+            return st::CnsConverterService::normalizeAssetPath(
+                entry.value(QStringLiteral("ObjectName")).toString());
+        current = entry.value(QStringLiteral("OuterIndex")).toInt();
+    }
+    return {};
+}
+
+QString postProcessAnimBlueprintPath(const QJsonObject &asset) {
+    const QJsonArray imports = asset.value(QStringLiteral("Imports")).toArray();
+    for (const QJsonValue &exportValue : asset.value(QStringLiteral("Exports")).toArray()) {
+        const QJsonObject exportObject = exportValue.toObject();
+        for (const QJsonValue &propertyValue : exportObject.value(QStringLiteral("Data")).toArray()) {
+            const QJsonObject property = propertyValue.toObject();
+            if (property.value(QStringLiteral("Name")).toString()
+                != QLatin1String("PostProcessAnimBlueprint")) continue;
+            const QJsonValue value = property.value(QStringLiteral("Value"));
+            if (!value.isDouble()) return {};
+            const int objectIndex = value.toInt();
+            if (objectIndex >= 0) return {};
+            return packagePathForImport(imports, objectIndex);
+        }
+    }
+    return {};
+}
+
 // "/Game/A/B/MI_X" -> "/Game/A/B/MI_X.MI_X" (formato que espera el descriptor).
 QString objectRef(const QString &package) {
     return package + QLatin1Char('.') + package.section(QLatin1Char('/'), -1);
@@ -578,7 +612,8 @@ QStringList CnsConverterService::discoverRoots(
 }
 
 QJsonObject CnsConverterService::relocateAssetJson(
-    const QJsonObject &asset, const QMap<QString, QString> &relocations) {
+    const QJsonObject &asset, const QMap<QString, QString> &relocations,
+    const QString &omittedAssetPath) {
     // El orden del NameMap define los índices FName del asset. Preservamos el
     // orden original y sólo agregamos al final; reordenarlo (p. ej. volcando un
     // QSet) reasigna los índices y el juego resuelve nombres equivocados.
@@ -619,6 +654,30 @@ QJsonObject CnsConverterService::relocateAssetJson(
     };
 
     QJsonObject out = asset;
+    const QJsonArray originalImports = asset.value(QStringLiteral("Imports")).toArray();
+    if (!omittedAssetPath.isEmpty()) {
+        QJsonArray exports = out.value(QStringLiteral("Exports")).toArray();
+        for (int i = 0; i < exports.size(); ++i) {
+            QJsonObject exportObject = exports.at(i).toObject();
+            QJsonArray data = exportObject.value(QStringLiteral("Data")).toArray();
+            for (int j = 0; j < data.size(); ++j) {
+                QJsonObject property = data.at(j).toObject();
+                if (property.value(QStringLiteral("Name")).toString()
+                        != QLatin1String("PostProcessAnimBlueprint")
+                    || packagePathForImport(originalImports,
+                                            property.value(QStringLiteral("Value")).toInt())
+                           .compare(omittedAssetPath, Qt::CaseInsensitive) != 0)
+                    continue;
+                // Omitting this serialized property restores the class default
+                // (null) without leaving an unresolved import in the package.
+                data.removeAt(j);
+                --j;
+            }
+            exportObject.insert(QStringLiteral("Data"), data);
+            exports.replace(i, exportObject);
+        }
+        out.insert(QStringLiteral("Exports"), exports);
+    }
     const QString oldFolder = asset.value(QStringLiteral("FolderName")).toString();
     const QString newFolder = relocated(oldFolder);
     out.insert(QStringLiteral("FolderName"), newFolder);
@@ -626,16 +685,16 @@ QJsonObject CnsConverterService::relocateAssetJson(
     for (const auto &v : asset.value(QStringLiteral("Imports")).toArray()) {
         QJsonObject entry = v.toObject();
         const QString oldPackage = entry.value(QStringLiteral("ClassPackage")).toString();
+        const QString oldObject = entry.value(QStringLiteral("ObjectName")).toString();
         const QString newPackage = relocated(oldPackage);
         entry.insert(QStringLiteral("ClassPackage"), newPackage);
         entry.insert(QStringLiteral("ObjectName"),
-                     replaceObjectName(oldPackage, newPackage,
-                         entry.value(QStringLiteral("ObjectName")).toString()));
+                     replaceObjectName(oldPackage, newPackage, oldObject));
         imports.append(entry);
     }
     out.insert(QStringLiteral("Imports"), imports);
     QJsonArray exports;
-    for (const auto &v : asset.value(QStringLiteral("Exports")).toArray()) {
+    for (const auto &v : out.value(QStringLiteral("Exports")).toArray()) {
         QJsonObject entry = v.toObject();
         entry.insert(QStringLiteral("ObjectName"),
                      replaceObjectName(oldFolder, newFolder,
@@ -644,8 +703,12 @@ QJsonObject CnsConverterService::relocateAssetJson(
     }
     out.insert(QStringLiteral("Exports"), exports);
     QJsonArray failed;
-    for (const auto &v : asset.value(QStringLiteral("OtherAssetsFailedToAccess")).toArray())
-        failed.append(relocated(v.toString()));
+    for (const auto &v : asset.value(QStringLiteral("OtherAssetsFailedToAccess")).toArray()) {
+        const QString path = v.toString();
+        if (!omittedAssetPath.isEmpty()
+            && key(normalizeAssetPath(path)) == key(omittedAssetPath)) continue;
+        failed.append(relocated(path));
+    }
     out.insert(QStringLiteral("OtherAssetsFailedToAccess"), failed);
     QJsonArray nameMap;
     for (const QString &name : std::as_const(names)) nameMap.append(name);
@@ -655,7 +718,8 @@ QJsonObject CnsConverterService::relocateAssetJson(
 
 bool CnsConverterService::writeRelocatedAsset(
     const QString &sourceUasset, const QString &targetUasset,
-    const QMap<QString, QString> &relocations, QString *error) const {
+    const QMap<QString, QString> &relocations, QString *error,
+    const QString &omittedAssetPath) const {
     const QString jsonPath = targetUasset + QStringLiteral(".json");
     if (!m_uasset->toJson(sourceUasset, jsonPath, error)) return false;
     QFile in(jsonPath);
@@ -670,7 +734,7 @@ bool CnsConverterService::writeRelocatedAsset(
         if (error) *error = QStringLiteral("JSON UAssetAPI inválido para %1").arg(sourceUasset);
         return false;
     }
-    doc.setObject(relocateAssetJson(doc.object(), relocations));
+    doc.setObject(relocateAssetJson(doc.object(), relocations, omittedAssetPath));
     QSaveFile out(jsonPath);
     if (!out.open(QIODevice::WriteOnly) || out.write(doc.toJson(QJsonDocument::Indented)) < 0
         || !out.commit()) {
@@ -731,6 +795,87 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
     }
     // Una conversión interactiva produce una variante por corrida.
     const QString rootPath = roots.first();
+    QString omittedAnimBlueprintPath;
+    if (request.mode == Mode::ToReplacer && request.omitPostProcessAnimBlueprint) {
+        const QString rootFile = assetFiles.value(key(rootPath));
+        if (rootFile.isEmpty()) {
+            result.error = QStringLiteral("No se encontró el archivo de la malla raíz para quitar su AnimBlueprint.");
+            return result;
+        }
+        const QString inspectJson = QDir(temp.path()).filePath(QStringLiteral("root-inspect.json"));
+        if (!m_uasset->toJson(rootFile, inspectJson, &error)) {
+            result.error = QStringLiteral("No se pudo inspeccionar la malla raíz: %1").arg(error);
+            return result;
+        }
+        QFile inspect(inspectJson);
+        if (!inspect.open(QIODevice::ReadOnly)) {
+            result.error = QStringLiteral("No se pudo leer el JSON temporal de la malla raíz.");
+            return result;
+        }
+        QJsonParseError parse;
+        const QJsonDocument rootDoc = QJsonDocument::fromJson(inspect.readAll(), &parse);
+        if (parse.error != QJsonParseError::NoError || !rootDoc.isObject()) {
+            result.error = QStringLiteral("El JSON temporal de la malla raíz no es válido.");
+            return result;
+        }
+        omittedAnimBlueprintPath = postProcessAnimBlueprintPath(rootDoc.object());
+        if (omittedAnimBlueprintPath.isEmpty()) {
+            result.error = QStringLiteral("La malla raíz no tiene un PostProcessAnimBlueprint que se pueda quitar.");
+            return result;
+        }
+        if (key(omittedAnimBlueprintPath) == key(rootPath)) {
+            result.error = QStringLiteral("El PostProcessAnimBlueprint apunta a la propia malla; se canceló la reparación.");
+            return result;
+        }
+
+        auto containsPath = [&](const QJsonValue &value, const auto &self) -> bool {
+            if (value.isString())
+                return value.toString().contains(omittedAnimBlueprintPath, Qt::CaseInsensitive);
+            if (value.isArray()) {
+                for (const QJsonValue &item : value.toArray())
+                    if (self(item, self)) return true;
+            } else if (value.isObject()) {
+                const QJsonObject object = value.toObject();
+                for (auto it = object.begin(); it != object.end(); ++it)
+                    if (self(it.value(), self)) return true;
+            }
+            return false;
+        };
+        for (auto it = assetFiles.cbegin(); it != assetFiles.cend(); ++it) {
+            if (it.key() == key(rootPath) || it.key() == key(omittedAnimBlueprintPath)) continue;
+            const QString jsonPath = QDir(temp.path()).filePath(
+                QStringLiteral("inspect-%1.json").arg(shortId(it.key())));
+            if (!m_uasset->toJson(it.value(), jsonPath, &error)) {
+                result.error = QStringLiteral("No se pudo comprobar una referencia al AnimBlueprint: %1").arg(error);
+                return result;
+            }
+            QFile otherAsset(jsonPath);
+            if (!otherAsset.open(QIODevice::ReadOnly)) {
+                result.error = QStringLiteral("No se pudo leer el JSON temporal de %1.").arg(it.key());
+                return result;
+            }
+            QJsonParseError otherParse;
+            const QJsonDocument otherDoc = QJsonDocument::fromJson(otherAsset.readAll(), &otherParse);
+            if (otherParse.error != QJsonParseError::NoError || !otherDoc.isObject()) {
+                result.error = QStringLiteral("El JSON temporal de %1 no es válido.").arg(it.key());
+                return result;
+            }
+            if (containsPath(QJsonValue(otherDoc.object()), containsPath)) {
+                result.error = QStringLiteral("Otro asset (%1) también referencia el AnimBlueprint; no se quitó para evitar referencias rotas.")
+                                   .arg(it.key());
+                return result;
+            }
+        }
+        assetFiles.remove(key(omittedAnimBlueprintPath));
+        moddedAssets.erase(std::remove_if(moddedAssets.begin(), moddedAssets.end(),
+                                         [&](const QString &asset) {
+                                             return key(asset) == key(omittedAnimBlueprintPath);
+                                         }),
+                            moddedAssets.end());
+        result.warnings << QStringLiteral(
+            "Se quitó PostProcessAnimBlueprint (%1) de la malla raíz y se omitió ese asset del replacer.")
+                                .arg(omittedAnimBlueprintPath);
+    }
     AssetInfo sourceInfo = cnsInfos.value(key(rootPath), m_rootInfos.value(key(rootPath)));
     if (sourceInfo.path.isEmpty()) sourceInfo.path = rootPath;
     AssetInfo targetInfo;
@@ -847,7 +992,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         const QString targetPath = relocations.value(it.key());
         const QString targetUasset = fileForAsset(targetPath, packageDir);
         emit progress(QStringLiteral("Reubicando assets… %1/%2").arg(++index).arg(assetFiles.size()));
-        if (!writeRelocatedAsset(it.value(), targetUasset, relocations, &error)) {
+        const bool omitRootAnimBlueprint = request.omitPostProcessAnimBlueprint
+            && request.mode == Mode::ToReplacer && key(sourcePath) == key(rootPath);
+        if (!writeRelocatedAsset(it.value(), targetUasset, relocations, &error,
+                                 omitRootAnimBlueprint ? omittedAnimBlueprintPath : QString())) {
             result.error = QStringLiteral("%1\nAsset: %2").arg(error, sourcePath);
             return result;
         }

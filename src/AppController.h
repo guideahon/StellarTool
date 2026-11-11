@@ -191,13 +191,19 @@ public:
     Q_INVOKABLE void convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
                                 const QString &modName, const QString &mode,
                                 const QString &replacementName = {},
-                                const QString &selection = {});
+                                const QString &selection = {},
+                                bool omitPostProcessAnimBlueprint = false);
     // Lote: un mod exportado por entrada. modName sólo aplica si hay una sola
     // entrada; con varias cada mod usa el nombre de su archivo.
     Q_INVOKABLE void convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &outDirUrl,
                                      const QString &modName, const QString &mode,
                                      const QString &replacementName = {},
-                                     const QString &selection = {});
+                                     const QString &selection = {},
+                                     bool omitPostProcessAnimBlueprint = false);
+    bool convertCnsHeadless(const QString &inputPath, const QString &outputDir,
+                            const QString &modName, const QString &mode,
+                            const QString &replacementName, const QString &selection,
+                            bool omitPostProcessAnimBlueprint, QString *report);
     QString lastCnsResult() const { return m_lastCnsResult; }
     Q_INVOKABLE QString cnsHistory() const;
     Q_INVOKABLE void openCnsOutputDir();

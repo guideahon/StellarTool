@@ -45,7 +45,7 @@ StellarTool.exe --headless build --answers "C:\config.json" --out "C:\salida"
 StellarTool.exe --headless build --preset "Mi preset" --out "C:\salida"
 StellarTool.exe --headless presets
 StellarTool.exe --headless cns --mod "C:\outfit.zip" --out "C:\salida" [--name "Outfit"]
-StellarTool.exe --headless replacer --mod "C:\outfit.zip" --out "C:\salida" --replace "Black Pearl" [--select "2"]
+StellarTool.exe --headless replacer --mod "C:\outfit.zip" --out "C:\salida" --replace "Black Pearl" [--select "2"] [--omit-post-process-animblueprint]
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods"
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply --ids-only
@@ -70,6 +70,9 @@ y sliders para parámetros de rugosidad/metalicidad presentes en los materiales.
 `replacer --replace "Fusion Suit"` agrega además las copias de Fusion NoAcc y
 de los materiales de slot que el juego fuerza en el jefe final, si CUE4Parse
 puede leerlos.
+`replacer --omit-post-process-animblueprint` pone en null el campo
+`PostProcessAnimBlueprint` de la malla raíz y omite del paquete el asset al que
+apuntaba. Se cancela si otro asset del mod también lo referencia.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
 paks del juego. CNS ID Fixer aplica el mismo aislamiento a los contenedores
 IoStore activos que comparten `Package_Id`. Intenta las conversiones una por una;

@@ -88,6 +88,8 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
             return fail(QStringLiteral("%1 necesita --mod <entrada> y --out <dir>").arg(command));
         if (command == QLatin1String("replacer") && o.replacement.isEmpty())
             return fail(QStringLiteral("replacer necesita --replace <outfit>"));
+        if (o.omitPostProcessAnimBlueprint && command != QLatin1String("replacer"))
+            return fail(QStringLiteral("--omit-post-process-animblueprint solo se usa con replacer."));
     } else if (command == QLatin1String("build")) {
         if (o.answers.isEmpty() && o.preset.isEmpty())
             return fail(QStringLiteral("build necesita --answers <json|archivo> o --preset <nombre>"));
@@ -160,7 +162,8 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
     if (command == QLatin1String("moveset-catalog")) return runMovesetCatalog(o);
     if (command.startsWith(QLatin1String("patch-"))) return runPatch(command, o);
     if (command == QLatin1String("cns") || command == QLatin1String("replacer"))
-        return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection);
+        return runCns(command, o.mods.value(0), o.outDir, o.name, o.replacement, o.selection,
+                      o.omitPostProcessAnimBlueprint);
     return run(command, o.mods, o.outDir, o.baselineDir, o.preferMod, o.rebuildBaseline);
 }
 
@@ -426,7 +429,8 @@ int HeadlessRunner::run(const QString &command, const QStringList &mods,
 
 int HeadlessRunner::runCns(const QString &command, const QString &input,
                            const QString &outDir, const QString &name,
-                           const QString &replacement, const QString &selection) {
+                           const QString &replacement, const QString &selection,
+                           bool omitPostProcessAnimBlueprint) {
     if (input.isEmpty() || outDir.isEmpty()) {
         out(QStringLiteral("[ERROR] CNS requiere --mod <entrada> y --out <dir>"));
         return 2;
@@ -434,11 +438,12 @@ int HeadlessRunner::runCns(const QString &command, const QString &input,
     out(QStringLiteral("[INFO] Convirtiendo %1 a %2…")
             .arg(input, command == QLatin1String("cns") ? QStringLiteral("CNS")
                                                         : QStringLiteral("replacer")));
-    m_controller->convertCns(QUrl::fromLocalFile(input), QUrl::fromLocalFile(outDir),
-                             name, command, replacement, selection);
-    if (!waitIdle()) return 3;
-    out(m_controller->lastCnsResult());
-    return m_controller->lastCnsResult().contains(QLatin1String("assets convertidos")) ? 0 : 5;
+    QString report;
+    const bool ok = m_controller->convertCnsHeadless(input, outDir, name, command,
+                                                      replacement, selection,
+                                                      omitPostProcessAnimBlueprint, &report);
+    out(report);
+    return ok ? 0 : 5;
 }
 
 QString HeadlessRunner::answersFromValue(const QString &value, QString *error) {

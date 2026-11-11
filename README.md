@@ -24,7 +24,9 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   e incluyen el contenido de Stellar Blade de noviembre de 2026. Al convertir
   hacia el replacer Fusion Suit, también genera las variantes de malla y,
   cuando CUE4Parse puede leer los slots, los materiales que el juego fuerza
-  durante el jefe final.
+  durante el jefe final. El modo headless ofrece `--omit-post-process-animblueprint`
+  para crear una variante de compatibilidad sin el blueprint post-proceso de la
+  malla raíz.
 - **CNS ID Fixer** analiza mods IoStore, muestra rutas para distinguir
   contenedores con nombres repetidos, verifica la integridad y corrige
   `Container_Id` duplicados con backup verificable. Si encuentra un hash

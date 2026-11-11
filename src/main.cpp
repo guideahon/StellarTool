@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless analyze   --mod <ruta>... [--baseline <dir>]\n"
             "  StellarTool --headless merge     --mod <ruta>... --out <dir> [--baseline <dir>] [--prefer <mod>]\n"
             "  StellarTool --headless cns       --mod <ruta> --out <dir> [--name <nombre>]\n"
-            "  StellarTool --headless replacer  --mod <ruta> --out <dir> --replace <outfit> [--select <variante>]\n"
+            "  StellarTool --headless replacer  --mod <ruta> --out <dir> --replace <outfit> [--select <variante>] [--omit-post-process-animblueprint]\n"
             "  StellarTool --headless build     --answers <json|archivo> --out <dir> [--install-paks] [--install-helper]\n"
             "  StellarTool --headless build     --preset <nombre> --out <dir>\n"
             "  StellarTool --headless baseline  [--game <dir>]\n"
@@ -118,6 +118,7 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("name"), QStringLiteral("Nombre visible del outfit convertido"), QStringLiteral("nombre")});
         parser.addOption({QStringLiteral("replace"), QStringLiteral("Nombre del outfit vanilla a reemplazar"), QStringLiteral("outfit")});
         parser.addOption({QStringLiteral("select"), QStringLiteral("Variante CNS por nombre o índice"), QStringLiteral("variante")});
+        parser.addOption({QStringLiteral("omit-post-process-animblueprint"), QStringLiteral("replacer: quitar el PostProcessAnimBlueprint de la malla raíz y omitirlo si no tiene otras referencias")});
         parser.addOption({QStringLiteral("answers"), QStringLiteral("Respuestas del Builder: JSON inline, .json o .stpreset"), QStringLiteral("json|archivo")});
         parser.addOption({QStringLiteral("preset"), QStringLiteral("Nombre de un preset guardado del Builder"), QStringLiteral("nombre")});
         parser.addOption({QStringLiteral("install-paks"), QStringLiteral("Instalar los paks compilados en el juego")});
@@ -150,6 +151,7 @@ int main(int argc, char *argv[]) {
         options.name = parser.value(QStringLiteral("name"));
         options.replacement = parser.value(QStringLiteral("replace"));
         options.selection = parser.value(QStringLiteral("select"));
+        options.omitPostProcessAnimBlueprint = parser.isSet(QStringLiteral("omit-post-process-animblueprint"));
         options.answers = parser.value(QStringLiteral("answers"));
         options.preset = parser.value(QStringLiteral("preset"));
         options.rebuildBaseline = parser.isSet(QStringLiteral("rebuild-baseline"));

@@ -31,6 +31,7 @@ public:
         QString replacementName;
         QString selection; // nombre CNS o índice (1-based); vacío = primera variante
         bool checkSaveData = false;
+        bool omitPostProcessAnimBlueprint = false;
     };
     struct Result {
         bool ok = false;
@@ -58,7 +59,8 @@ public:
 
     // Helpers puros expuestos para pruebas de regresión.
     static QJsonObject relocateAssetJson(const QJsonObject &asset,
-                                         const QMap<QString, QString> &relocations);
+                                         const QMap<QString, QString> &relocations,
+                                         const QString &omittedAssetPath = {});
     static QString normalizeAssetPath(const QString &path);
     static QString shortId(const QString &text);
     static QList<CompatibilityCopy> fusionCompatibilityCopies(
@@ -96,7 +98,8 @@ private:
                               const QMap<QString, AssetInfo> &cnsInfos) const;
     bool writeRelocatedAsset(const QString &sourceUasset, const QString &targetUasset,
                              const QMap<QString, QString> &relocations,
-                             QString *error) const;
+                             QString *error,
+                             const QString &omittedAssetPath = {}) const;
 
     // Un replacer puede reemplazar texturas compartidas que un outfit sigue
     // leyendo desde materiales vanilla. Al convertir, se aíslan materiales y

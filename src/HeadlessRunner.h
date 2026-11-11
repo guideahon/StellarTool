@@ -14,7 +14,7 @@ class AppController;
 //   StellarTool --headless analyze   --mod <ruta>... [--baseline <dir>]
 //   StellarTool --headless merge     --mod <ruta>... --out <dir> [--prefer <mod>]
 //   StellarTool --headless cns       --mod <ruta> --out <dir> [--name <nombre>]
-//   StellarTool --headless replacer  --mod <ruta> --out <dir> --replace <outfit>
+//   StellarTool --headless replacer  --mod <ruta> --out <dir> --replace <outfit> [--omit-post-process-animblueprint]
 //   StellarTool --headless build     --answers <json|archivo> --out <dir>
 //                                    [--install-paks] [--install-helper]
 //   StellarTool --headless baseline  [--game <dir>]
@@ -49,6 +49,7 @@ public:
         QString name;
         QString replacement;
         QString selection;
+        bool omitPostProcessAnimBlueprint = false;
         QString answers;     // JSON inline o ruta a un .json/.stpreset
         QString preset;      // nombre de un preset guardado
         bool rebuildBaseline = false;
@@ -93,7 +94,7 @@ public:
             const QString &preferMod, bool rebuildBaseline = false);
     int runCns(const QString &command, const QString &input, const QString &outDir,
                const QString &name, const QString &replacement,
-               const QString &selection);
+               const QString &selection, bool omitPostProcessAnimBlueprint = false);
     int runBuild(const Options &options);
     int runBaseline(const Options &options);
     int runStatus();

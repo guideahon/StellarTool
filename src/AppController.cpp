@@ -691,14 +691,17 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
 void AppController::convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
                                const QString &modName, const QString &mode,
                                const QString &replacementName,
-                               const QString &selection) {
-    convertCnsBatch({inputUrl}, outDirUrl, modName, mode, replacementName, selection);
+                               const QString &selection,
+                               bool omitPostProcessAnimBlueprint) {
+    convertCnsBatch({inputUrl}, outDirUrl, modName, mode, replacementName, selection,
+                    omitPostProcessAnimBlueprint);
 }
 
 void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &outDirUrl,
                                     const QString &modName, const QString &mode,
                                     const QString &replacementName,
-                                    const QString &selection) {
+                                    const QString &selection,
+                                    bool omitPostProcessAnimBlueprint) {
     if (m_busy || inputUrls.isEmpty()) return;
     const QString outputDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile()
                                                       : outDirUrl.toString();
@@ -715,6 +718,7 @@ void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &ou
         request.mode = convertMode;
         request.replacementName = replacementName;
         request.selection = selection;
+        request.omitPostProcessAnimBlueprint = omitPostProcessAnimBlueprint;
         requests << request;
     }
     setBusy(true, t(QStringLiteral("cns_conversion_start")));
@@ -793,6 +797,36 @@ void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &ou
             emit cnsConversionFinished(allOk, lastZip);
         }, Qt::QueuedConnection);
     });
+}
+
+bool AppController::convertCnsHeadless(const QString &inputPath, const QString &outputDir,
+                                       const QString &modName, const QString &mode,
+                                       const QString &replacementName, const QString &selection,
+                                       bool omitPostProcessAnimBlueprint, QString *report) {
+    if (m_busy) {
+        if (report) *report = QStringLiteral("Ya hay una operación en curso.");
+        return false;
+    }
+    CnsConverterService::Request request;
+    request.inputPath = inputPath;
+    request.outputDir = outputDir;
+    request.modName = modName;
+    request.mode = mode.compare(QStringLiteral("replacer"), Qt::CaseInsensitive) == 0
+        ? CnsConverterService::Mode::ToReplacer : CnsConverterService::Mode::ToCns;
+    request.replacementName = replacementName;
+    request.selection = selection;
+    request.omitPostProcessAnimBlueprint = omitPostProcessAnimBlueprint;
+    const CnsConverterService::Result result = m_cns->convert(request);
+    if (!result.ok) {
+        if (report) *report = result.error;
+        return false;
+    }
+    QStringList lines{QStringLiteral("ZIP listo: %1 (%2 assets)")
+                          .arg(result.zipPath).arg(result.assetsWritten)};
+    for (const QString &warning : result.warnings)
+        lines << QStringLiteral("Advertencia: %1").arg(warning);
+    if (report) *report = lines.join(QLatin1Char('\n'));
+    return true;
 }
 
 QString AppController::cnsHistory() const {
