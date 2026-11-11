@@ -1,6 +1,6 @@
 id = "stellar_tool_gameplay"
 name = "Stellar Tool Gameplay"
-version = "0.1.0"
+version = "0.2.0"
 author = "Stellar Tool"
 description = "Runtime player gameplay settings based on Stellar Tool Builder options."
 dll = "StellarToolGameplay.dll"

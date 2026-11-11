@@ -446,8 +446,9 @@ llevamos puesto nada ajeno.
 CPS local que aporta el mantenedor y genera `stellar_tool_gameplay.cps`; no se
 incluye en el paquete desktop ni en el pipeline de mods estáticos. La primera
 versión agrega una página CPS con sliders y toggles para valores numéricos de
-`CharacterTable / Player` que el Builder ya produce: vida, escudo, regeneración,
-velocidad de ataque, capacidad de barras y pilas de munición/consumibles.
+`CharacterTable / Player` que el Builder ya produce: vida, escudo, reducción de
+daño, regeneración, velocidad de ataque, capacidad de barras, pilas de
+munición/consumibles, curación y poder de pesca.
 
 Las modificaciones ocurren solo en el hilo del juego. Antes de escribir se
 verifican el nombre de la fila, el tipo y el tamaño de cada propiedad. Al
@@ -460,3 +461,6 @@ La primera versión no cubre otras tablas, filas nuevas, assets, `EffectTable`,
 spawns, outfits ni archivos `.pak`. Esos flujos siguen en Stellar Tool desktop y
 en `--headless build`. Compilación, instalación manual y límites están en
 [`docs/CPS_PLUGIN.md`](docs/CPS_PLUGIN.md).
+El plan paso a paso de migración de **Stellar Souls Builder** (no de toda la app
+Stellar Tool) y el handoff para agentes está en
+[`docs/STELLAR_SOULS_CPS_MIGRATION.md`](docs/STELLAR_SOULS_CPS_MIGRATION.md).

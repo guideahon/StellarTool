@@ -58,7 +58,8 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   y se desinstala desde la misma página.
 - **Plugin CPS experimental**: agrega al menú del juego controles para valores
   numéricos del jugador que ya existen en Stellar Souls Builder. Es un proyecto
-  separado que requiere CPS 1.2.0 o posterior. [Instrucciones y límites](docs/CPS_PLUGIN.md).
+  separado que requiere CPS 1.2.0 o posterior. [Manual del plugin](docs/CPS_PLUGIN.md) ·
+  [migración de Stellar Souls Builder y handoff para IA](docs/STELLAR_SOULS_CPS_MIGRATION.md).
 - **ReShade** detecta la configuración del juego, guarda/restaura presets `.ini`,
   permite importar/exportar y renombrar/eliminar presets, y crea un backup de
   `ReShade.ini` antes de cambiar el preset activo. Advierte si faltan shaders

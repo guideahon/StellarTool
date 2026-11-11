@@ -29,11 +29,12 @@ modifica el juego al compilarse.
 
 ## Controles incluidos
 
-- Vida máxima y escudo máximo.
+- Vida máxima, escudo máximo y reducción de daño mientras EVE tiene escudo.
 - Regeneración de escudo fuera y dentro de combate.
 - Velocidad de ataque.
 - Capacidad de las barras Beta, Burst y Tachy.
 - Tamaño de pilas de munición y consumibles.
+- Regeneración pasiva de vida, curación al golpear y poder de pesca.
 
 Cada grupo tiene un toggle y sus valores usan los mismos campos que las opciones
 correspondientes del Builder. Las selecciones y valores quedan en

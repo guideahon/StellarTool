@@ -22,6 +22,7 @@ struct Settings {
     bool base_attributes = false;
     float max_hp = 3000.0f;
     float max_shield = 1000.0f;
+    float shield_damage_reduction = 20.0f;
     bool shield_regen = false;
     float shield_regen_normal = 120.0f;
     float shield_regen_combat = 30.0f;
@@ -35,6 +36,13 @@ struct Settings {
     float ammunition_stack = 999.0f;
     bool consumables = false;
     float consumable_stack = 99.0f;
+    bool passive_hp_regen = false;
+    float passive_hp_regen_value = 20.0f;
+    bool hp_drain = false;
+    float hp_drain_rate_percent = 3.0f;
+    float hp_drain_fixed = 30.0f;
+    bool fishing_power = false;
+    float fishing_power_value = 50.0f;
 };
 
 enum class StatusKind { Waiting, Searching, Ready, Applied, Restored, Ambiguous, Error, SaveError };
@@ -145,6 +153,7 @@ cps::Json encode_settings(const Settings& s) {
                      {"base_attributes", s.base_attributes},
                      {"max_hp", s.max_hp},
                      {"max_shield", s.max_shield},
+                     {"shield_damage_reduction", s.shield_damage_reduction},
                      {"shield_regen", s.shield_regen},
                      {"shield_regen_normal", s.shield_regen_normal},
                      {"shield_regen_combat", s.shield_regen_combat},
@@ -157,7 +166,14 @@ cps::Json encode_settings(const Settings& s) {
                      {"ammunition", s.ammunition},
                      {"ammunition_stack", s.ammunition_stack},
                      {"consumables", s.consumables},
-                     {"consumable_stack", s.consumable_stack}};
+                     {"consumable_stack", s.consumable_stack},
+                     {"passive_hp_regen", s.passive_hp_regen},
+                     {"passive_hp_regen_value", s.passive_hp_regen_value},
+                     {"hp_drain", s.hp_drain},
+                     {"hp_drain_rate_percent", s.hp_drain_rate_percent},
+                     {"hp_drain_fixed", s.hp_drain_fixed},
+                     {"fishing_power", s.fishing_power},
+                     {"fishing_power_value", s.fishing_power_value}};
 }
 
 void load_settings() {
@@ -177,6 +193,7 @@ void load_settings() {
         g_settings.base_attributes = read_bool(json, "base_attributes", false);
         g_settings.max_hp = clamp_float(json, "max_hp", 3000.0f, 500.0f, 10000.0f);
         g_settings.max_shield = clamp_float(json, "max_shield", 1000.0f, 0.0f, 5000.0f);
+        g_settings.shield_damage_reduction = clamp_float(json, "shield_damage_reduction", 20.0f, 0.0f, 80.0f);
         g_settings.shield_regen = read_bool(json, "shield_regen", false);
         g_settings.shield_regen_normal = clamp_float(json, "shield_regen_normal", 120.0f, 0.0f, 300.0f);
         g_settings.shield_regen_combat = clamp_float(json, "shield_regen_combat", 30.0f, 0.0f, 100.0f);
@@ -190,6 +207,13 @@ void load_settings() {
         g_settings.ammunition_stack = clamp_float(json, "ammunition_stack", 999.0f, 1.0f, 9999.0f);
         g_settings.consumables = read_bool(json, "consumables", false);
         g_settings.consumable_stack = clamp_float(json, "consumable_stack", 99.0f, 1.0f, 999.0f);
+        g_settings.passive_hp_regen = read_bool(json, "passive_hp_regen", false);
+        g_settings.passive_hp_regen_value = clamp_float(json, "passive_hp_regen_value", 20.0f, 0.0f, 200.0f);
+        g_settings.hp_drain = read_bool(json, "hp_drain", false);
+        g_settings.hp_drain_rate_percent = clamp_float(json, "hp_drain_rate_percent", 3.0f, 0.0f, 25.0f);
+        g_settings.hp_drain_fixed = clamp_float(json, "hp_drain_fixed", 30.0f, 0.0f, 500.0f);
+        g_settings.fishing_power = read_bool(json, "fishing_power", false);
+        g_settings.fishing_power_value = clamp_float(json, "fishing_power_value", 50.0f, 0.0f, 500.0f);
     } catch (const std::exception& error) {
         log(CPS_LOG_WARNING, std::string("Settings file could not be read; defaults will be used: ") + error.what());
     }
@@ -214,6 +238,7 @@ std::vector<Target> make_targets(const Settings& settings) {
     if (settings.base_attributes) {
         out.push_back({"MaxHP", Number::from_int(static_cast<int32_t>(std::lround(settings.max_hp)))});
         out.push_back({"MaxShield", Number::from_int(static_cast<int32_t>(std::lround(settings.max_shield)))});
+        out.push_back({"DamageReductionPerShieldBock", Number::from_float(settings.shield_damage_reduction / 100.0f)});
     }
     if (settings.shield_regen) {
         out.push_back({"ShieldRegenPerSecond", Number::from_float(settings.shield_regen_normal)});
@@ -236,6 +261,14 @@ std::vector<Target> make_targets(const Settings& settings) {
         for (int i = 1; i <= 7; ++i)
             out.push_back({"StackConsumable" + std::to_string(i), Number::from_int(stack)});
     }
+    if (settings.passive_hp_regen)
+        out.push_back({"HPRegenPerSecond", Number::from_float(settings.passive_hp_regen_value)});
+    if (settings.hp_drain) {
+        out.push_back({"DrainHpByAttackPowerRate", Number::from_float(settings.hp_drain_rate_percent / 100.0f)});
+        out.push_back({"DrainHpFixedValue", Number::from_int(static_cast<int32_t>(std::lround(settings.hp_drain_fixed)))});
+    }
+    if (settings.fishing_power)
+        out.push_back({"FishingAttackPower", Number::from_float(settings.fishing_power_value)});
     return out;
 }
 
@@ -578,13 +611,16 @@ void draw_page(void*, const cps_ui* ui, const cps_rect*) {
     ui->rule();
     ui->heading(tr("page.attributes", "Player attributes"));
     int base = edit.base_attributes ? 1 : 0;
-    if (ui->toggle(tr("page.base_attributes", "Enable custom health and shield"), &base)) {
+    if (ui->toggle(tr("page.base_attributes", "Enable custom health, shield, and damage reduction"), &base)) {
         edit.base_attributes = base != 0;
         changed = true;
     }
     if (ui->slider(tr("page.max_hp", "Maximum health"), &edit.max_hp, 500.0f, 10000.0f, "%.0f"))
         changed = true;
     if (ui->slider(tr("page.max_shield", "Maximum shield"), &edit.max_shield, 0.0f, 5000.0f, "%.0f"))
+        changed = true;
+    if (ui->slider(tr("page.shield_reduction", "Damage reduction while shielded (%)"),
+                   &edit.shield_damage_reduction, 0.0f, 80.0f, "%.0f%%"))
         changed = true;
 
     int regen = edit.shield_regen ? 1 : 0;
@@ -641,6 +677,38 @@ void draw_page(void*, const cps_ui* ui, const cps_rect*) {
                    1.0f, 999.0f, "%.0f"))
         changed = true;
 
+    ui->rule();
+    ui->heading(tr("page.player_extras", "Additional player settings"));
+    int hp_regen = edit.passive_hp_regen ? 1 : 0;
+    if (ui->toggle(tr("page.hp_regen_toggle", "Enable passive health regeneration"), &hp_regen)) {
+        edit.passive_hp_regen = hp_regen != 0;
+        changed = true;
+    }
+    if (ui->slider(tr("page.hp_regen", "Health regenerated per second"), &edit.passive_hp_regen_value,
+                   0.0f, 200.0f, "%.1f"))
+        changed = true;
+
+    int drain = edit.hp_drain ? 1 : 0;
+    if (ui->toggle(tr("page.hp_drain_toggle", "Enable healing on hit"), &drain)) {
+        edit.hp_drain = drain != 0;
+        changed = true;
+    }
+    if (ui->slider(tr("page.hp_drain_rate", "Healing from attack power (%)"),
+                   &edit.hp_drain_rate_percent, 0.0f, 25.0f, "%.1f%%"))
+        changed = true;
+    if (ui->slider(tr("page.hp_drain_fixed", "Healing per hit"), &edit.hp_drain_fixed,
+                   0.0f, 500.0f, "%.0f"))
+        changed = true;
+
+    int fishing = edit.fishing_power ? 1 : 0;
+    if (ui->toggle(tr("page.fishing_toggle", "Enable custom fishing power"), &fishing)) {
+        edit.fishing_power = fishing != 0;
+        changed = true;
+    }
+    if (ui->slider(tr("page.fishing_power", "Fishing attack power"), &edit.fishing_power_value,
+                   0.0f, 500.0f, "%.0f"))
+        changed = true;
+
     if (ui->button(tr("page.disable_all", "Disable all and restore captured values"))) {
         edit.base_attributes = false;
         edit.shield_regen = false;
@@ -648,6 +716,9 @@ void draw_page(void*, const cps_ui* ui, const cps_rect*) {
         edit.gauges = false;
         edit.ammunition = false;
         edit.consumables = false;
+        edit.passive_hp_regen = false;
+        edit.hp_drain = false;
+        edit.fishing_power = false;
         changed = true;
     }
 

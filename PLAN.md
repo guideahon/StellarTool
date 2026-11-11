@@ -75,7 +75,8 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 ### Plugin CPS complementario (MVP; falta validación en juego)
 - Proyecto CMake x64 aislado, compilado con el SDK local de CPS y empaquetado como `.cps`.
 - Menú en juego con controles configurables para vida/escudo, regeneración,
-  velocidad de ataque, capacidad Beta/Burst/Tachy, munición y consumibles.
+  reducción de daño, velocidad de ataque, capacidad Beta/Burst/Tachy,
+  munición, consumibles, regeneración de vida, curación al golpear y pesca.
 - Solo escribe números existentes de `CharacterTable / Player` tras validar la
   fila y el tipo. Restaura valores propios al desactivar o descargar; no pisa un
   valor que otro plugin haya cambiado después.
@@ -83,6 +84,8 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 - Queda pendiente portar otras funciones del Builder que sean seguras en
   runtime. Assets, outfits, creación de filas y cambios de `.pak` siguen siendo
   operaciones desktop/headless.
+- El procedimiento y handoff están en
+  [`docs/STELLAR_SOULS_CPS_MIGRATION.md`](docs/STELLAR_SOULS_CPS_MIGRATION.md).
 
 ### Conversor CNS ✅
 - Conversor nativo C++ replacer → CNS y CNS → replacer.
