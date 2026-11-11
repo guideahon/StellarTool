@@ -187,7 +187,7 @@ public:
     Q_INVOKABLE void importTomlBundle(const QUrl &dirUrl);
     Q_INVOKABLE QStringList unresolvedConflictTitles() const;
     // Conversor nativo de outfits. mode: "cns" o "replacer".
-    Q_INVOKABLE QStringList cnsReplacementNames() const;
+    Q_INVOKABLE QStringList cnsReplacementNames(bool outfitsOnly = false) const;
     Q_INVOKABLE void convertCns(const QUrl &inputUrl, const QUrl &outDirUrl,
                                 const QString &modName, const QString &mode,
                                 const QString &replacementName = {},

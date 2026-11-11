@@ -13,6 +13,7 @@ Item {
     property string inputPath: inputPaths.length > 0 ? inputPaths[0] : ""
     property string outputPath: App.defaultBuildOutDir()
     property bool toReplacer: mode.currentIndex === 1
+    property bool advancedReplacerOptions: false
     property var historyItems: []
 
     function refreshHistory() {
@@ -62,10 +63,23 @@ Item {
                     FieldCombo {
                         id: mode
                         Layout.fillWidth: true
+                        currentIndex: 1
                         model: [I18n.s.cns_to_cns, I18n.s.cns_to_replacer]
+                        onActivated: function(index) {
+                            if (index === 1) {
+                                page.inputPaths = []
+                                page.advancedReplacerOptions = false
+                                selection.clear()
+                            }
+                        }
                     }
 
-                    Label { text: I18n.s.cns_input_mods; color: Theme.text; font.bold: true }
+                    Label {
+                        text: page.toReplacer
+                              ? I18n.s.cns_replacer_input_label : I18n.s.cns_input_mods
+                        color: Theme.text
+                        font.bold: true
+                    }
                     RowLayout {
                         Layout.fillWidth: true
                         TextField {
@@ -73,16 +87,25 @@ Item {
                             text: page.inputPaths.length > 1
                                   ? page.inputPaths.length + " " + I18n.s.selected_mods
                                   : page.inputPath
-                            readOnly: page.inputPaths.length > 1
-                            placeholderText: I18n.s.cns_input_placeholder
+                            readOnly: page.toReplacer || page.inputPaths.length > 1
+                            placeholderText: page.toReplacer
+                                              ? I18n.s.cns_zip_placeholder
+                                              : I18n.s.cns_input_placeholder
                             color: Theme.text
                             onTextEdited: page.inputPaths = text.length > 0 ? [text] : []
                         }
-                        Button { text: I18n.s.files; onClicked: inputFile.open() }
-                        Button { text: I18n.s.folder; onClicked: inputFolder.open() }
+                        Button {
+                            text: page.toReplacer ? I18n.s.cns_choose_zip : I18n.s.files
+                            onClicked: inputFile.open()
+                        }
+                        Button {
+                            visible: !page.toReplacer
+                            text: I18n.s.folder
+                            onClicked: inputFolder.open()
+                        }
                     }
                     Label {
-                        visible: page.inputPaths.length > 1
+                        visible: !page.toReplacer && page.inputPaths.length > 1
                         Layout.fillWidth: true
                         text: page.inputPaths.map(function (p) {
                             return "• " + p.replace(/^.*[\\\/]/, "")
@@ -92,20 +115,20 @@ Item {
                     }
 
                     Label {
-                        visible: page.inputPaths.length <= 1
+                        visible: !page.toReplacer && page.inputPaths.length <= 1
                         text: I18n.s.visible_name
                         color: Theme.text
                         font.bold: true
                     }
                     TextField {
                         id: modName
-                        visible: page.inputPaths.length <= 1
+                        visible: !page.toReplacer && page.inputPaths.length <= 1
                         Layout.fillWidth: true
                         placeholderText: I18n.s.visible_name_placeholder
                         color: Theme.text
                     }
                     Label {
-                        visible: page.inputPaths.length > 1
+                        visible: !page.toReplacer && page.inputPaths.length > 1
                         Layout.fillWidth: true
                         text: I18n.s.multiple_mods_hint
                         color: Theme.textDim
@@ -114,7 +137,9 @@ Item {
 
                     Label {
                         visible: page.toReplacer
-                        text: I18n.s.replacement_outfit
+                        text: page.advancedReplacerOptions
+                              ? I18n.s.cns_replacer_target_label
+                              : I18n.s.replacement_outfit
                         color: Theme.text
                         font.bold: true
                     }
@@ -122,25 +147,50 @@ Item {
                         id: replacement
                         visible: page.toReplacer
                         Layout.fillWidth: true
-                        model: App.cnsReplacementNames()
+                        model: [page.advancedReplacerOptions
+                                    ? I18n.s.cns_select_target_asset
+                                    : I18n.s.cns_select_default_outfit].concat(
+                                   App.cnsReplacementNames(!page.advancedReplacerOptions))
+                    }
+
+                    Button {
+                        visible: page.toReplacer
+                        text: page.advancedReplacerOptions
+                              ? I18n.s.cns_replacer_advanced_hide
+                              : I18n.s.cns_replacer_advanced
+                        flat: true
+                        onClicked: {
+                            page.advancedReplacerOptions = !page.advancedReplacerOptions
+                            replacement.currentIndex = 0
+                        }
                     }
 
                     Label {
-                        visible: page.toReplacer
-                        text: I18n.s.cns_variant
+                        visible: !page.toReplacer
+                                  || page.advancedReplacerOptions
+                        text: page.toReplacer
+                              ? I18n.s.cns_source_outfit_label : I18n.s.cns_variant
                         color: Theme.text
                         font.bold: true
                     }
                     TextField {
                         id: selection
-                        visible: page.toReplacer
+                        visible: !page.toReplacer || page.advancedReplacerOptions
                         Layout.fillWidth: true
-                        placeholderText: I18n.s.cns_variant_placeholder
+                        placeholderText: page.toReplacer
+                                          ? I18n.s.cns_source_outfit_placeholder
+                                          : I18n.s.cns_variant_placeholder
                         color: Theme.text
                     }
 
-                    Label { text: I18n.s.output_folder; color: Theme.text; font.bold: true }
+                    Label {
+                        visible: !page.toReplacer || page.advancedReplacerOptions
+                        text: I18n.s.output_folder
+                        color: Theme.text
+                        font.bold: true
+                    }
                     RowLayout {
+                        visible: !page.toReplacer || page.advancedReplacerOptions
                         Layout.fillWidth: true
                         TextField {
                             Layout.fillWidth: true
@@ -154,22 +204,33 @@ Item {
                             onClicked: App.openCnsOutputDir()
                         }
                     }
+                    Label {
+                        visible: page.toReplacer && !page.advancedReplacerOptions
+                        Layout.fillWidth: true
+                        text: I18n.s.cns_replacer_output_note.arg(page.outputPath)
+                        color: Theme.textDim
+                        wrapMode: Text.Wrap
+                    }
 
                     Button {
                         Layout.alignment: Qt.AlignRight
-                        text: (page.toReplacer ? I18n.s.convert_to_replacer : I18n.s.convert_to_cns)
+                        text: (page.toReplacer ? I18n.s.cns_create_replacer : I18n.s.convert_to_cns)
                               + (page.inputPaths.length > 1
                                  ? " (" + page.inputPaths.length + ")" : "")
                         highlighted: true
-                        enabled: !App.busy && page.inputPaths.length > 0
+                        enabled: !App.busy
+                                 && (page.toReplacer
+                                     ? page.inputPaths.length === 1
+                                       && page.inputPath.toLowerCase().endsWith(".zip")
+                                     : page.inputPaths.length > 0)
                                  && page.outputPath.length > 0
-                                 && (!page.toReplacer || replacement.currentText.length > 0)
+                                 && (!page.toReplacer || replacement.currentIndex > 0)
                         onClicked: App.convertCnsBatch(
                             page.inputPaths.map(function (p) {
                                 return Qt.resolvedUrl("file:///" + p.replace(/\\/g, "/"))
                             }),
                             Qt.resolvedUrl("file:///" + page.outputPath.replace(/\\/g, "/")),
-                            modName.text,
+                            page.toReplacer ? "" : modName.text,
                             page.toReplacer ? "replacer" : "cns",
                             replacement.currentText,
                             selection.text)
@@ -259,12 +320,22 @@ Item {
 
     FileDialog {
         id: inputFile
-        title: I18n.s.choose_mods
-        fileMode: FileDialog.OpenFiles
-        nameFilters: ["Mods (*.zip *.pak *.utoc)", "Todos los archivos (*)"]
-        onAccepted: page.inputPaths = selectedFiles.map(function (f) {
-            return decodeURIComponent(f.toString().replace("file:///", ""))
-        })
+        title: page.toReplacer ? I18n.s.cns_choose_zip : I18n.s.choose_mods
+        fileMode: page.toReplacer ? FileDialog.OpenFile : FileDialog.OpenFiles
+        nameFilters: page.toReplacer
+                     ? [I18n.s.cns_zip_filter, I18n.s.cns_all_files_filter]
+                     : [I18n.s.cns_mods_filter, I18n.s.cns_all_files_filter]
+        onAccepted: {
+            if (page.toReplacer) {
+                page.inputPaths = [decodeURIComponent(selectedFile.toString().replace("file:///", ""))]
+                replacement.currentIndex = 0
+                selection.clear()
+            } else {
+                page.inputPaths = selectedFiles.map(function (f) {
+                    return decodeURIComponent(f.toString().replace("file:///", ""))
+                })
+            }
+        }
     }
     FolderDialog {
         id: inputFolder

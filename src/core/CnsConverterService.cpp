@@ -389,11 +389,15 @@ bool CnsConverterService::loadData(QString *error) const {
     return true;
 }
 
-QStringList CnsConverterService::replacementNames(QString *error) const {
+QStringList CnsConverterService::replacementNames(QString *error,
+                                                   bool outfitsOnly) const {
     if (!loadData(error)) return {};
     QStringList result;
     for (auto it = m_replacerInfos.begin(); it != m_replacerInfos.end(); ++it) {
         const AssetInfo &info = it.value().first();
+        if (outfitsOnly
+            && info.fitMeshType.compare(QLatin1String("Body"), Qt::CaseInsensitive) != 0)
+            continue;
         QString name;
         if (info.characterId.compare(QLatin1String("EVE"), Qt::CaseInsensitive) != 0)
             name += info.characterId + QLatin1Char(' ');

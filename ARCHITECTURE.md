@@ -135,7 +135,7 @@ Páginas (`qml/pages`):
 4. **MergePage** — resumen del plan (N cambios, M conflictos resueltos, pendientes bloquean), destino del pak, log de progreso, resultado con verificación.
 5. **EasyMergePage** — flujo simplificado de merge.
 6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
-7. **CnsConverterPage** — conversor de outfits replacer ↔ CNS.
+7. **CnsConverterPage** — flujo rápido de replacer desde ZIP con selección del outfit vanilla de destino; conserva el conversor avanzado replacer ↔ CNS.
 8. **CnsIdFixerPage** — escaneo de IDs e integridad IoStore; corrige hashes reparables de `ContainerHeader` conservando replacers y genera CNS aislados para outfits compatibles con conflictos `Package_Id`.
 9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
 10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
@@ -161,8 +161,15 @@ Los presets nombrados guardan el mismo objeto de respuestas completo en
 en `%LOCALAPPDATA%\StellarSoulsBuilder\history`. Además se exportan e importan
 como archivo `.stpreset`.
 
-`CnsConverterPage` llama a `CnsConverterService` en un worker. La entrada se
-extrae a una carpeta temporal, los `.uasset` se convierten mediante
+`CnsConverterPage` abre en el flujo rápido de creación de replacers: el usuario
+elige un ZIP y selecciona el outfit vanilla destino desde
+`CnsConverterService::replacementNames()` filtrado a mallas `Body`. Las opciones
+avanzadas exponen los otros tipos de asset y permiten elegir la raíz del outfit
+cuando el ZIP trae varias. La salida usa `defaultBuildOutDir()` y produce
+automáticamente un ZIP listo para Vortex; las opciones avanzadas permiten elegir
+otra carpeta. El modo CNS mantiene la conversión por lotes y la selección de
+entrada general. El servicio corre en un worker: la
+entrada se extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `UAssetService`, y el resultado se empaqueta como IoStore UE4.26 mediante
 `PakService`. `AppController` persiste hasta 100 entradas de historial en
 `QSettings` (`cns/history`).

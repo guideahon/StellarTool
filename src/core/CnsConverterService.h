@@ -52,7 +52,8 @@ public:
                                  Cue4Service *cue4 = nullptr, QObject *parent = nullptr);
 
     Result convert(const Request &request);
-    QStringList replacementNames(QString *error = nullptr) const;
+    QStringList replacementNames(QString *error = nullptr,
+                                 bool outfitsOnly = false) const;
     static QString dataRoot();
 
     // Helpers puros expuestos para pruebas de regresión.

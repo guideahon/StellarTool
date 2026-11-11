@@ -164,9 +164,9 @@ AppController::AppController(Translator *i18n, QObject *parent)
     m_conflictModel.setSource(&m_items, &m_groups);
 }
 
-QStringList AppController::cnsReplacementNames() const {
+QStringList AppController::cnsReplacementNames(bool outfitsOnly) const {
     QString error;
-    const QStringList names = m_cns->replacementNames(&error);
+    const QStringList names = m_cns->replacementNames(&error, outfitsOnly);
     return names;
 }
 
@@ -717,13 +717,13 @@ void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &ou
         request.selection = selection;
         requests << request;
     }
-    setBusy(true, QStringLiteral("Preparando conversión CNS…"));
+    setBusy(true, t(QStringLiteral("cns_conversion_start")));
     std::ignore = QtConcurrent::run([this, requests] {
         QList<CnsConverterService::Result> results;
         for (int i = 0; i < requests.size(); ++i) {
             if (requests.size() > 1)
                 QMetaObject::invokeMethod(this, [this, i, total = requests.size()] {
-                    setBusy(true, QStringLiteral("Convirtiendo mod %1 de %2…")
+                    setBusy(true, t(QStringLiteral("cns_conversion_progress"))
                                       .arg(i + 1).arg(total));
                 }, Qt::QueuedConnection);
             // Un mod que falla no cancela el lote: se reporta al final.
@@ -733,8 +733,8 @@ void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &ou
             int okCount = 0;
             for (const auto &result : results) if (result.ok) ++okCount;
             const bool allOk = okCount == results.size();
-            setBusy(false, allOk ? QStringLiteral("Conversión CNS terminada.")
-                                 : QStringLiteral("Falló la conversión CNS."));
+            setBusy(false, allOk ? t(QStringLiteral("cns_conversion_done"))
+                                 : t(QStringLiteral("cns_conversion_failed")));
 
             QSettings settings;
             QJsonArray history;
@@ -764,21 +764,22 @@ void AppController::convertCnsBatch(const QList<QUrl> &inputUrls, const QUrl &ou
                      QDateTime::currentDateTime().toString(Qt::ISODate)},
                     {QStringLiteral("direction"),
                      requests[i].mode == CnsConverterService::Mode::ToCns
-                         ? QStringLiteral("Replacer → CNS")
-                         : QStringLiteral("CNS → replacer")},
+                         ? t(QStringLiteral("cns_history_to_cns"))
+                         : t(QStringLiteral("cns_history_replacer"))},
                     {QStringLiteral("assets"), result.assetsWritten}
                 });
             }
             m_lastCnsResult = results.size() == 1
                 ? (results.first().ok
-                       ? QStringLiteral("%1 assets convertidos.\nZIP para Vortex: %2%3")
-                             .arg(results.first().assetsWritten).arg(results.first().zipPath,
-                                  results.first().warnings.isEmpty()
-                                      ? QString()
-                                      : QStringLiteral("\n\n⚠ ")
-                                            + results.first().warnings.join(QStringLiteral("\n⚠ ")))
+                       ? t(QStringLiteral("cns_result_zip_success"))
+                             .arg(results.first().assetsWritten)
+                             .arg(results.first().zipPath)
+                             + (results.first().warnings.isEmpty()
+                                    ? QString()
+                                    : QStringLiteral("\n\n⚠ ")
+                                          + results.first().warnings.join(QStringLiteral("\n⚠ ")))
                        : results.first().error)
-                : QStringLiteral("%1 de %2 mods convertidos.\n%3")
+                : t(QStringLiteral("cns_result_batch"))
                       .arg(okCount).arg(results.size()).arg(lines.join(QLatin1Char('\n')));
             if (okCount > 0) {
                 while (history.size() > 100) history.removeLast();
