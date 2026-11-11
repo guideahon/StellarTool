@@ -154,6 +154,7 @@ int ModImporter::importZenTables(const QStringList &utocs, const QString &modWor
         pkg.assets << asset;
         ++n;
     }
+    QDir(jsonDir).removeRecursively();
     return n;
 }
 
@@ -337,12 +338,17 @@ ModPackage ModImporter::import(const QString &sourcePath, const QString &workRoo
     QDir().mkpath(modWorkDir);
 
     QString contentDir;
-    if (!stageSource(sourcePath, modWorkDir, pkg, &contentDir, error))
+    if (!stageSource(sourcePath, modWorkDir, pkg, &contentDir, error)) {
+        QDir(modWorkDir).removeRecursively();
         return {};
+    }
     pkg.extractDir = contentDir;
     scanAssets(pkg);   // agrega assets de archivos extraídos (además de los Zen ya cargados)
+    // El ZIP expandido ya se copió/convirtió a extractDir: no guardarlo dos veces.
+    QDir(modWorkDir + QStringLiteral("/zip")).removeRecursively();
     if (pkg.assets.isEmpty()) {
         if (error) *error = t(QStringLiteral("err_no_assets"));
+        QDir(modWorkDir).removeRecursively();
         return {};
     }
     return pkg;

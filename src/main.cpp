@@ -90,6 +90,7 @@ int main(int argc, char *argv[]) {
             "  StellarTool --headless build     --preset <nombre> --out <dir>\n"
             "  StellarTool --headless baseline  [--game <dir>]\n"
             "  StellarTool --headless status\n"
+            "  StellarTool --headless storage --action <status|set|clean|reset> [--input <carpeta>]\n"
             "  StellarTool --headless detect\n"
             "  StellarTool --headless uninstall [--paks] [--helper]\n"
             "  StellarTool --headless fixids    --mod <~mods> [--apply [--ids-only]]\n"

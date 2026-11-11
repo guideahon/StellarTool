@@ -56,7 +56,7 @@ QStringList HeadlessRunner::knownCommands() {
             QStringLiteral("reshade"), QStringLiteral("live"),
             QStringLiteral("moveset"), QStringLiteral("moveset-catalog"), QStringLiteral("patch-validate"),
             QStringLiteral("patch-preview"), QStringLiteral("patch-apply"),
-            QStringLiteral("patch-export")};
+            QStringLiteral("patch-export"), QStringLiteral("storage")};
 }
 
 bool HeadlessRunner::isKnownCommand(const QString &command) {
@@ -71,6 +71,14 @@ bool HeadlessRunner::validate(const QString &command, const Options &o, QString 
     if (!isKnownCommand(command))
         return fail(QStringLiteral("Comando desconocido: %1 (usar %2)")
                         .arg(command, knownCommands().join(QStringLiteral(" | "))));
+
+    if (command == QLatin1String("storage")) {
+        if (o.action != QLatin1String("status") && o.action != QLatin1String("set")
+            && o.action != QLatin1String("clean") && o.action != QLatin1String("reset"))
+            return fail(QStringLiteral("storage requiere --action <status|set|clean|reset>"));
+        if (o.action == QLatin1String("set") && o.input.isEmpty())
+            return fail(QStringLiteral("storage set requiere --input <carpeta>"));
+    }
 
     if (command == QLatin1String("patch-validate") || command == QLatin1String("patch-preview")
         || command == QLatin1String("patch-apply")) {
@@ -148,6 +156,17 @@ int HeadlessRunner::exec(const QString &command, const Options &o) {
         return 2;
     }
     if (command == QLatin1String("build")) return runBuild(o);
+    if (command == QLatin1String("storage")) {
+        if (o.action == QLatin1String("status")) {
+            out(m_controller->storageRoot());
+            return 0;
+        }
+        if (o.action == QLatin1String("set"))
+            return m_controller->setStorageRoot(QUrl::fromLocalFile(o.input)) ? 0 : 5;
+        if (o.action == QLatin1String("reset"))
+            return m_controller->setStorageRoot(QUrl()) ? 0 : 5;
+        return m_controller->clearStorageCache() ? 0 : 5;
+    }
     if (command == QLatin1String("baseline")) return runBaseline(o);
     if (command == QLatin1String("status")) return runStatus();
     if (command == QLatin1String("detect")) return runDetect();

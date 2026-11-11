@@ -62,6 +62,7 @@ class AppController : public QObject {
     Q_PROPERTY(bool cnsIdFixerOk READ cnsIdFixerOk NOTIFY cnsIdFixerFinished)
     Q_PROPERTY(bool cnsIdFixerIncomplete READ cnsIdFixerIncomplete NOTIFY cnsIdFixerFinished)
     Q_PROPERTY(QString saveConverterResult READ saveConverterResult NOTIFY saveConverterFinished)
+    Q_PROPERTY(QString storageRoot READ storageRoot NOTIFY storageRootChanged)
 public:
     explicit AppController(Translator *i18n, QObject *parent = nullptr);
     ~AppController() override;
@@ -93,6 +94,9 @@ public:
     Q_INVOKABLE void addMod(const QUrl &url);
     Q_INVOKABLE void removeMod(int row);
     Q_INVOKABLE void clearMods();
+    QString storageRoot() const;
+    Q_INVOKABLE bool setStorageRoot(const QUrl &baseUrl);
+    Q_INVOKABLE bool clearStorageCache();
     Q_INVOKABLE void analyze();
     Q_INVOKABLE void resolveConflict(int groupId, const QString &modId);
     Q_INVOKABLE void resolveAllWithMod(const QString &modId);
@@ -239,6 +243,7 @@ signals:
     void cnsHistoryChanged();
     void cnsIdFixerFinished(bool ok);
     void saveConverterFinished(bool ok, const QString &outputPath);
+    void storageRootChanged();
     void errorOccurred(const QString &message);
     void movesetAnalyzingChanged();
     void movesetCatalogChanged();

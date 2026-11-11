@@ -2,6 +2,7 @@
 
 #include "Translator.h"
 #include "core/GamePaths.h"
+#include "core/StoragePaths.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -510,8 +511,7 @@ QString PakService::compatGlobalDir(QString *error) {
         return {};
     }
 
-    const QString cache = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
-                          + QStringLiteral("/cache/zenglobal");
+    const QString cache = StoragePaths::zenCache();
     const QString outDir = cache + QStringLiteral("/global");
     const QString stampPath = cache + QStringLiteral("/source.stamp");
     const QFileInfo si(srcGlobal);

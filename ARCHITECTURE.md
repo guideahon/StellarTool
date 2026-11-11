@@ -2,7 +2,7 @@
 
 Herramienta de escritorio (Windows) para inspeccionar y **mergear mods de Stellar Blade**, con UI en **Qt 6 / QML** (mismo stack y convenciones que LlamaCode: core en C++ bajo `src/core`, UI en `qml/pages` + `qml/components`).
 
-Versión actual: **0.6.3**.
+Versión actual: **0.6.9**.
 
 ---
 
@@ -105,6 +105,7 @@ Claves de diseño:
 | Módulo | Responsabilidad |
 |---|---|
 | `PakService` | wrapper QProcess de repak/retoc: unpack/pack legacy, to-legacy/to-zen de contenedores IoStore, compat-global para revertir mods Zen, extracción de zips. |
+| `StoragePaths` | ruta elegida en Ajustes para `work` y caché Zen, con valor predeterminado en AppLocalDataLocation. No mueve baseline, logs ni salidas finales. |
 | `UAssetService` | wrapper QProcess de UAssetGUI: tojson/fromjson, con detección de versión y reporte de fallos por asset. |
 | `Cue4Service` | wrapper QProcess de cue4parse.exe: lee contenedores Zen/IoStore que retoc no puede revertir, exportando DataTables a JSON. |
 | `BaselineManager` | cache de tablas vanilla en `%LOCALAPPDATA%/StellarTool/baseline/`, extracción bajo demanda desde el juego (CUE4Parse) o importación. Detecta staleness y tablas ausentes. |

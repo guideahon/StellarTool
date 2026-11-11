@@ -19,6 +19,7 @@ class AppController;
 //                                    [--install-paks] [--install-helper]
 //   StellarTool --headless baseline  [--game <dir>]
 //   StellarTool --headless status
+//   StellarTool --headless storage --action <status|set|clean|reset> [--input <carpeta>]
 //   StellarTool --headless detect
 //   StellarTool --headless uninstall [--paks] [--helper]
 //   StellarTool --headless fixids    --mod <~mods> [--apply [--ids-only]]

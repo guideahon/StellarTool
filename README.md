@@ -4,6 +4,15 @@ Herramienta de escritorio (Qt 6/QML, Windows) para analizar y **mergear mods de 
 
 La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), seleccionables desde Settings. La elección queda guardada entre sesiones.
 
+En **Ajustes > Almacenamiento temporal** se puede elegir otra unidad para los
+mods extraídos y la caché Zen. La aplicación comprueba el espacio libre antes
+de importar y mergear, limpia el ZIP expandido después de importar, los JSON y
+la copia de empaquetado tras un merge exitoso,
+y ofrece borrar los archivos temporales bajo confirmación. Cambiar la ubicación
+no mueve archivos anteriores: se pueden borrar de la carpeta vieja tras cerrar
+la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
+`work/merged/content`. La baseline, los logs y los ZIPs finales quedan aparte.
+
 - Carga mods como `.pak`, `.zip` o carpeta.
 - Lista cada cambio de DataTable (fila/propiedad) con checkbox.
 - Detecta conflictos entre mods y permite elegir con qué valor quedarse.

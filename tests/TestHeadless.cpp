@@ -1,12 +1,15 @@
 #include <QtTest>
 
 #include "AppController.h"
+#include "Translator.h"
 #include "HeadlessRunner.h"
 #include "core/MovesetService.h"
+#include "core/StoragePaths.h"
 
 #include <QFile>
 #include <QDir>
 #include <QTemporaryDir>
+#include <QSettings>
 
 // El CLI headless es la unica via para automatizar la app (CI, scripts, usuarios
 // sin ganas de abrir la UI). Estos tests fijan el contrato de la linea de
@@ -30,6 +33,9 @@ private slots:
     void movesetCatalogRecognizesFamiliesAndAggro();
     void movesetCatalogNeedsSourceAndOutput();
     void nexusReportLinkHandlesForVersionNames();
+    void storageRequiresValidActionAndPath();
+    void storageUsesSelectedDrive();
+    void storageCleanupPreservesPersistentData();
 };
 
 namespace {
@@ -58,11 +64,60 @@ void TestHeadless::everyCommandIsListed() {
         QStringLiteral("live"), QStringLiteral("moveset"),
         QStringLiteral("patch-validate"), QStringLiteral("patch-preview"),
         QStringLiteral("patch-apply"), QStringLiteral("patch-export")};
+    QVERIFY(commands.contains(QStringLiteral("storage")));
     for (const QString &name : expected) {
         QVERIFY2(commands.contains(name),
                  qPrintable(QStringLiteral("falta el comando %1").arg(name)));
         QVERIFY(st::HeadlessRunner::isKnownCommand(name));
     }
+}
+
+void TestHeadless::storageRequiresValidActionAndPath() {
+    st::HeadlessRunner::Options o;
+    QVERIFY(!validationError(QStringLiteral("storage"), o).isEmpty());
+    o.action = QStringLiteral("set");
+    QVERIFY(!validationError(QStringLiteral("storage"), o).isEmpty());
+    o.input = QStringLiteral("D:/Scratch");
+    QVERIFY(validationError(QStringLiteral("storage"), o).isEmpty());
+    o.action = QStringLiteral("clean");
+    QVERIFY(validationError(QStringLiteral("storage"), o).isEmpty());
+}
+
+void TestHeadless::storageUsesSelectedDrive() {
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    QSettings settings;
+    const QVariant prior = settings.value(QStringLiteral("storage/workBase"));
+    settings.setValue(QStringLiteral("storage/workBase"), temp.path());
+    QCOMPARE(st::StoragePaths::root(), QDir(temp.path()).filePath(QStringLiteral("StellarToolWork")));
+    QCOMPARE(st::StoragePaths::work(), QDir(st::StoragePaths::root()).filePath(QStringLiteral("work")));
+    QCOMPARE(st::StoragePaths::zenCache(), QDir(st::StoragePaths::root()).filePath(QStringLiteral("cache/zenglobal")));
+    if (prior.isValid()) settings.setValue(QStringLiteral("storage/workBase"), prior);
+    else settings.remove(QStringLiteral("storage/workBase"));
+}
+
+void TestHeadless::storageCleanupPreservesPersistentData() {
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    QSettings settings;
+    const QVariant prior = settings.value(QStringLiteral("storage/workBase"));
+    settings.setValue(QStringLiteral("storage/workBase"), temp.path());
+    const QString root = st::StoragePaths::root();
+    QVERIFY(QDir().mkpath(st::StoragePaths::work()));
+    QVERIFY(QDir().mkpath(st::StoragePaths::zenCache()));
+    QVERIFY(QDir().mkpath(root + QStringLiteral("/baseline")));
+    QFile marker(root + QStringLiteral("/baseline/keep.txt"));
+    QVERIFY(marker.open(QIODevice::WriteOnly));
+    marker.write("keep");
+    marker.close();
+    st::Translator i18n;
+    st::AppController app(&i18n);
+    QVERIFY(app.clearStorageCache());
+    QVERIFY(!QFileInfo::exists(st::StoragePaths::work()));
+    QVERIFY(!QFileInfo::exists(st::StoragePaths::zenCache()));
+    QVERIFY(QFileInfo::exists(marker.fileName()));
+    if (prior.isValid()) settings.setValue(QStringLiteral("storage/workBase"), prior);
+    else settings.remove(QStringLiteral("storage/workBase"));
 }
 
 void TestHeadless::movesetCatalogRecognizesFamiliesAndAggro() {

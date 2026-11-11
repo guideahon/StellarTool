@@ -73,6 +73,44 @@ Item {
 
         Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
 
+        Label {
+            text: I18n.s.storage_title
+            color: Theme.text
+            font.pixelSize: 16
+            font.bold: true
+        }
+        Label {
+            text: I18n.s.storage_desc
+            color: Theme.textDim
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            Label {
+                text: App.storageRoot
+                color: Theme.text
+                elide: Text.ElideMiddle
+                Layout.fillWidth: true
+            }
+            Button {
+                text: I18n.s.storage_choose
+                enabled: !App.busy
+                onClicked: storageDialog.open()
+            }
+            Button {
+                text: I18n.s.storage_reset
+                enabled: !App.busy
+                onClicked: App.setStorageRoot("")
+            }
+        }
+        Button {
+            text: I18n.s.storage_clean
+            enabled: !App.busy
+            onClicked: storageCleanDialog.open()
+        }
+        Rectangle { Layout.fillWidth: true; height: 1; color: Theme.border }
+
         // ---- Mappings (.usmap) override ----
         Label {
             text: I18n.s.settings_mappings
@@ -399,6 +437,26 @@ Item {
     FolderDialog {
         id: gameDialog
         onAccepted: App.setGamePath(selectedFolder)
+    }
+
+    FolderDialog {
+        id: storageDialog
+        onAccepted: App.setStorageRoot(selectedFolder)
+    }
+
+    Dialog {
+        id: storageCleanDialog
+        title: I18n.s.storage_clean
+        modal: true
+        anchors.centerIn: parent
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label {
+            text: I18n.s.storage_clean_confirm
+            color: Theme.text
+            wrapMode: Text.Wrap
+            width: 420
+        }
+        onAccepted: App.clearStorageCache()
     }
 
     FileDialog {

@@ -14,12 +14,14 @@
 #include "core/TableDiffEngine.h"
 #include "core/MergeEngine.h"
 #include "core/TomlPatch.h"
+#include "core/StoragePaths.h"
 #include "Translator.h"
 
 #include <QtConcurrent>
 #include <QProcess>
 #include <QCoreApplication>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QJsonDocument>
@@ -28,6 +30,7 @@
 #include <QDesktopServices>
 #include <QSettings>
 #include <QStandardPaths>
+#include <QStorageInfo>
 #include <QUrl>
 #include <QRegularExpression>
 
@@ -882,8 +885,56 @@ void AppController::setStatus(const QString &s) {
 }
 
 QString AppController::workRoot() const {
-    return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation)
-           + QStringLiteral("/work");
+    return StoragePaths::work();
+}
+
+QString AppController::storageRoot() const { return StoragePaths::root(); }
+
+bool AppController::setStorageRoot(const QUrl &baseUrl) {
+    if (m_busy || !m_mods.isEmpty()) {
+        emit errorOccurred(t(QStringLiteral("storage_change_busy")));
+        return false;
+    }
+    const QString base = baseUrl.isEmpty() ? QString()
+        : (baseUrl.isLocalFile() ? baseUrl.toLocalFile() : baseUrl.toString());
+    if (!base.isEmpty()) {
+        const QFileInfo info(base);
+        if (!info.isAbsolute() || !QDir().mkpath(base)) {
+            emit errorOccurred(t(QStringLiteral("storage_invalid")));
+            return false;
+        }
+        const QString managed = QDir(base).filePath(QStringLiteral("StellarToolWork"));
+        if (!QDir().mkpath(managed)) {
+            emit errorOccurred(t(QStringLiteral("storage_invalid")));
+            return false;
+        }
+        QFile probe(QDir(managed).filePath(QStringLiteral(".write-test")));
+        if (!probe.open(QIODevice::WriteOnly)) {
+            emit errorOccurred(t(QStringLiteral("storage_invalid")));
+            return false;
+        }
+        probe.close();
+        probe.remove();
+    }
+    QSettings().setValue(QStringLiteral("storage/workBase"), base);
+    emit storageRootChanged();
+    return true;
+}
+
+bool AppController::clearStorageCache() {
+    if (m_busy || !m_mods.isEmpty()) {
+        emit errorOccurred(t(QStringLiteral("storage_clean_busy")));
+        return false;
+    }
+    const QString root = QDir::cleanPath(StoragePaths::root());
+    const QString work = QDir::cleanPath(StoragePaths::work());
+    const QString cache = QDir::cleanPath(StoragePaths::zenCache());
+    if (!work.startsWith(root + QLatin1Char('/'), Qt::CaseInsensitive)
+        || !cache.startsWith(root + QLatin1Char('/'), Qt::CaseInsensitive)) return false;
+    const bool ok = (!QFileInfo::exists(work) || QDir(work).removeRecursively())
+        && (!QFileInfo::exists(cache) || QDir(cache).removeRecursively());
+    if (!ok) emit errorOccurred(t(QStringLiteral("storage_clean_failed")));
+    return ok;
 }
 
 void AppController::addMod(const QUrl &url) {
@@ -917,7 +968,27 @@ void AppController::importNextMod() {
     setBusy(true, status);
     std::ignore = QtConcurrent::run([this, path] {
         QString error;
-        ModPackage pkg = m_importer->import(path, workRoot(), &error);
+        ModPackage pkg;
+        QDir().mkpath(StoragePaths::root());
+        const QStorageInfo volume(StoragePaths::root());
+        qint64 sourceBytes = QFileInfo(path).isFile() ? QFileInfo(path).size() : 0;
+        if (QFileInfo(path).isDir()) {
+            QDirIterator files(path, QDir::Files, QDirIterator::Subdirectories);
+            while (files.hasNext()) sourceBytes += QFileInfo(files.next()).size();
+        }
+        // Compressed ZIPs and Zen conversions can expand several times over.
+        qint64 required = qMax<qint64>(2LL * 1024 * 1024 * 1024,
+                                       sourceBytes * 4);
+        if (!QFileInfo::exists(StoragePaths::zenCache() + QStringLiteral("/source.stamp"))) {
+            for (const QString &global : GamePaths::globalContainerFiles())
+                required += QFileInfo(global).size() * 2;
+        }
+        if (volume.isValid() && volume.isReady() && volume.bytesAvailable() < required)
+            error = t(QStringLiteral("storage_insufficient"))
+                        .arg(StoragePaths::root())
+                        .arg((required + 1024LL * 1024 * 1024 - 1) / (1024LL * 1024 * 1024));
+        else
+            pkg = m_importer->import(path, workRoot(), &error);
         QMetaObject::invokeMethod(this, [this, pkg, error] {
             if (pkg.assets.isEmpty()) {
                 emit errorOccurred(error.isEmpty() ? t(QStringLiteral("err_import_failed")) : error);
@@ -1683,7 +1754,9 @@ QString AppController::runMerge(const QString &outDir) {
         }
         if (!m_pak->createZip(zipStage, outDir + QStringLiteral("/zzz_StellarTool_Merged.zip"), &err))
             return tr("El pak se generó pero falló el zip: %1").arg(err);
+        QDir(zipStage).removeRecursively();
     }
+    QDir(jsonDir).removeRecursively();
     return {};
 }
 
@@ -1699,6 +1772,30 @@ void AppController::merge(const QUrl &outDirUrl) {
     const QString outDir = outDirUrl.isLocalFile() ? outDirUrl.toLocalFile() : outDirUrl.toString();
     if (outDir.isEmpty()) {
         emit errorOccurred(t(QStringLiteral("err_choose_out")));
+        return;
+    }
+    QDir().mkpath(StoragePaths::root());
+    QDir().mkpath(outDir);
+    qint64 assetBytes = 0;
+    for (const ModPackage &mod : m_mods)
+        for (const ModAsset &asset : mod.assets)
+            assetBytes += QFileInfo(asset.localPath).size();
+    const qint64 required = qMax<qint64>(1024LL * 1024 * 1024, assetBytes * 2);
+    const QStorageInfo workVolume(StoragePaths::root());
+    const QStorageInfo outputVolume(outDir);
+    const bool sameVolume = workVolume.isValid() && outputVolume.isValid()
+        && workVolume.device() == outputVolume.device();
+    const auto tooSmall = [](const QStorageInfo &volume, qint64 bytes) {
+        return volume.isValid() && volume.isReady() && volume.bytesAvailable() < bytes;
+    };
+    const QString constrained = tooSmall(workVolume, sameVolume ? required * 2 : required)
+        ? StoragePaths::root()
+        : (tooSmall(outputVolume, required) ? outDir : QString());
+    if (!constrained.isEmpty()) {
+        emit errorOccurred(t(QStringLiteral("storage_insufficient"))
+                               .arg(constrained)
+                               .arg((required + 1024LL * 1024 * 1024 - 1)
+                                    / (1024LL * 1024 * 1024)));
         return;
     }
     setBusy(true, t(QStringLiteral("core_merging")));

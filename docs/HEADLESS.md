@@ -25,7 +25,7 @@ Antes de usar un comando:
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera un ZIP instalable. `replacer` requiere que el mod fuente incluya el asset raíz del outfit; si solo incluye texturas/dependencias, se rechaza porque no puede reemplazar la malla. Repara referencias faltantes o `UnknownExport` de PhysicsAsset/ShadowPhysicsAsset desde la malla vanilla actual del destino, elimina imports `UnknownExport` huérfanos y valida el `.uasset` serializado; falla con detalle si queda una referencia sin resolver. `replacer --replace <outfit>` acepta los destinos de outfit vanilla (`Body`) que aparecen en el desplegable rápido; la interfaz avanzada también lista otros tipos de asset. `cns` aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
 | CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. `--apply` repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles que participan en conflictos `Package_Id`. La reconstrucción de cabecera respalda la familia original en `~mods/disabled/`; no cambia el tipo de mod. Exige la carpeta `~mods` activa configurada y verifica la salida. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
-| Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
+| Baseline / Ajustes | `baseline`, `detect`, `status`, `storage` | Construye baseline, detecta juego, consulta instalación y gestiona la carpeta de trabajo temporal. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
 | Partidas | `save-to-json`, `save-from-json`, `fix-save` | Convierte partidas y repara CNS. |
@@ -53,6 +53,10 @@ StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" 
 StellarTool.exe --headless baseline --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless detect
 StellarTool.exe --headless status
+StellarTool.exe --headless storage --action status
+StellarTool.exe --headless storage --action set --input "D:\StellarWork"
+StellarTool.exe --headless storage --action clean
+StellarTool.exe --headless storage --action reset
 StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action list
 StellarTool.exe --headless moveset --mod "D:\Descargas\moveset" --action install --select scarlet-goddess --game "C:\Steam\steamapps\common\StellarBlade"
 StellarTool.exe --headless moveset --action uninstall
