@@ -16,7 +16,9 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   raíz cuando el ZIP incluye varios. El conversor también acepta `.pak`,
   `.utoc` o carpetas en el modo general. Mantiene un historial
   persistente con acceso a la carpeta de salida y borra el directorio intermedio
-  una vez creado el ZIP. Al convertir a CNS, aísla materiales y texturas
+  una vez creado el ZIP. En el modo rápido para replacer, **Abrir carpeta** queda
+  junto a **Crear replacer** y abre la carpeta de salida indicada. Al convertir
+  a CNS, aísla materiales y texturas
   compartidos con el juego y agrega opciones en CNS para elegir entre las
   texturas del outfit y las originales, además de controles de rugosidad y
   metalicidad cuando los materiales los exponen. Sus datos corresponden a

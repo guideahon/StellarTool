@@ -212,28 +212,36 @@ Item {
                         wrapMode: Text.Wrap
                     }
 
-                    Button {
+                    RowLayout {
                         Layout.alignment: Qt.AlignRight
-                        text: (page.toReplacer ? I18n.s.cns_create_replacer : I18n.s.convert_to_cns)
-                              + (page.inputPaths.length > 1
-                                 ? " (" + page.inputPaths.length + ")" : "")
-                        highlighted: true
-                        enabled: !App.busy
-                                 && (page.toReplacer
-                                     ? page.inputPaths.length === 1
-                                       && page.inputPath.toLowerCase().endsWith(".zip")
-                                     : page.inputPaths.length > 0)
-                                 && page.outputPath.length > 0
-                                 && (!page.toReplacer || replacement.currentIndex > 0)
-                        onClicked: App.convertCnsBatch(
-                            page.inputPaths.map(function (p) {
-                                return Qt.resolvedUrl("file:///" + p.replace(/\\/g, "/"))
-                            }),
-                            Qt.resolvedUrl("file:///" + page.outputPath.replace(/\\/g, "/")),
-                            page.toReplacer ? "" : modName.text,
-                            page.toReplacer ? "replacer" : "cns",
-                            replacement.currentText,
-                            selection.text)
+                        spacing: 8
+                        Button {
+                            visible: page.toReplacer && !page.advancedReplacerOptions
+                            text: I18n.s.open_folder
+                            onClicked: App.openDir(page.outputPath)
+                        }
+                        Button {
+                            text: (page.toReplacer ? I18n.s.cns_create_replacer : I18n.s.convert_to_cns)
+                                  + (page.inputPaths.length > 1
+                                     ? " (" + page.inputPaths.length + ")" : "")
+                            highlighted: true
+                            enabled: !App.busy
+                                     && (page.toReplacer
+                                         ? page.inputPaths.length === 1
+                                           && page.inputPath.toLowerCase().endsWith(".zip")
+                                         : page.inputPaths.length > 0)
+                                     && page.outputPath.length > 0
+                                     && (!page.toReplacer || replacement.currentIndex > 0)
+                            onClicked: App.convertCnsBatch(
+                                page.inputPaths.map(function (p) {
+                                    return Qt.resolvedUrl("file:///" + p.replace(/\\/g, "/"))
+                                }),
+                                Qt.resolvedUrl("file:///" + page.outputPath.replace(/\\/g, "/")),
+                                page.toReplacer ? "" : modName.text,
+                                page.toReplacer ? "replacer" : "cns",
+                                replacement.currentText,
+                                selection.text)
+                        }
                     }
                 }
             }
