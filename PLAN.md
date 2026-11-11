@@ -76,7 +76,7 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 - Conversor nativo C++ replacer → CNS y CNS → replacer.
 - Entrada `.zip`, `.pak`, `.utoc` o carpeta; selección de variante CNS y slot vanilla de destino.
 - Reescritura de referencias por JSON UAssetAPI, empaquetado IoStore UE4.26 y descriptor `.dekcns.json`.
-- Replacers reparan `PhysicsAsset`/`ShadowPhysicsAsset` ausentes o `UnknownExport` desde la malla vanilla actual del destino.
+- Replacers conservan el esquema vanilla actual de la malla (exports y propiedades auxiliares, incluidos morph targets), copian solo datos de fuente compatibles y reparan referencias de física. Validan el `.uasset` extraído del IoStore final y rechazan referencias usadas inválidas.
 - Aislamiento de materiales/texturas compartidos al convertir a CNS; el descriptor agrega opciones de textura original y controles de rugosidad/metalicidad cuando están disponibles.
 - Datos sincronizados con CNSRepacker 1.13 / Stellar Blade noviembre de 2026; conversión hacia Fusion Suit agrega la malla NoAcc y, si CUE4Parse puede leer los slots, los materiales que el jefe fuerza por índice.
 - UI (`CnsConverterPage`) con flujo rápido ZIP → replacer, catálogo de outfits

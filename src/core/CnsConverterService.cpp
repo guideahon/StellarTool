@@ -16,6 +16,7 @@
 #include <QJsonDocument>
 #include <QJsonValue>
 #include <QProcessEnvironment>
+#include <QSet>
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -127,6 +128,148 @@ QString packagePathForImport(const QJsonArray &imports, int objectIndex) {
         current = entry.value(QStringLiteral("OuterIndex")).toInt();
     }
     return {};
+}
+
+bool isUnknownImportChain(const QJsonArray &imports, int importIndex) {
+    QSet<int> visited;
+    int current = importIndex;
+    while (current >= 0 && current < imports.size() && !visited.contains(current)) {
+        visited.insert(current);
+        const QJsonObject entry = imports.at(current).toObject();
+        const QString objectName = entry.value(QStringLiteral("ObjectName")).toString();
+        if (objectName.contains(QLatin1String("UnknownExport"), Qt::CaseInsensitive)
+            || objectName.contains(QLatin1String("UnknownPackage"), Qt::CaseInsensitive))
+            return true;
+        const int outer = entry.value(QStringLiteral("OuterIndex")).toInt();
+        if (outer >= 0) break;
+        const qint64 parent = -static_cast<qint64>(outer) - 1;
+        if (parent < 0 || parent >= imports.size()) return true;
+        current = static_cast<int>(parent);
+    }
+    return false;
+}
+
+QString describeImportChain(const QJsonArray &imports, int importIndex) {
+    QStringList parts;
+    QSet<int> visited;
+    int current = importIndex;
+    while (current >= 0 && current < imports.size() && !visited.contains(current)) {
+        visited.insert(current);
+        const QJsonObject entry = imports.at(current).toObject();
+        parts << QStringLiteral("%1[%2]")
+                     .arg(entry.value(QStringLiteral("ObjectName")).toString(),
+                          entry.value(QStringLiteral("ClassName")).toString());
+        const int outer = entry.value(QStringLiteral("OuterIndex")).toInt();
+        if (outer >= 0) break;
+        const qint64 parent = -static_cast<qint64>(outer) - 1;
+        if (parent < 0 || parent >= imports.size()) {
+            parts << QStringLiteral("invalid outer %1").arg(outer);
+            break;
+        }
+        current = static_cast<int>(parent);
+    }
+    return parts.join(QStringLiteral(" -> "));
+}
+
+bool isObjectReferencePropertyType(const QString &type) {
+    return type.contains(QLatin1String("ObjectPropertyData"))
+        || type.contains(QLatin1String("ClassPropertyData"))
+        || type.contains(QLatin1String("InterfacePropertyData"))
+        || type.contains(QLatin1String("AssetClassPropertyData"))
+        || type.contains(QLatin1String("SoftObjectPropertyData"))
+        || type.contains(QLatin1String("SoftClassPropertyData"))
+        || type.contains(QLatin1String("WeakObjectPropertyData"))
+        || type.contains(QLatin1String("LazyObjectPropertyData"));
+}
+
+QStringList invalidPackageIndexReferences(const QJsonObject &asset) {
+    const QJsonArray imports = asset.value(QStringLiteral("Imports")).toArray();
+    const QJsonArray exports = asset.value(QStringLiteral("Exports")).toArray();
+    QStringList errors;
+    auto checkReference = [&](int reference, const QString &where) {
+        if (reference == 0) return;
+        if (reference > 0) {
+            if (reference > exports.size())
+                errors << QStringLiteral("%1 points to missing export %2").arg(where).arg(reference);
+            return;
+        }
+        const qint64 index = -static_cast<qint64>(reference) - 1;
+        if (index < 0 || index >= imports.size()) {
+            errors << QStringLiteral("%1 points to missing import %2").arg(where).arg(reference);
+            return;
+        }
+        if (isUnknownImportChain(imports, static_cast<int>(index)))
+            errors << QStringLiteral("%1 uses unresolved import %2 (%3)")
+                          .arg(where).arg(reference)
+                          .arg(describeImportChain(imports, static_cast<int>(index)));
+    };
+    std::function<void(const QJsonValue &, const QString &)> checkDependsMap =
+        [&](const QJsonValue &value, const QString &where) {
+        if (value.isDouble()) {
+            checkReference(value.toInt(), where);
+        } else if (value.isArray()) {
+            const QJsonArray array = value.toArray();
+            for (int i = 0; i < array.size(); ++i)
+                checkDependsMap(array.at(i), where + QStringLiteral("[%1]").arg(i));
+        } else if (value.isObject()) {
+            const QJsonObject object = value.toObject();
+            for (auto it = object.begin(); it != object.end(); ++it)
+                checkDependsMap(it.value(), where + QLatin1Char('.') + it.key());
+        }
+    };
+    std::function<void(const QJsonValue &, const QString &)> checkProperties =
+        [&](const QJsonValue &value, const QString &where) {
+        if (value.isArray()) {
+            const QJsonArray array = value.toArray();
+            for (int i = 0; i < array.size(); ++i)
+                checkProperties(array.at(i), where + QStringLiteral("[%1]").arg(i));
+            return;
+        }
+        if (!value.isObject()) return;
+        const QJsonObject object = value.toObject();
+        const QString type = object.value(QStringLiteral("$type")).toString();
+        if (isObjectReferencePropertyType(type)
+            && object.value(QStringLiteral("Value")).isDouble())
+            checkReference(object.value(QStringLiteral("Value")).toInt(),
+                           where + QLatin1Char('.')
+                               + object.value(QStringLiteral("Name")).toString());
+        for (auto it = object.begin(); it != object.end(); ++it) {
+            if (it.key() == QLatin1String("Value") && isObjectReferencePropertyType(type))
+                continue;
+            checkProperties(it.value(), where + QLatin1Char('.') + it.key());
+        }
+    };
+
+    // Import tables can contain orphan rows whose outer is UnknownPackage.
+    // Validate the chain only when an export/property/dependency actually uses
+    // that import; an unused row cannot be resolved at load time.
+    const QStringList objectIndexFields{QStringLiteral("ClassIndex"),
+                                        QStringLiteral("SuperIndex"),
+                                        QStringLiteral("TemplateIndex"),
+                                        QStringLiteral("OuterIndex")};
+    const QStringList dependencyFields{QStringLiteral("SerializationBeforeSerializationDependencies"),
+                                       QStringLiteral("CreateBeforeSerializationDependencies"),
+                                       QStringLiteral("SerializationBeforeCreateDependencies"),
+                                       QStringLiteral("CreateBeforeCreateDependencies")};
+    for (int i = 0; i < exports.size(); ++i) {
+        const QJsonObject exportObject = exports.at(i).toObject();
+        for (const QString &field : objectIndexFields)
+            if (exportObject.value(field).isDouble())
+                checkReference(exportObject.value(field).toInt(),
+                               QStringLiteral("Export[%1].%2").arg(i).arg(field));
+        for (const QString &field : dependencyFields) {
+            const QJsonArray dependencies = exportObject.value(field).toArray();
+            for (int j = 0; j < dependencies.size(); ++j)
+                if (dependencies.at(j).isDouble())
+                    checkReference(dependencies.at(j).toInt(),
+                                   QStringLiteral("Export[%1].%2[%3]").arg(i).arg(field).arg(j));
+        }
+        checkProperties(exportObject.value(QStringLiteral("Data")),
+                        QStringLiteral("Export[%1].Data").arg(i));
+    }
+    checkDependsMap(asset.value(QStringLiteral("DependsMap")), QStringLiteral("DependsMap"));
+    errors.removeDuplicates();
+    return errors;
 }
 
 QString postProcessAnimBlueprintPath(const QJsonObject &asset) {
@@ -934,6 +1077,557 @@ QJsonObject CnsConverterService::repairReplacerPhysicsReferences(
     return out;
 }
 
+QJsonObject CnsConverterService::adaptReplacerMeshToVanillaSchema(
+    const QJsonObject &asset, const QJsonObject &vanillaAsset, const QString &rootPath,
+    bool omitPostProcessAnimBlueprint, QString *error) {
+    if (error) error->clear();
+    const QString rootName = normalizeAssetPath(rootPath).section(QLatin1Char('/'), -1);
+    QJsonArray sourceExports = asset.value(QStringLiteral("Exports")).toArray();
+    QJsonArray targetExports = vanillaAsset.value(QStringLiteral("Exports")).toArray();
+    QJsonArray sourceImports = asset.value(QStringLiteral("Imports")).toArray();
+    QJsonArray targetImports = vanillaAsset.value(QStringLiteral("Imports")).toArray();
+
+    auto findRootExport = [&rootName](const QJsonArray &exports) {
+        for (int i = 0; i < exports.size(); ++i) {
+            if (exports.at(i).toObject().value(QStringLiteral("ObjectName")).toString()
+                    .compare(rootName, Qt::CaseInsensitive) == 0)
+                return i;
+        }
+        return -1;
+    };
+    const int sourceRootIndex = findRootExport(sourceExports);
+    const int targetRootIndex = findRootExport(targetExports);
+    if (sourceRootIndex < 0 || targetRootIndex < 0) {
+        if (error) *error = QStringLiteral("root skeletal mesh export missing from source or current vanilla asset");
+        return {};
+    }
+
+    QJsonObject sourceRoot = sourceExports.at(sourceRootIndex).toObject();
+    QJsonObject targetRoot = targetExports.at(targetRootIndex).toObject();
+    QJsonArray sourceData = sourceRoot.value(QStringLiteral("Data")).toArray();
+    QJsonArray targetData = targetRoot.value(QStringLiteral("Data")).toArray();
+
+    QSet<QString> knownNames;
+    QJsonArray nameMap = vanillaAsset.value(QStringLiteral("NameMap")).toArray();
+    for (const QJsonValue &name : nameMap) knownNames.insert(name.toString());
+    auto addName = [&](const QString &name) {
+        if (name.isEmpty() || knownNames.contains(name)) return;
+        knownNames.insert(name);
+        nameMap.append(name);
+    };
+    for (const QJsonValue &name : asset.value(QStringLiteral("NameMap")).toArray())
+        addName(name.toString());
+
+    auto mapExportReference = [&](int sourceIndex) {
+        if (sourceIndex <= 0 || sourceIndex > sourceExports.size()) return -1;
+        const QString objectName = sourceExports.at(sourceIndex - 1).toObject()
+                                       .value(QStringLiteral("ObjectName")).toString();
+        for (int i = 0; i < targetExports.size(); ++i) {
+            if (targetExports.at(i).toObject().value(QStringLiteral("ObjectName")).toString()
+                    .compare(objectName, Qt::CaseInsensitive) == 0)
+                return i + 1;
+        }
+        return -1;
+    };
+
+    QMap<int, int> sourceToTargetImports;
+    QSet<int> importsInProgress;
+    bool referencesValid = true;
+    QString invalidReference;
+    std::function<int(int)> cloneSourceImport = [&](int sourceIndex) -> int {
+        if (sourceIndex < 0 || sourceIndex >= sourceImports.size()
+            || importsInProgress.contains(sourceIndex)) {
+            referencesValid = false;
+            invalidReference = QStringLiteral("source import index is out of range or cyclic");
+            return -1;
+        }
+        if (sourceToTargetImports.contains(sourceIndex))
+            return sourceToTargetImports.value(sourceIndex);
+
+        importsInProgress.insert(sourceIndex);
+        QJsonObject entry = sourceImports.at(sourceIndex).toObject();
+        const int sourceOuter = entry.value(QStringLiteral("OuterIndex")).toInt();
+        int targetOuter = sourceOuter;
+        if (sourceOuter < 0) {
+            const int mappedOuter = cloneSourceImport(-sourceOuter - 1);
+            if (mappedOuter < 0) {
+                importsInProgress.remove(sourceIndex);
+                return -1;
+            }
+            targetOuter = -(mappedOuter + 1);
+        } else if (sourceOuter > 0) {
+            targetOuter = mapExportReference(sourceOuter);
+            if (targetOuter < 0) {
+                referencesValid = false;
+                invalidReference = QStringLiteral("source import outer export has no matching vanilla export");
+                importsInProgress.remove(sourceIndex);
+                return -1;
+            }
+        }
+        entry.insert(QStringLiteral("OuterIndex"), targetOuter);
+
+        for (int i = 0; i < targetImports.size(); ++i) {
+            const QJsonObject candidate = targetImports.at(i).toObject();
+            if (candidate.value(QStringLiteral("ClassPackage")).toString().compare(
+                    entry.value(QStringLiteral("ClassPackage")).toString(), Qt::CaseInsensitive) == 0
+                && candidate.value(QStringLiteral("ClassName")).toString().compare(
+                    entry.value(QStringLiteral("ClassName")).toString(), Qt::CaseInsensitive) == 0
+                && candidate.value(QStringLiteral("ObjectName")).toString().compare(
+                    entry.value(QStringLiteral("ObjectName")).toString(), Qt::CaseInsensitive) == 0
+                && candidate.value(QStringLiteral("OuterIndex")).toInt() == targetOuter) {
+                sourceToTargetImports.insert(sourceIndex, i);
+                importsInProgress.remove(sourceIndex);
+                return i;
+            }
+        }
+
+        const int targetIndex = targetImports.size();
+        targetImports.append(entry);
+        sourceToTargetImports.insert(sourceIndex, targetIndex);
+        importsInProgress.remove(sourceIndex);
+        for (const QString &field : {QStringLiteral("ObjectName"),
+                                     QStringLiteral("ClassPackage"),
+                                     QStringLiteral("ClassName"),
+                                     QStringLiteral("PackageName")})
+            addName(entry.value(field).toString());
+        return targetIndex;
+    };
+
+    QSet<int> dependencies;
+    auto mapReference = [&](const QJsonValue &reference) -> QJsonValue {
+        if (!reference.isDouble()) {
+            referencesValid = false;
+            invalidReference = QStringLiteral("object property reference is not numeric");
+            return reference;
+        }
+        const int sourceRef = reference.toInt();
+        if (sourceRef == 0) return 0;
+        if (sourceRef > 0) {
+            const int targetRef = mapExportReference(sourceRef);
+            if (targetRef < 0) {
+                referencesValid = false;
+                invalidReference = QStringLiteral("source export reference has no matching vanilla export");
+                return reference;
+            }
+            dependencies.insert(targetRef);
+            return targetRef;
+        }
+        const int targetImport = cloneSourceImport(-sourceRef - 1);
+        if (targetImport < 0) return reference;
+        const int targetRef = -(targetImport + 1);
+        dependencies.insert(targetRef);
+        return targetRef;
+    };
+
+    std::function<QJsonValue(const QJsonValue &)> remapPropertyReferences =
+        [&](const QJsonValue &value) -> QJsonValue {
+        if (value.isArray()) {
+            QJsonArray out;
+            for (const QJsonValue &item : value.toArray())
+                out.append(remapPropertyReferences(item));
+            return out;
+        }
+        if (!value.isObject()) return value;
+        QJsonObject out = value.toObject();
+        const QString type = out.value(QStringLiteral("$type")).toString();
+        if (isObjectReferencePropertyType(type)
+            && out.value(QStringLiteral("Value")).isDouble())
+            out.insert(QStringLiteral("Value"), mapReference(out.value(QStringLiteral("Value"))));
+        for (auto it = out.begin(); it != out.end(); ++it) {
+            if (it.key() == QLatin1String("Value") && isObjectReferencePropertyType(type))
+                continue;
+            it.value() = remapPropertyReferences(it.value());
+        }
+        return out;
+    };
+
+    auto propertyIndex = [](const QJsonArray &properties, const QString &name) {
+        for (int i = 0; i < properties.size(); ++i) {
+            if (properties.at(i).toObject().value(QStringLiteral("Name")).toString()
+                    .compare(name, Qt::CaseInsensitive) == 0)
+                return i;
+        }
+        return -1;
+    };
+    std::function<QJsonValue(const QJsonValue &, const QJsonValue &)> mergeProperty;
+    std::function<QJsonArray(const QJsonArray &, const QJsonArray &)> mergeStructFields;
+    mergeStructFields = [&](const QJsonArray &sourceFields,
+                            const QJsonArray &targetFields) {
+        QJsonArray merged;
+        for (const QJsonValue &targetField : targetFields) {
+            const QString name = targetField.toObject().value(QStringLiteral("Name")).toString();
+            const int sourceIndex = propertyIndex(sourceFields, name);
+            merged.append(sourceIndex < 0
+                              ? targetField
+                              : mergeProperty(sourceFields.at(sourceIndex), targetField));
+        }
+        return merged;
+    };
+    mergeProperty = [&](const QJsonValue &sourceValue,
+                        const QJsonValue &targetValue) -> QJsonValue {
+        if (!sourceValue.isObject() || !targetValue.isObject()) return targetValue;
+        const QJsonObject sourceProperty = sourceValue.toObject();
+        QJsonObject targetProperty = targetValue.toObject();
+        const QString sourceType = sourceProperty.value(QStringLiteral("$type")).toString();
+        const QString targetType = targetProperty.value(QStringLiteral("$type")).toString();
+        if (sourceType != targetType) return targetProperty;
+
+        const QJsonValue sourcePropertyValue = sourceProperty.value(QStringLiteral("Value"));
+        const QJsonValue targetPropertyValue = targetProperty.value(QStringLiteral("Value"));
+        if (isObjectReferencePropertyType(targetType)) {
+            if (sourcePropertyValue.isDouble())
+                targetProperty.insert(QStringLiteral("Value"),
+                                      mapReference(sourcePropertyValue));
+            return targetProperty;
+        }
+        if (targetType.contains(QLatin1String("StructPropertyData"))
+            && sourcePropertyValue.isArray() && targetPropertyValue.isArray()) {
+            targetProperty.insert(QStringLiteral("Value"),
+                                  mergeStructFields(sourcePropertyValue.toArray(),
+                                                    targetPropertyValue.toArray()));
+            return targetProperty;
+        }
+        if (targetType.contains(QLatin1String("ArrayPropertyData"))
+            && sourcePropertyValue.isArray() && targetPropertyValue.isArray()) {
+            const QJsonArray sourceItems = sourcePropertyValue.toArray();
+            const QJsonArray targetItems = targetPropertyValue.toArray();
+            QJsonArray merged;
+            for (int i = 0; i < sourceItems.size(); ++i) {
+                if (i < targetItems.size())
+                    merged.append(mergeProperty(sourceItems.at(i), targetItems.at(i)));
+                else
+                    merged.append(remapPropertyReferences(sourceItems.at(i)));
+            }
+            targetProperty.insert(QStringLiteral("Value"), merged);
+            return targetProperty;
+        }
+        if (targetType.contains(QLatin1String("EnumPropertyData"))) {
+            const QString sourceEnum = sourcePropertyValue.toString().section(QLatin1String("::"), -1);
+            const QString targetEnum = targetPropertyValue.toString().section(QLatin1String("::"), -1);
+            if (sourceEnum.compare(targetEnum, Qt::CaseInsensitive) == 0)
+                targetProperty.insert(QStringLiteral("Value"), targetPropertyValue);
+            return targetProperty;
+        }
+        targetProperty.insert(QStringLiteral("Value"),
+                              remapPropertyReferences(sourcePropertyValue));
+        return targetProperty;
+    };
+
+    const QSet<QString> engineOwnedProperties{
+        QStringLiteral("skeleton"), QStringLiteral("physicsasset"),
+        QStringLiteral("shadowphysicsasset"), QStringLiteral("morphtargets")};
+    for (const QJsonValue &sourcePropertyValue : sourceData) {
+        const QJsonObject sourceProperty = sourcePropertyValue.toObject();
+        const QString name = sourceProperty.value(QStringLiteral("Name")).toString();
+        const QString normalizedName = key(name);
+        if (normalizedName == QLatin1String("postprocessanimblueprint")) {
+            const int targetIndex = propertyIndex(targetData, name);
+            if (omitPostProcessAnimBlueprint) {
+                if (targetIndex >= 0) targetData.removeAt(targetIndex);
+            } else if (targetIndex >= 0) {
+                targetData.replace(targetIndex,
+                                   mergeProperty(sourcePropertyValue,
+                                                 targetData.at(targetIndex)));
+            }
+            continue;
+        }
+        if (engineOwnedProperties.contains(normalizedName)) continue;
+        const int targetIndex = propertyIndex(targetData, name);
+        if (targetIndex < 0) continue; // old-only fields are not in the game's current schema
+        targetData.replace(targetIndex,
+                           mergeProperty(sourcePropertyValue, targetData.at(targetIndex)));
+    }
+    if (omitPostProcessAnimBlueprint) {
+        const int index = propertyIndex(targetData, QStringLiteral("PostProcessAnimBlueprint"));
+        if (index >= 0) targetData.removeAt(index);
+    }
+
+    if (!referencesValid) {
+        if (error) *error = invalidReference;
+        return {};
+    }
+    targetRoot.insert(QStringLiteral("Data"), targetData);
+    if (sourceRoot.value(QStringLiteral("Extras")).isString())
+        targetRoot.insert(QStringLiteral("Extras"), sourceRoot.value(QStringLiteral("Extras")));
+    targetExports.replace(targetRootIndex, targetRoot);
+    QJsonArray targetDependencies = targetRoot.value(
+        QStringLiteral("SerializationBeforeCreateDependencies")).toArray();
+    for (int dependency : dependencies)
+        if (!targetDependencies.contains(dependency)) targetDependencies.append(dependency);
+    targetRoot.insert(QStringLiteral("SerializationBeforeCreateDependencies"), targetDependencies);
+    targetExports.replace(targetRootIndex, targetRoot);
+
+    QJsonObject out = vanillaAsset;
+    out.insert(QStringLiteral("NameMap"), nameMap);
+    out.insert(QStringLiteral("Imports"), targetImports);
+    out.insert(QStringLiteral("Exports"), targetExports);
+    return out;
+}
+
+QJsonObject CnsConverterService::pruneUnusedUnknownImports(const QJsonObject &asset,
+                                                            int *removedCount) {
+    if (removedCount) *removedCount = 0;
+    const QJsonArray imports = asset.value(QStringLiteral("Imports")).toArray();
+    const QJsonArray exports = asset.value(QStringLiteral("Exports")).toArray();
+    if (imports.isEmpty()) return asset;
+
+    QSet<int> retained;
+    for (int i = 0; i < imports.size(); ++i) {
+        if (!isUnknownImportChain(imports, i)) retained.insert(i);
+    }
+
+    bool referencesValid = true;
+    auto retainReference = [&](const QJsonValue &value) {
+        if (!value.isDouble()) return;
+        const int objectIndex = value.toInt();
+        if (objectIndex >= 0) return;
+        const qint64 importIndex = -static_cast<qint64>(objectIndex) - 1;
+        if (importIndex < 0 || importIndex >= imports.size()) {
+            referencesValid = false;
+            return;
+        }
+        retained.insert(static_cast<int>(importIndex));
+    };
+    std::function<void(const QJsonValue &)> retainDependsMap =
+        [&](const QJsonValue &value) {
+            if (value.isDouble()) {
+                retainReference(value);
+            } else if (value.isArray()) {
+                for (const QJsonValue &item : value.toArray()) retainDependsMap(item);
+            } else if (value.isObject()) {
+                const QJsonObject object = value.toObject();
+                for (auto it = object.begin(); it != object.end(); ++it)
+                    retainDependsMap(it.value());
+            }
+        };
+    std::function<void(const QJsonValue &)> retainPropertyReferences =
+        [&](const QJsonValue &value) {
+            if (value.isArray()) {
+                for (const QJsonValue &item : value.toArray())
+                    retainPropertyReferences(item);
+                return;
+            }
+            if (!value.isObject()) return;
+            const QJsonObject object = value.toObject();
+            const QString type = object.value(QStringLiteral("$type")).toString();
+            if (type.contains(QLatin1String("ObjectPropertyData"))
+                || type.contains(QLatin1String("ClassPropertyData"))
+                || type.contains(QLatin1String("InterfacePropertyData"))
+                || type.contains(QLatin1String("AssetClassPropertyData")))
+                retainReference(object.value(QStringLiteral("Value")));
+            for (auto it = object.begin(); it != object.end(); ++it)
+                retainPropertyReferences(it.value());
+        };
+
+    const QStringList objectIndexFields{
+        QStringLiteral("ClassIndex"), QStringLiteral("SuperIndex"),
+        QStringLiteral("TemplateIndex"), QStringLiteral("OuterIndex")};
+    const QStringList dependencyFields{
+        QStringLiteral("SerializationBeforeSerializationDependencies"),
+        QStringLiteral("CreateBeforeSerializationDependencies"),
+        QStringLiteral("SerializationBeforeCreateDependencies"),
+        QStringLiteral("CreateBeforeCreateDependencies")};
+    for (const QJsonValue &exportValue : exports) {
+        const QJsonObject exportObject = exportValue.toObject();
+        for (const QString &field : objectIndexFields)
+            retainReference(exportObject.value(field));
+        for (const QString &field : dependencyFields) {
+            for (const QJsonValue &dependency : exportObject.value(field).toArray())
+                retainReference(dependency);
+        }
+        retainPropertyReferences(exportObject.value(QStringLiteral("Data")));
+    }
+    retainDependsMap(asset.value(QStringLiteral("DependsMap")));
+    if (!referencesValid) return asset;
+
+    // Every retained import also needs its full outer chain.
+    QList<int> pending = retained.values();
+    for (qsizetype cursor = 0; cursor < pending.size(); ++cursor) {
+        const int importIndex = pending.at(cursor);
+        const int outer = imports.at(importIndex).toObject()
+                              .value(QStringLiteral("OuterIndex")).toInt();
+        if (outer >= 0) continue;
+        const qint64 parent = -static_cast<qint64>(outer) - 1;
+        if (parent < 0 || parent >= imports.size()) return asset;
+        const int parentIndex = static_cast<int>(parent);
+        if (!retained.contains(parentIndex)) {
+            retained.insert(parentIndex);
+            pending.append(parentIndex);
+        }
+    }
+
+    const int removed = imports.size() - retained.size();
+    if (removed <= 0) return asset;
+
+    QMap<int, int> remap;
+    for (int i = 0; i < imports.size(); ++i) {
+        if (retained.contains(i)) remap.insert(i, remap.size());
+    }
+    bool remapValid = true;
+    auto remapReference = [&](int objectIndex) {
+        if (objectIndex >= 0) return objectIndex;
+        const qint64 oldImport = -static_cast<qint64>(objectIndex) - 1;
+        if (!remap.contains(static_cast<int>(oldImport))) {
+            remapValid = false;
+            return objectIndex;
+        }
+        return -(remap.value(static_cast<int>(oldImport)) + 1);
+    };
+    std::function<QJsonValue(const QJsonValue &)> remapDependsMap =
+        [&](const QJsonValue &value) -> QJsonValue {
+            if (value.isDouble()) return remapReference(value.toInt());
+            if (value.isArray()) {
+                QJsonArray array;
+                for (const QJsonValue &item : value.toArray())
+                    array.append(remapDependsMap(item));
+                return array;
+            }
+            if (value.isObject()) {
+                QJsonObject object = value.toObject();
+                for (auto it = object.begin(); it != object.end(); ++it)
+                    it.value() = remapDependsMap(it.value());
+                return object;
+            }
+            return value;
+        };
+    std::function<QJsonValue(const QJsonValue &)> remapPropertyReferences =
+        [&](const QJsonValue &value) -> QJsonValue {
+            if (value.isArray()) {
+                QJsonArray array;
+                for (const QJsonValue &item : value.toArray())
+                    array.append(remapPropertyReferences(item));
+                return array;
+            }
+            if (!value.isObject()) return value;
+            QJsonObject object = value.toObject();
+            const QString type = object.value(QStringLiteral("$type")).toString();
+            if (type.contains(QLatin1String("ObjectPropertyData"))
+                || type.contains(QLatin1String("ClassPropertyData"))
+                || type.contains(QLatin1String("InterfacePropertyData"))
+                || type.contains(QLatin1String("AssetClassPropertyData"))) {
+                const QJsonValue reference = object.value(QStringLiteral("Value"));
+                if (reference.isDouble())
+                    object.insert(QStringLiteral("Value"), remapReference(reference.toInt()));
+            }
+            for (auto it = object.begin(); it != object.end(); ++it)
+                it.value() = remapPropertyReferences(it.value());
+            return object;
+        };
+
+    QJsonArray nextImports;
+    for (int i = 0; i < imports.size(); ++i) {
+        if (!retained.contains(i)) continue;
+        QJsonObject entry = imports.at(i).toObject();
+        const int outer = entry.value(QStringLiteral("OuterIndex")).toInt();
+        if (outer < 0) entry.insert(QStringLiteral("OuterIndex"), remapReference(outer));
+        nextImports.append(entry);
+    }
+
+    QJsonArray nextExports;
+    for (const QJsonValue &exportValue : exports) {
+        QJsonObject exportObject = exportValue.toObject();
+        for (const QString &field : objectIndexFields) {
+            const QJsonValue reference = exportObject.value(field);
+            if (reference.isDouble())
+                exportObject.insert(field, remapReference(reference.toInt()));
+        }
+        for (const QString &field : dependencyFields) {
+            const QJsonArray dependencies = exportObject.value(field).toArray();
+            QJsonArray remappedDependencies;
+            for (const QJsonValue &dependency : dependencies)
+                remappedDependencies.append(dependency.isDouble()
+                                               ? QJsonValue(remapReference(dependency.toInt()))
+                                               : dependency);
+            exportObject.insert(field, remappedDependencies);
+        }
+        exportObject.insert(QStringLiteral("Data"),
+                            remapPropertyReferences(exportObject.value(QStringLiteral("Data"))));
+        nextExports.append(exportObject);
+    }
+
+    if (!remapValid) return asset;
+    QJsonObject out = asset;
+    out.insert(QStringLiteral("Imports"), nextImports);
+    out.insert(QStringLiteral("Exports"), nextExports);
+    out.insert(QStringLiteral("DependsMap"),
+               remapDependsMap(asset.value(QStringLiteral("DependsMap"))));
+    if (!remapValid) return asset;
+    if (removedCount) *removedCount = removed;
+    return out;
+}
+
+QJsonObject CnsConverterService::removeUnresolvedReplacerDependencies(
+    const QJsonObject &asset, int *removedCount) {
+    if (removedCount) *removedCount = 0;
+    const QJsonArray imports = asset.value(QStringLiteral("Imports")).toArray();
+    QJsonArray exports = asset.value(QStringLiteral("Exports")).toArray();
+    int removed = 0;
+    const QStringList dependencyFields{
+        QStringLiteral("SerializationBeforeSerializationDependencies"),
+        QStringLiteral("CreateBeforeSerializationDependencies"),
+        QStringLiteral("SerializationBeforeCreateDependencies"),
+        QStringLiteral("CreateBeforeCreateDependencies")};
+    auto isUnresolvedReference = [&](const QJsonValue &value) {
+        if (!value.isDouble() || value.toInt() >= 0) return false;
+        const qint64 index = -static_cast<qint64>(value.toInt()) - 1;
+        return index >= 0 && index < imports.size()
+            && isUnknownImportChain(imports, static_cast<int>(index));
+    };
+
+    for (int i = 0; i < exports.size(); ++i) {
+        QJsonObject exportObject = exports.at(i).toObject();
+        for (const QString &field : dependencyFields) {
+            const QJsonArray dependencies = exportObject.value(field).toArray();
+            QJsonArray cleaned;
+            for (const QJsonValue &dependency : dependencies) {
+                if (isUnresolvedReference(dependency)) {
+                    ++removed;
+                    continue;
+                }
+                cleaned.append(dependency);
+            }
+            if (cleaned != dependencies) exportObject.insert(field, cleaned);
+        }
+        exports.replace(i, exportObject);
+    }
+
+    std::function<QJsonValue(const QJsonValue &)> cleanDependsMap =
+        [&](const QJsonValue &value) -> QJsonValue {
+        if (value.isArray()) {
+            QJsonArray cleaned;
+            for (const QJsonValue &item : value.toArray()) {
+                if (isUnresolvedReference(item)) {
+                    ++removed;
+                    continue;
+                }
+                cleaned.append(cleanDependsMap(item));
+            }
+            return cleaned;
+        }
+        if (!value.isObject()) return value;
+        QJsonObject cleaned = value.toObject();
+        for (auto it = cleaned.begin(); it != cleaned.end();) {
+            if (isUnresolvedReference(it.value())) {
+                ++removed;
+                it = cleaned.erase(it);
+            } else {
+                it.value() = cleanDependsMap(it.value());
+                ++it;
+            }
+        }
+        return cleaned;
+    };
+
+    const QJsonValue cleanedDependsMap = cleanDependsMap(
+        asset.value(QStringLiteral("DependsMap")));
+    if (removed == 0) return asset;
+    QJsonObject out = asset;
+    out.insert(QStringLiteral("Exports"), exports);
+    out.insert(QStringLiteral("DependsMap"), cleanedDependsMap);
+    if (removedCount) *removedCount = removed;
+    return out;
+}
+
 bool CnsConverterService::writeRelocatedAsset(
     const QString &sourceUasset, const QString &targetUasset,
     const QMap<QString, QString> &relocations, QString *error,
@@ -965,8 +1659,10 @@ bool CnsConverterService::writeRelocatedAsset(
 
 bool CnsConverterService::repairReplacerPhysicsReferencesOnDisk(
     const QString &rootUasset, const QString &rootPath, const QString &workDir,
-    bool *repaired, QString *error) const {
+    bool omitPostProcessAnimBlueprint, bool *repaired, int *removedImports,
+    QString *error) const {
     if (repaired) *repaired = false;
+    if (removedImports) *removedImports = 0;
     const QString outputJsonPath = rootUasset + QStringLiteral(".json");
     if (!QFileInfo::exists(outputJsonPath)
         && !m_uasset->toJson(rootUasset, outputJsonPath, error)) {
@@ -1019,28 +1715,276 @@ bool CnsConverterService::repairReplacerPhysicsReferencesOnDisk(
         return false;
     }
 
-    const QJsonObject repairedAsset = repairReplacerPhysicsReferences(
+    const QJsonObject physicsRepairedAsset = repairReplacerPhysicsReferences(
         outputDoc.object(), vanillaDoc.object(), rootPath);
-    if (repairedAsset == outputDoc.object()) return true;
+    const bool physicsWasRepaired = physicsRepairedAsset != outputDoc.object();
+    QString schemaError;
+    const QJsonObject schemaAdaptedAsset = adaptReplacerMeshToVanillaSchema(
+        physicsRepairedAsset, vanillaDoc.object(), rootPath,
+        omitPostProcessAnimBlueprint, &schemaError);
+    if (schemaAdaptedAsset.isEmpty()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, schemaError);
+        return false;
+    }
+    int prunedImports = 0;
+    const QJsonObject cleanedAsset = pruneUnusedUnknownImports(schemaAdaptedAsset,
+                                                               &prunedImports);
 
-    QSaveFile output(outputJsonPath);
-    if (!output.open(QIODevice::WriteOnly)
-        || output.write(QJsonDocument(repairedAsset).toJson(QJsonDocument::Indented)) < 0
-        || !output.commit()) {
-        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
-                                .arg(rootPath, QStringLiteral("could not write generated mesh JSON"));
+    if (cleanedAsset != outputDoc.object()) {
+        QSaveFile output(outputJsonPath);
+        if (!output.open(QIODevice::WriteOnly)
+            || output.write(QJsonDocument(cleanedAsset).toJson(QJsonDocument::Indented)) < 0
+            || !output.commit()) {
+            if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
+                                    .arg(rootPath, QStringLiteral("could not write generated mesh JSON"));
+            return false;
+        }
+        QFile::remove(rootUasset);
+        const QString outputUexp = QFileInfo(rootUasset).dir().filePath(
+            QFileInfo(rootUasset).completeBaseName() + QStringLiteral(".uexp"));
+        QFile::remove(outputUexp);
+        if (!m_uasset->fromJson(outputJsonPath, rootUasset, error)) {
+            if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
+                                    .arg(rootPath, *error);
+            return false;
+        }
+    }
+
+    // Round-trip the emitted binary and validate the package indices. Old
+    // source meshes can have orphan UnknownExport rows that are harmless; only
+    // references to them indicate a broken package.
+    const QString validationJsonPath = QDir(workDir).filePath(
+        QStringLiteral("replacer-import-validation.json"));
+    QString validationError;
+    if (!m_uasset->toJson(rootUasset, validationJsonPath, &validationError)) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, validationError);
         return false;
     }
-    QFile::remove(rootUasset);
-    const QString outputUexp = QFileInfo(rootUasset).dir().filePath(
-        QFileInfo(rootUasset).completeBaseName() + QStringLiteral(".uexp"));
-    QFile::remove(outputUexp);
-    if (!m_uasset->fromJson(outputJsonPath, rootUasset, error)) {
-        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
-                                .arg(rootPath, *error);
+    const QJsonDocument validationDoc = readJsonFile(validationJsonPath);
+    if (!validationDoc.isObject()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, QStringLiteral("invalid round-trip JSON"));
         return false;
     }
-    if (repaired) *repaired = true;
+    QJsonObject validatedAsset = validationDoc.object();
+    QStringList invalidReferences = invalidPackageIndexReferences(validatedAsset);
+    if (!invalidReferences.isEmpty()) {
+        int removedDependencies = 0;
+        const QJsonObject dependenciesCleaned = removeUnresolvedReplacerDependencies(
+            validatedAsset, &removedDependencies);
+        if (removedDependencies > 0) {
+            int prunedAfterRoundTrip = 0;
+            const QJsonObject importsPruned = pruneUnusedUnknownImports(
+                dependenciesCleaned, &prunedAfterRoundTrip);
+            QSaveFile correctedJson(validationJsonPath);
+            if (!correctedJson.open(QIODevice::WriteOnly)
+                || correctedJson.write(QJsonDocument(importsPruned).toJson(
+                       QJsonDocument::Indented)) < 0
+                || !correctedJson.commit()) {
+                if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                        .arg(rootPath, QStringLiteral("could not save repaired dependency table"));
+                return false;
+            }
+            QFile::remove(rootUasset);
+            const QString outputUexp = QFileInfo(rootUasset).dir().filePath(
+                QFileInfo(rootUasset).completeBaseName() + QStringLiteral(".uexp"));
+            QFile::remove(outputUexp);
+            QString repairError;
+            if (!m_uasset->fromJson(validationJsonPath, rootUasset, &repairError)
+                || !m_uasset->toJson(rootUasset, validationJsonPath, &repairError)) {
+                if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                        .arg(rootPath, repairError);
+                return false;
+            }
+            const QJsonDocument repairedRoundTrip = readJsonFile(validationJsonPath);
+            if (!repairedRoundTrip.isObject()) {
+                if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                        .arg(rootPath, QStringLiteral("invalid dependency cleanup round-trip JSON"));
+                return false;
+            }
+            validatedAsset = repairedRoundTrip.object();
+            invalidReferences = invalidPackageIndexReferences(validatedAsset);
+            prunedImports += removedDependencies + prunedAfterRoundTrip;
+        }
+    }
+    if (!invalidReferences.isEmpty()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_unresolved_imports"))
+                                .arg(rootPath, invalidReferences.mid(0, 16).join(QStringLiteral(", ")));
+        return false;
+    }
+    const QJsonArray expectedExports = vanillaDoc.object().value(QStringLiteral("Exports")).toArray();
+    const QJsonArray actualExports = validatedAsset.value(QStringLiteral("Exports")).toArray();
+    for (const QJsonValue &expectedExport : expectedExports) {
+        const QString expectedName = expectedExport.toObject()
+                                         .value(QStringLiteral("ObjectName")).toString();
+        const bool found = std::any_of(actualExports.cbegin(), actualExports.cend(),
+            [&](const QJsonValue &candidate) {
+                return candidate.toObject().value(QStringLiteral("ObjectName")).toString()
+                    .compare(expectedName, Qt::CaseInsensitive) == 0;
+            });
+        if (!found) {
+            if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                    .arg(rootPath, QStringLiteral("current vanilla export missing after round-trip: ")
+                                                      + expectedName);
+            return false;
+        }
+    }
+    const int validatedRootIndex = [&]() {
+        for (int i = 0; i < actualExports.size(); ++i)
+            if (actualExports.at(i).toObject().value(QStringLiteral("ObjectName")).toString()
+                    .compare(rootPath.section(QLatin1Char('/'), -1), Qt::CaseInsensitive) == 0)
+                return i;
+        return -1;
+    }();
+    if (validatedRootIndex < 0) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, QStringLiteral("root export missing after round-trip"));
+        return false;
+    }
+    const QJsonArray expectedProperties = vanillaDoc.object().value(QStringLiteral("Exports"))
+                                              .toArray().at([&]() {
+                                                  for (int i = 0; i < expectedExports.size(); ++i)
+                                                      if (expectedExports.at(i).toObject()
+                                                              .value(QStringLiteral("ObjectName")).toString()
+                                                              .compare(rootPath.section(QLatin1Char('/'), -1),
+                                                                       Qt::CaseInsensitive) == 0)
+                                                          return i;
+                                                  return 0;
+                                              }()).toObject()
+                                              .value(QStringLiteral("Data")).toArray();
+    const QJsonArray actualProperties = actualExports.at(validatedRootIndex).toObject()
+                                            .value(QStringLiteral("Data")).toArray();
+    for (const QJsonValue &expectedProperty : expectedProperties) {
+        const QString propertyName = expectedProperty.toObject()
+                                         .value(QStringLiteral("Name")).toString();
+        if (omitPostProcessAnimBlueprint
+            && propertyName.compare(QLatin1String("PostProcessAnimBlueprint"),
+                                    Qt::CaseInsensitive) == 0)
+            continue;
+        const bool found = std::any_of(actualProperties.cbegin(), actualProperties.cend(),
+            [&](const QJsonValue &candidate) {
+                return candidate.toObject().value(QStringLiteral("Name")).toString()
+                    .compare(propertyName, Qt::CaseInsensitive) == 0;
+            });
+        if (!found) {
+            if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                    .arg(rootPath, QStringLiteral("current vanilla property missing after round-trip: ")
+                                                      + propertyName);
+            return false;
+        }
+    }
+    if (repaired) *repaired = physicsWasRepaired;
+    if (removedImports) *removedImports = prunedImports;
+    return true;
+}
+
+bool CnsConverterService::validatePackagedReplacer(
+    const QString &containerDir, const QString &rootPath, const QString &vanillaJsonPath,
+    const QString &workDir, bool omitPostProcessAnimBlueprint, QString *error) const {
+    const QString extractedDir = QDir(workDir).filePath(QStringLiteral("replacer-final-iostore"));
+    QString extractError;
+    if (m_pak->toLegacyMounted(containerDir, extractedDir, &extractError) <= 0) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, QStringLiteral("final IoStore extraction failed: ")
+                                                  + extractError);
+        return false;
+    }
+
+    QString rootFile;
+    QDirIterator files(extractedDir, {QStringLiteral("*.uasset")}, QDir::Files,
+                       QDirIterator::Subdirectories);
+    while (files.hasNext()) {
+        const QString candidate = files.next();
+        if (key(assetPathForFile(candidate, extractedDir)) == key(rootPath)) {
+            rootFile = candidate;
+            break;
+        }
+    }
+    if (rootFile.isEmpty()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, QStringLiteral("target mesh absent from final IoStore"));
+        return false;
+    }
+
+    const QString finalJsonPath = QDir(workDir).filePath(
+        QStringLiteral("replacer-final-iostore.json"));
+    QString parseError;
+    if (!m_uasset->toJson(rootFile, finalJsonPath, &parseError)) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, parseError);
+        return false;
+    }
+    const QJsonDocument finalDoc = readJsonFile(finalJsonPath);
+    const QJsonDocument vanillaDoc = readJsonFile(vanillaJsonPath);
+    if (!finalDoc.isObject() || !vanillaDoc.isObject()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, QStringLiteral("invalid final or vanilla mesh JSON"));
+        return false;
+    }
+    const QStringList invalidReferences = invalidPackageIndexReferences(finalDoc.object());
+    if (!invalidReferences.isEmpty()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_unresolved_imports"))
+                                .arg(rootPath, invalidReferences.mid(0, 16).join(QStringLiteral(", ")));
+        return false;
+    }
+
+    const QJsonArray expectedExports = vanillaDoc.object().value(QStringLiteral("Exports")).toArray();
+    const QJsonArray finalExports = finalDoc.object().value(QStringLiteral("Exports")).toArray();
+    for (const QJsonValue &expected : expectedExports) {
+        const QString name = expected.toObject().value(QStringLiteral("ObjectName")).toString();
+        const auto found = std::find_if(finalExports.cbegin(), finalExports.cend(),
+            [&](const QJsonValue &candidate) {
+                return candidate.toObject().value(QStringLiteral("ObjectName")).toString()
+                    .compare(name, Qt::CaseInsensitive) == 0;
+            });
+        if (found == finalExports.cend()) {
+            if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                    .arg(rootPath, QStringLiteral("current vanilla export missing from final IoStore: ")
+                                                      + name);
+            return false;
+        }
+    }
+
+    const QString rootName = rootPath.section(QLatin1Char('/'), -1);
+    const auto expectedRoot = std::find_if(expectedExports.cbegin(), expectedExports.cend(),
+        [&](const QJsonValue &candidate) {
+            return candidate.toObject().value(QStringLiteral("ObjectName")).toString()
+                .compare(rootName, Qt::CaseInsensitive) == 0;
+        });
+    const auto finalRoot = std::find_if(finalExports.cbegin(), finalExports.cend(),
+        [&](const QJsonValue &candidate) {
+            return candidate.toObject().value(QStringLiteral("ObjectName")).toString()
+                .compare(rootName, Qt::CaseInsensitive) == 0;
+        });
+    if (expectedRoot == expectedExports.cend() || finalRoot == finalExports.cend()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                .arg(rootPath, QStringLiteral("root export missing from final IoStore"));
+        return false;
+    }
+    const QJsonArray expectedProperties = expectedRoot->toObject()
+                                              .value(QStringLiteral("Data")).toArray();
+    const QJsonArray finalProperties = finalRoot->toObject()
+                                          .value(QStringLiteral("Data")).toArray();
+    for (const QJsonValue &expected : expectedProperties) {
+        const QString name = expected.toObject().value(QStringLiteral("Name")).toString();
+        if (omitPostProcessAnimBlueprint
+            && name.compare(QLatin1String("PostProcessAnimBlueprint"),
+                            Qt::CaseInsensitive) == 0)
+            continue;
+        const auto found = std::find_if(finalProperties.cbegin(), finalProperties.cend(),
+            [&](const QJsonValue &candidate) {
+                return candidate.toObject().value(QStringLiteral("Name")).toString()
+                    .compare(name, Qt::CaseInsensitive) == 0;
+            });
+        if (found == finalProperties.cend()) {
+            if (error) *error = tr_(QStringLiteral("cns_replacer_reference_validation_failed"))
+                                    .arg(rootPath, QStringLiteral("current vanilla property missing from final IoStore: ")
+                                                      + name);
+            return false;
+        }
+    }
     return true;
 }
 
@@ -1311,14 +2255,19 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
 
     if (request.mode == Mode::ToReplacer) {
         bool physicsRepaired = false;
+        int removedUnknownImports = 0;
         if (!repairReplacerPhysicsReferencesOnDisk(
                 fileForAsset(targetInfo.path, packageDir), targetInfo.path,
-                temp.path(), &physicsRepaired, &error)) {
+                temp.path(), request.omitPostProcessAnimBlueprint,
+                &physicsRepaired, &removedUnknownImports, &error)) {
             result.error = error;
             return result;
         }
         if (physicsRepaired)
             result.warnings << tr_(QStringLiteral("cns_replacer_physics_repaired"));
+        if (removedUnknownImports > 0)
+            result.warnings << tr_(QStringLiteral("cns_replacer_unused_imports_removed"))
+                                   .arg(removedUnknownImports);
     }
 
     QDir().mkpath(request.outputDir);
@@ -1868,6 +2817,15 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             return result;
         }
         result.descriptorPath = descriptorPath;
+    }
+    if (request.mode == Mode::ToReplacer
+        && !validatePackagedReplacer(
+            outFolder, targetInfo.path,
+            QDir(temp.path()).filePath(QStringLiteral("vanilla-root.json")),
+            temp.path(), request.omitPostProcessAnimBlueprint, &error)) {
+        QDir(outFolder).removeRecursively();
+        result.error = error;
+        return result;
     }
     const QString zipPath = QDir(request.outputDir).filePath(safeName + QStringLiteral(".zip"));
     emit progress(QStringLiteral("Creando ZIP instalable para Vortex…"));

@@ -13,6 +13,9 @@ private slots:
     void createsStableShortId();
     void rewritesUassetReferences();
     void repairsBrokenReplacerPhysicsReferences();
+    void adaptsReplacerMeshToCurrentVanillaSchema();
+    void removesUnresolvedReplacerDependencyChains();
+    void removesUnusedUnknownReplacerImports();
     void plansFusionCompatibilityCopies();
 };
 
@@ -154,6 +157,220 @@ void TestCnsConverter::repairsBrokenReplacerPhysicsReferences() {
     const QJsonArray dependencies = mesh.value(
         QStringLiteral("SerializationBeforeCreateDependencies")).toArray();
     QVERIFY(dependencies.size() >= 2);
+}
+
+void TestCnsConverter::removesUnusedUnknownReplacerImports() {
+    const auto import = [](const QString &object, const QString &classPackage,
+                           const QString &className, int outer) {
+        return QJsonObject{{QStringLiteral("ObjectName"), object},
+                           {QStringLiteral("ClassPackage"), classPackage},
+                           {QStringLiteral("ClassName"), className},
+                           {QStringLiteral("OuterIndex"), outer}};
+    };
+    const QString propertyType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.ObjectPropertyData, UAssetAPI");
+    QJsonObject asset{
+        {QStringLiteral("Imports"), QJsonArray{
+             import(QStringLiteral("/Engine/UnknownPackage"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Package"), 0),
+             import(QStringLiteral("UnknownExport"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Object"), -1),
+             import(QStringLiteral("/Script/Engine"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Package"), 0),
+             import(QStringLiteral("SkeletalMesh"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Class"), -3),
+             import(QStringLiteral("/Game/Outfit/Mesh_Physics"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Package"), 0),
+             import(QStringLiteral("Mesh_Physics"), QStringLiteral("/Script/Engine"),
+                    QStringLiteral("PhysicsAsset"), -5),
+             import(QStringLiteral("/Engine/UnknownPackage"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Package"), 0),
+             import(QStringLiteral("UnknownExport"), QStringLiteral("/Script/CoreUObject"),
+                    QStringLiteral("Object"), -7)}},
+        {QStringLiteral("Exports"), QJsonArray{QJsonObject{
+             {QStringLiteral("ObjectName"), QStringLiteral("Mesh")},
+             {QStringLiteral("ClassIndex"), -4},
+             {QStringLiteral("Data"), QJsonArray{QJsonObject{
+                  {QStringLiteral("$type"), propertyType},
+                  {QStringLiteral("Name"), QStringLiteral("PhysicsAsset")},
+                  {QStringLiteral("Value"), -6}}}},
+             {QStringLiteral("SerializationBeforeCreateDependencies"), QJsonArray{-6, -4}}}}}
+    };
+
+    int removed = 0;
+    const QJsonObject cleaned = CnsConverterService::pruneUnusedUnknownImports(asset, &removed);
+    QCOMPARE(removed, 4);
+    const QJsonArray imports = cleaned.value(QStringLiteral("Imports")).toArray();
+    QCOMPARE(imports.size(), 4);
+    QCOMPARE(imports.at(1).toObject().value(QStringLiteral("OuterIndex")).toInt(), -1);
+    QCOMPARE(imports.at(3).toObject().value(QStringLiteral("OuterIndex")).toInt(), -3);
+    QCOMPARE(imports.at(3).toObject().value(QStringLiteral("ObjectName")).toString(),
+             QStringLiteral("Mesh_Physics"));
+
+    const QJsonObject mesh = cleaned.value(QStringLiteral("Exports")).toArray().first().toObject();
+    QCOMPARE(mesh.value(QStringLiteral("ClassIndex")).toInt(), -2);
+    QCOMPARE(mesh.value(QStringLiteral("Data")).toArray().first().toObject()
+                 .value(QStringLiteral("Value")).toInt(), -4);
+    const QJsonArray expectedDependencies{-4, -2};
+    QCOMPARE(mesh.value(QStringLiteral("SerializationBeforeCreateDependencies")).toArray(),
+             expectedDependencies);
+    for (const QJsonValue &value : imports)
+        QVERIFY(!value.toObject().value(QStringLiteral("ObjectName")).toString()
+                     .contains(QStringLiteral("Unknown"), Qt::CaseInsensitive));
+}
+
+void TestCnsConverter::adaptsReplacerMeshToCurrentVanillaSchema() {
+    const QString meshName = QStringLiteral("Mesh");
+    const QString arrayType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.ArrayPropertyData, UAssetAPI");
+    const QString structType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Structs.StructPropertyData, UAssetAPI");
+    const QString intType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.IntPropertyData, UAssetAPI");
+    const QString byteType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.BytePropertyData, UAssetAPI");
+    const QString enumType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.EnumPropertyData, UAssetAPI");
+    const QString boolType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.BoolPropertyData, UAssetAPI");
+    const QString objectType = QStringLiteral(
+        "UAssetAPI.PropertyTypes.Objects.ObjectPropertyData, UAssetAPI");
+
+    const auto scalar = [](const QString &type, const QString &name, const QJsonValue &value) {
+        return QJsonObject{{QStringLiteral("$type"), type},
+                           {QStringLiteral("Name"), name},
+                           {QStringLiteral("Value"), value}};
+    };
+    const auto structValue = [&](const QString &name, const QJsonArray &fields) {
+        return QJsonObject{{QStringLiteral("$type"), structType},
+                           {QStringLiteral("Name"), name},
+                           {QStringLiteral("Value"), fields}};
+    };
+    const auto lodInfo = [&](const QString &elementName, const QString &qualityType,
+                             int quality, const QString &reductionType,
+                             const QJsonValue &reduction) {
+        const QJsonArray fields{
+            scalar(intType, QStringLiteral("BuildQuality"), quality),
+            scalar(reductionType, QStringLiteral("ReductionMethod"), reduction)};
+        return QJsonObject{{QStringLiteral("$type"), arrayType},
+                           {QStringLiteral("Name"), QStringLiteral("LODInfo")},
+                           {QStringLiteral("ArrayType"), QStringLiteral("StructProperty")},
+                           {QStringLiteral("Value"), QJsonArray{
+                                structValue(elementName, fields)}}};
+    };
+    const QJsonObject sourceMesh{
+        {QStringLiteral("ObjectName"), meshName},
+        {QStringLiteral("Extras"), QStringLiteral("mod-mesh-payload")},
+        {QStringLiteral("Data"), QJsonArray{
+             lodInfo(QStringLiteral("LODInfo"), intType, 99, byteType, 7),
+             scalar(boolType, QStringLiteral("bHasVertexColors"), false),
+             scalar(objectType, QStringLiteral("PhysicsAsset"), -1),
+             scalar(objectType, QStringLiteral("PostProcessAnimBlueprint"), -2)}}};
+    const QJsonObject targetMesh{
+        {QStringLiteral("ObjectName"), meshName},
+        {QStringLiteral("Extras"), QStringLiteral("vanilla-mesh-payload")},
+        {QStringLiteral("Data"), QJsonArray{
+             scalar(objectType, QStringLiteral("Skeleton"), -1),
+             lodInfo(QStringLiteral("0"), intType, 1, enumType,
+                     QStringLiteral("SMOT_Default")),
+             scalar(boolType, QStringLiteral("bHasVertexColors"), true),
+             scalar(objectType, QStringLiteral("PhysicsAsset"), -2),
+             scalar(objectType, QStringLiteral("ShadowPhysicsAsset"), -3),
+             QJsonObject{{QStringLiteral("$type"), arrayType},
+                         {QStringLiteral("Name"), QStringLiteral("MorphTargets")},
+                         {QStringLiteral("ArrayType"), QStringLiteral("ObjectProperty")},
+                         {QStringLiteral("Value"), QJsonArray{
+                              scalar(objectType, QStringLiteral("0"), 1)}}},
+             scalar(objectType, QStringLiteral("PostProcessAnimBlueprint"), -4)}}};
+    const QJsonObject source{
+        {QStringLiteral("NameMap"), QJsonArray{QStringLiteral("ModOnlyName")}},
+        {QStringLiteral("Imports"), QJsonArray{}},
+        {QStringLiteral("Exports"), QJsonArray{sourceMesh}}};
+    const QJsonObject vanilla{
+        {QStringLiteral("NameMap"), QJsonArray{QStringLiteral("VanillaName")}},
+        {QStringLiteral("Imports"), QJsonArray{}},
+        {QStringLiteral("Exports"), QJsonArray{
+             QJsonObject{{QStringLiteral("ObjectName"), QStringLiteral("Jaw_open")}},
+             targetMesh}}};
+
+    QString error;
+    const QJsonObject adapted = CnsConverterService::adaptReplacerMeshToVanillaSchema(
+        source, vanilla, QStringLiteral("/Game/Art/Mesh"), true, &error);
+    QVERIFY2(!adapted.isEmpty(), qPrintable(error));
+    const QJsonArray exports = adapted.value(QStringLiteral("Exports")).toArray();
+    QCOMPARE(exports.size(), 2);
+    QCOMPARE(exports.at(0).toObject().value(QStringLiteral("ObjectName")).toString(),
+             QStringLiteral("Jaw_open"));
+    const QJsonObject mesh = exports.at(1).toObject();
+    QCOMPARE(mesh.value(QStringLiteral("Extras")).toString(), QStringLiteral("mod-mesh-payload"));
+    const QJsonArray properties = mesh.value(QStringLiteral("Data")).toArray();
+    auto findProperty = [&](const QString &name) {
+        for (const QJsonValue &value : properties)
+            if (value.toObject().value(QStringLiteral("Name")).toString() == name)
+                return value.toObject();
+        return QJsonObject{};
+    };
+    const QJsonObject adaptedLod = findProperty(QStringLiteral("LODInfo"));
+    const QJsonObject adaptedLodEntry = adaptedLod.value(QStringLiteral("Value"))
+                                            .toArray().first().toObject();
+    const QJsonArray adaptedFields = adaptedLodEntry.value(QStringLiteral("Value")).toArray();
+    QCOMPARE(adaptedFields.at(0).toObject().value(QStringLiteral("Value")).toInt(), 99);
+    QCOMPARE(adaptedFields.at(1).toObject().value(QStringLiteral("$type")).toString(), enumType);
+    QCOMPARE(adaptedFields.at(1).toObject().value(QStringLiteral("Value")).toString(),
+             QStringLiteral("SMOT_Default"));
+    QCOMPARE(findProperty(QStringLiteral("PhysicsAsset")).value(QStringLiteral("Value")).toInt(), -2);
+    QVERIFY(findProperty(QStringLiteral("PostProcessAnimBlueprint")).isEmpty());
+    QVERIFY(!findProperty(QStringLiteral("ShadowPhysicsAsset")).isEmpty());
+    QCOMPARE(adapted.value(QStringLiteral("NameMap")).toArray().last().toString(),
+             QStringLiteral("ModOnlyName"));
+}
+
+void TestCnsConverter::removesUnresolvedReplacerDependencyChains() {
+    const auto import = [](const QString &object, const QString &className, int outer) {
+        return QJsonObject{{QStringLiteral("ObjectName"), object},
+                           {QStringLiteral("ClassPackage"), QStringLiteral("/Script/CoreUObject")},
+                           {QStringLiteral("ClassName"), className},
+                           {QStringLiteral("OuterIndex"), outer}};
+    };
+    QJsonObject asset{
+        {QStringLiteral("Imports"), QJsonArray{
+             import(QStringLiteral("/Engine/UnknownPackage"), QStringLiteral("Package"), 0),
+             import(QStringLiteral("UnknownExport"), QStringLiteral("Object"), -1),
+             import(QStringLiteral("/Script/Engine"), QStringLiteral("Package"), 0),
+             import(QStringLiteral("SkeletalBodySetup_99"), QStringLiteral("SkeletalBodySetup"), -2),
+             import(QStringLiteral("/Game/Physics"), QStringLiteral("Package"), 0),
+             import(QStringLiteral("PhysicsAsset"), QStringLiteral("PhysicsAsset"), -5)}},
+        {QStringLiteral("Exports"), QJsonArray{QJsonObject{
+             {QStringLiteral("ObjectName"), QStringLiteral("Mesh")},
+             {QStringLiteral("SerializationBeforeCreateDependencies"), QJsonArray{-4, -6}}}}},
+        {QStringLiteral("DependsMap"), QJsonArray{QJsonArray{-4, -6}}}
+    };
+
+    int removedDependencies = 0;
+    const QJsonObject dependenciesCleaned =
+        CnsConverterService::removeUnresolvedReplacerDependencies(asset,
+                                                                   &removedDependencies);
+    QCOMPARE(removedDependencies, 2);
+    const QJsonArray dependencies = dependenciesCleaned.value(QStringLiteral("Exports"))
+                                        .toArray().first().toObject()
+                                        .value(QStringLiteral("SerializationBeforeCreateDependencies"))
+                                        .toArray();
+    QCOMPARE(dependencies, QJsonArray{-6});
+
+    int removedImports = 0;
+    const QJsonObject importsPruned = CnsConverterService::pruneUnusedUnknownImports(
+        dependenciesCleaned, &removedImports);
+    QCOMPARE(removedImports, 3);
+    QCOMPARE(importsPruned.value(QStringLiteral("Imports")).toArray().size(), 3);
+    const QJsonArray remappedDependencies = importsPruned.value(QStringLiteral("Exports"))
+                                               .toArray().first().toObject()
+                                               .value(QStringLiteral("SerializationBeforeCreateDependencies"))
+                                               .toArray();
+    QCOMPARE(remappedDependencies, QJsonArray{-3});
+    const QJsonArray imports = importsPruned.value(QStringLiteral("Imports")).toArray();
+    for (const QJsonValue &value : imports)
+        QVERIFY(!value.toObject().value(QStringLiteral("ObjectName")).toString()
+                     .contains(QStringLiteral("Unknown"), Qt::CaseInsensitive));
 }
 
 void TestCnsConverter::plansFusionCompatibilityCopies() {

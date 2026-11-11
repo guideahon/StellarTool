@@ -66,6 +66,14 @@ public:
     static QJsonObject repairReplacerPhysicsReferences(const QJsonObject &asset,
                                                         const QJsonObject &vanillaAsset,
                                                         const QString &rootPath);
+    static QJsonObject adaptReplacerMeshToVanillaSchema(
+        const QJsonObject &asset, const QJsonObject &vanillaAsset,
+        const QString &rootPath, bool omitPostProcessAnimBlueprint,
+        QString *error = nullptr);
+    static QJsonObject pruneUnusedUnknownImports(const QJsonObject &asset,
+                                                  int *removedCount = nullptr);
+    static QJsonObject removeUnresolvedReplacerDependencies(
+        const QJsonObject &asset, int *removedCount = nullptr);
     static QString normalizeAssetPath(const QString &path);
     static QString shortId(const QString &text);
     static QList<CompatibilityCopy> fusionCompatibilityCopies(
@@ -108,8 +116,14 @@ private:
     bool repairReplacerPhysicsReferencesOnDisk(const QString &rootUasset,
                                                const QString &rootPath,
                                                const QString &workDir,
+                                               bool omitPostProcessAnimBlueprint,
                                                bool *repaired,
+                                               int *removedImports,
                                                QString *error) const;
+    bool validatePackagedReplacer(const QString &containerDir, const QString &rootPath,
+                                  const QString &vanillaJsonPath, const QString &workDir,
+                                  bool omitPostProcessAnimBlueprint,
+                                  QString *error) const;
 
     // Un replacer puede reemplazar texturas compartidas que un outfit sigue
     // leyendo desde materiales vanilla. Al convertir, se aíslan materiales y

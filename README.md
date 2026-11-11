@@ -30,9 +30,11 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   cuando CUE4Parse puede leer los slots, los materiales que el juego fuerza
   durante el jefe final. El modo headless ofrece `--omit-post-process-animblueprint`
   para crear una variante de compatibilidad sin el blueprint post-proceso de la
-  malla raíz. Al generar cualquier replacer, verifica las referencias de física
-  de la malla y repara las que falten o apunten a `UnknownExport` usando el mesh
-  vanilla actual del outfit de destino.
+  malla raíz. Al generar cualquier replacer, usa la malla vanilla actual como
+  esquema: conserva sus exports auxiliares y propiedades (incluidos morph
+  targets), y copia desde el mod solo los datos con tipos compatibles. Luego
+  verifica las referencias, serializa y vuelve a montar y leer el IoStore final;
+  no genera el ZIP si una referencia usada queda sin resolver.
 - **CNS ID Fixer** analiza mods IoStore, muestra rutas para distinguir
   contenedores con nombres repetidos, verifica la integridad y corrige
   `Container_Id` duplicados con backup verificable. Si encuentra un hash
