@@ -20,6 +20,7 @@
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <algorithm>
+#include <functional>
 
 namespace {
 
@@ -725,6 +726,214 @@ QJsonObject CnsConverterService::relocateAssetJson(
     return out;
 }
 
+QJsonObject CnsConverterService::repairReplacerPhysicsReferences(
+    const QJsonObject &asset, const QJsonObject &vanillaAsset, const QString &rootPath) {
+    const QString rootName = normalizeAssetPath(rootPath).section(QLatin1Char('/'), -1);
+    QJsonArray outputExports = asset.value(QStringLiteral("Exports")).toArray();
+    QJsonArray outputImports = asset.value(QStringLiteral("Imports")).toArray();
+    const QJsonArray vanillaExports = vanillaAsset.value(QStringLiteral("Exports")).toArray();
+    const QJsonArray vanillaImports = vanillaAsset.value(QStringLiteral("Imports")).toArray();
+
+    int outputExportIndex = -1;
+    int vanillaExportIndex = -1;
+    for (int i = 0; i < outputExports.size(); ++i) {
+        if (outputExports.at(i).toObject().value(QStringLiteral("ObjectName")).toString()
+            .compare(rootName, Qt::CaseInsensitive) == 0) {
+            outputExportIndex = i;
+            break;
+        }
+    }
+    for (int i = 0; i < vanillaExports.size(); ++i) {
+        if (vanillaExports.at(i).toObject().value(QStringLiteral("ObjectName")).toString()
+            .compare(rootName, Qt::CaseInsensitive) == 0) {
+            vanillaExportIndex = i;
+            break;
+        }
+    }
+    if (outputExportIndex < 0 || vanillaExportIndex < 0) return asset;
+
+    QJsonObject outputExport = outputExports.at(outputExportIndex).toObject();
+    const QJsonObject vanillaExport = vanillaExports.at(vanillaExportIndex).toObject();
+    QJsonArray outputData = outputExport.value(QStringLiteral("Data")).toArray();
+    const QJsonArray vanillaData = vanillaExport.value(QStringLiteral("Data")).toArray();
+
+    auto propertyIndex = [](const QJsonArray &data, const QString &name) {
+        for (int i = 0; i < data.size(); ++i) {
+            if (data.at(i).toObject().value(QStringLiteral("Name")).toString()
+                .compare(name, Qt::CaseInsensitive) == 0)
+                return i;
+        }
+        return -1;
+    };
+    auto propertyObject = [&](const QJsonArray &data, const QString &name) {
+        const int index = propertyIndex(data, name);
+        return index < 0 ? QJsonObject{} : data.at(index).toObject();
+    };
+    auto hasUnknownReference = [](const QJsonArray &imports, const QJsonValue &value) {
+        if (!value.isDouble() || value.toInt() == 0) return true;
+        const int objectIndex = value.toInt();
+        if (objectIndex > 0) return false; // package export, not an import
+        const int importIndex = -objectIndex - 1;
+        if (importIndex < 0 || importIndex >= imports.size()) return true;
+        const QJsonObject entry = imports.at(importIndex).toObject();
+        const QString objectName = entry.value(QStringLiteral("ObjectName")).toString();
+        const QString packagePath = packagePathForImport(imports, objectIndex);
+        return objectName.contains(QLatin1String("UnknownExport"), Qt::CaseInsensitive)
+            || key(packagePath) == QLatin1String("/engine/unknownpackage");
+    };
+
+    const int sourcePhysicsIndex = propertyIndex(outputData, QStringLiteral("PhysicsAsset"));
+    const int vanillaPhysicsIndex = propertyIndex(vanillaData, QStringLiteral("PhysicsAsset"));
+    const int sourceShadowIndex = propertyIndex(outputData, QStringLiteral("ShadowPhysicsAsset"));
+    const int vanillaShadowIndex = propertyIndex(vanillaData, QStringLiteral("ShadowPhysicsAsset"));
+    const bool repairPhysics = vanillaPhysicsIndex >= 0
+        && (sourcePhysicsIndex < 0
+            || hasUnknownReference(outputImports,
+                                  propertyObject(outputData, QStringLiteral("PhysicsAsset"))
+                                      .value(QStringLiteral("Value"))));
+    const bool repairShadow = vanillaShadowIndex >= 0
+        && (sourceShadowIndex < 0
+            || hasUnknownReference(outputImports,
+                                  propertyObject(outputData, QStringLiteral("ShadowPhysicsAsset"))
+                                      .value(QStringLiteral("Value"))));
+    if (!repairPhysics && !repairShadow) return asset;
+
+    QJsonArray nameMap = asset.value(QStringLiteral("NameMap")).toArray();
+    QSet<QString> knownNames;
+    for (const QJsonValue &name : nameMap) knownNames.insert(name.toString());
+    auto addName = [&](const QString &name) {
+        if (name.isEmpty() || knownNames.contains(name)) return;
+        knownNames.insert(name);
+        nameMap.append(name);
+        if (name.startsWith(QLatin1String("/Game/"), Qt::CaseInsensitive)
+            || name.startsWith(QLatin1String("/Engine/"), Qt::CaseInsensitive)) {
+            const QString alternate = alternativeName(name);
+            if (!alternate.isEmpty() && !knownNames.contains(alternate)) {
+                knownNames.insert(alternate);
+                nameMap.append(alternate);
+            }
+        }
+    };
+
+    auto identity = [](const QJsonObject &entry, const QJsonArray &imports,
+                       const auto &self, int depth) -> QString {
+        if (depth > imports.size()) return {};
+        const int outerIndex = entry.value(QStringLiteral("OuterIndex")).toInt();
+        const QString parent = outerIndex < 0
+            ? self(imports.at(-outerIndex - 1).toObject(), imports, self, depth + 1)
+            : QString();
+        return key(entry.value(QStringLiteral("ClassPackage")).toString()) + QLatin1Char('|')
+            + key(entry.value(QStringLiteral("ClassName")).toString()) + QLatin1Char('|')
+            + key(entry.value(QStringLiteral("ObjectName")).toString()) + QLatin1Char('|')
+            + parent;
+    };
+
+    QMap<int, int> clonedImportIndices;
+    QSet<int> importsInProgress;
+    std::function<int(int)> cloneVanillaImport = [&](int sourceIndex) -> int {
+        if (sourceIndex < 0 || sourceIndex >= vanillaImports.size()
+            || importsInProgress.contains(sourceIndex)) return -1;
+        if (clonedImportIndices.contains(sourceIndex))
+            return clonedImportIndices.value(sourceIndex);
+        importsInProgress.insert(sourceIndex);
+        QJsonObject cloned = vanillaImports.at(sourceIndex).toObject();
+        const int outerIndex = cloned.value(QStringLiteral("OuterIndex")).toInt();
+        if (outerIndex < 0) {
+            const int newOuterIndex = cloneVanillaImport(-outerIndex - 1);
+            if (newOuterIndex < 0) {
+                importsInProgress.remove(sourceIndex);
+                return -1;
+            }
+            cloned.insert(QStringLiteral("OuterIndex"), -(newOuterIndex + 1));
+        }
+        const QString wantedIdentity = identity(cloned, outputImports, identity, 0);
+        for (int i = 0; i < outputImports.size(); ++i) {
+            if (identity(outputImports.at(i).toObject(), outputImports, identity, 0)
+                == wantedIdentity) {
+                clonedImportIndices.insert(sourceIndex, i);
+                importsInProgress.remove(sourceIndex);
+                return i;
+            }
+        }
+        const int newIndex = outputImports.size();
+        outputImports.append(cloned);
+        clonedImportIndices.insert(sourceIndex, newIndex);
+        importsInProgress.remove(sourceIndex);
+        for (const QString &field : {QStringLiteral("ObjectName"), QStringLiteral("ClassPackage"),
+                                     QStringLiteral("ClassName"), QStringLiteral("PackageName")})
+            addName(cloned.value(field).toString());
+        return newIndex;
+    };
+    auto cloneReference = [&](const QJsonValue &value) -> int {
+        if (!value.isDouble() || value.toInt() >= 0) return 0;
+        const int sourceIndex = -value.toInt() - 1;
+        const int newIndex = cloneVanillaImport(sourceIndex);
+        return newIndex < 0 ? 0 : -(newIndex + 1);
+    };
+
+    QSet<QString> repairedPackages;
+    auto replaceWithVanillaProperty = [&](const QString &name, bool shouldRepair) {
+        if (!shouldRepair) return;
+        addName(name);
+        const int targetIndex = propertyIndex(vanillaData, name);
+        if (targetIndex < 0) return;
+        QJsonObject property = vanillaData.at(targetIndex).toObject();
+        const QJsonValue vanillaValue = property.value(QStringLiteral("Value"));
+        if (!vanillaValue.isDouble() || vanillaValue.toInt() >= 0) return;
+        const int mappedReference = cloneReference(vanillaValue);
+        if (mappedReference == 0) return;
+        property.insert(QStringLiteral("Value"), mappedReference);
+        const int currentIndex = propertyIndex(outputData, name);
+        if (currentIndex >= 0) outputData.replace(currentIndex, property);
+        else {
+            int insertion = outputData.size();
+            for (int i = 0; i < outputData.size(); ++i) {
+                if (outputData.at(i).toObject().value(QStringLiteral("Name")).toString()
+                    .compare(QStringLiteral("PostProcessAnimBlueprint"), Qt::CaseInsensitive) == 0) {
+                    insertion = i;
+                    break;
+                }
+            }
+            outputData.insert(insertion, property);
+        }
+        const QString package = packagePathForImport(vanillaImports, vanillaValue.toInt());
+        if (!package.isEmpty()) repairedPackages.insert(key(package));
+        const int mappedIndex = -mappedReference - 1;
+        for (const QString &field : {QStringLiteral("ObjectName"), QStringLiteral("ClassPackage"),
+                                     QStringLiteral("ClassName"), QStringLiteral("PackageName")})
+            addName(outputImports.at(mappedIndex).toObject().value(field).toString());
+    };
+
+    replaceWithVanillaProperty(QStringLiteral("PhysicsAsset"), repairPhysics);
+    replaceWithVanillaProperty(QStringLiteral("ShadowPhysicsAsset"), repairShadow);
+
+    // Keep the external physics exports in the mesh's create-before-create
+    // dependency list. These imports are part of the current vanilla mesh and
+    // may have been absent (or serialized as UnknownExport) in an older mod.
+    QJsonArray dependencies = outputExport.value(
+        QStringLiteral("SerializationBeforeCreateDependencies")).toArray();
+    auto appendDependency = [&](int objectRef) {
+        if (objectRef < 0 && !dependencies.contains(objectRef)) dependencies.append(objectRef);
+    };
+    for (const QJsonValue &dependency : vanillaExport.value(
+             QStringLiteral("SerializationBeforeCreateDependencies")).toArray()) {
+        if (!dependency.isDouble() || dependency.toInt() >= 0) continue;
+        const QString package = packagePathForImport(vanillaImports, dependency.toInt());
+        if (!repairedPackages.contains(key(package))) continue;
+        const int mappedReference = cloneReference(dependency);
+        appendDependency(mappedReference);
+    }
+    outputExport.insert(QStringLiteral("Data"), outputData);
+    outputExport.insert(QStringLiteral("SerializationBeforeCreateDependencies"), dependencies);
+    outputExports.replace(outputExportIndex, outputExport);
+
+    QJsonObject out = asset;
+    out.insert(QStringLiteral("Imports"), outputImports);
+    out.insert(QStringLiteral("NameMap"), nameMap);
+    out.insert(QStringLiteral("Exports"), outputExports);
+    return out;
+}
+
 bool CnsConverterService::writeRelocatedAsset(
     const QString &sourceUasset, const QString &targetUasset,
     const QMap<QString, QString> &relocations, QString *error,
@@ -752,6 +961,87 @@ bool CnsConverterService::writeRelocatedAsset(
     }
     QFile::remove(targetUasset);
     return m_uasset->fromJson(jsonPath, targetUasset, error);
+}
+
+bool CnsConverterService::repairReplacerPhysicsReferencesOnDisk(
+    const QString &rootUasset, const QString &rootPath, const QString &workDir,
+    bool *repaired, QString *error) const {
+    if (repaired) *repaired = false;
+    const QString outputJsonPath = rootUasset + QStringLiteral(".json");
+    if (!QFileInfo::exists(outputJsonPath)
+        && !m_uasset->toJson(rootUasset, outputJsonPath, error)) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
+                                .arg(rootPath, *error);
+        return false;
+    }
+    const QJsonDocument outputDoc = readJsonFile(outputJsonPath);
+    if (!outputDoc.isObject()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
+                                .arg(rootPath, QStringLiteral("invalid generated mesh JSON"));
+        return false;
+    }
+
+    const QString vanillaDir = QDir(workDir).filePath(QStringLiteral("vanilla-replacer-root"));
+    const QString filter = rootPath.section(QLatin1Char('/'), -1);
+    QString extractError;
+    if (m_pak->toLegacyFiltered(GamePaths::paksDir(), filter, vanillaDir, &extractError) <= 0) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_vanilla_failed"))
+                                .arg(rootPath, extractError);
+        return false;
+    }
+
+    QString vanillaRootFile;
+    QDirIterator vanillaFiles(vanillaDir, {QStringLiteral("*.uasset")}, QDir::Files,
+                              QDirIterator::Subdirectories);
+    while (vanillaFiles.hasNext()) {
+        const QString candidate = vanillaFiles.next();
+        if (key(assetPathForFile(candidate, vanillaDir)) == key(rootPath)) {
+            vanillaRootFile = candidate;
+            break;
+        }
+    }
+    if (vanillaRootFile.isEmpty()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_vanilla_failed"))
+                                .arg(rootPath, QStringLiteral("root asset not found"));
+        return false;
+    }
+
+    const QString vanillaJsonPath = QDir(workDir).filePath(QStringLiteral("vanilla-root.json"));
+    if (!m_uasset->toJson(vanillaRootFile, vanillaJsonPath, error)) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_vanilla_failed"))
+                                .arg(rootPath, *error);
+        return false;
+    }
+    const QJsonDocument vanillaDoc = readJsonFile(vanillaJsonPath);
+    if (!vanillaDoc.isObject()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_vanilla_failed"))
+                                .arg(rootPath, QStringLiteral("invalid vanilla mesh JSON"));
+        return false;
+    }
+
+    const QJsonObject repairedAsset = repairReplacerPhysicsReferences(
+        outputDoc.object(), vanillaDoc.object(), rootPath);
+    if (repairedAsset == outputDoc.object()) return true;
+
+    QSaveFile output(outputJsonPath);
+    if (!output.open(QIODevice::WriteOnly)
+        || output.write(QJsonDocument(repairedAsset).toJson(QJsonDocument::Indented)) < 0
+        || !output.commit()) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
+                                .arg(rootPath, QStringLiteral("could not write generated mesh JSON"));
+        return false;
+    }
+    QFile::remove(rootUasset);
+    const QString outputUexp = QFileInfo(rootUasset).dir().filePath(
+        QFileInfo(rootUasset).completeBaseName() + QStringLiteral(".uexp"));
+    QFile::remove(outputUexp);
+    if (!m_uasset->fromJson(outputJsonPath, rootUasset, error)) {
+        if (error) *error = tr_(QStringLiteral("cns_replacer_physics_repair_failed"))
+                                .arg(rootPath, *error);
+        return false;
+    }
+    if (repaired) *repaired = true;
+    return true;
 }
 
 CnsConverterService::Result CnsConverterService::convert(const Request &request) {
@@ -1017,6 +1307,18 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
             result.error = error; return result;
         }
         ++result.assetsWritten;
+    }
+
+    if (request.mode == Mode::ToReplacer) {
+        bool physicsRepaired = false;
+        if (!repairReplacerPhysicsReferencesOnDisk(
+                fileForAsset(targetInfo.path, packageDir), targetInfo.path,
+                temp.path(), &physicsRepaired, &error)) {
+            result.error = error;
+            return result;
+        }
+        if (physicsRepaired)
+            result.warnings << tr_(QStringLiteral("cns_replacer_physics_repaired"));
     }
 
     QDir().mkpath(request.outputDir);

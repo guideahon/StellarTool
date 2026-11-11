@@ -22,7 +22,7 @@ Antes de usar un comando:
 | Mods / Cambios | `analyze` | Importa mods, analiza tablas y lista cambios/conflictos. |
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
-| CNS Converter | `cns`, `replacer` | Convierte outfits y genera un ZIP instalable. `replacer` requiere que el mod fuente incluya el asset raíz del outfit; si solo incluye texturas/dependencias, se rechaza porque no puede reemplazar la malla. `replacer --replace <outfit>` acepta los destinos de outfit vanilla (`Body`) que aparecen en el desplegable rápido; la interfaz avanzada también lista otros tipos de asset. `cns` aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
+| CNS Converter | `cns`, `replacer` | Convierte outfits y genera un ZIP instalable. `replacer` requiere que el mod fuente incluya el asset raíz del outfit; si solo incluye texturas/dependencias, se rechaza porque no puede reemplazar la malla. Repara referencias faltantes o `UnknownExport` de PhysicsAsset/ShadowPhysicsAsset desde la malla vanilla actual del destino. `replacer --replace <outfit>` acepta los destinos de outfit vanilla (`Body`) que aparecen en el desplegable rápido; la interfaz avanzada también lista otros tipos de asset. `cns` aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
 | CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. `--apply` repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles que participan en conflictos `Package_Id`. La reconstrucción de cabecera respalda la familia original en `~mods/disabled/`; no cambia el tipo de mod. Exige la carpeta `~mods` activa configurada y verifica la salida. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
 | Baseline / Ajustes | `baseline`, `detect`, `status` | Construye baseline, detecta juego y consulta instalación. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
@@ -73,6 +73,10 @@ puede leerlos.
 `replacer --omit-post-process-animblueprint` pone en null el campo
 `PostProcessAnimBlueprint` de la malla raíz y omite del paquete el asset al que
 apuntaba. Se cancela si otro asset del mod también lo referencia.
+En cualquier replacer, si las referencias de `PhysicsAsset` o
+`ShadowPhysicsAsset` faltan o apuntan a `UnknownExport`, se reconstruyen con las
+referencias de la malla vanilla actual del destino. La conversión falla si no
+puede extraer ese asset del juego.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
 paks del juego. CNS ID Fixer aplica el mismo aislamiento a los contenedores
 IoStore activos que comparten `Package_Id`. Intenta las conversiones una por una;

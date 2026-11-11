@@ -691,6 +691,9 @@
   "cns_conversion_done": "Outfit conversion finished.",
   "cns_conversion_failed": "Outfit conversion failed.",
   "cns_result_batch": "%1 of %2 mods converted.\n%3",
+  "cns_replacer_physics_repaired": "Repaired missing physics references in the replacer mesh using the current vanilla mesh.",
+  "cns_replacer_physics_repair_failed": "Could not repair physics references in replacer mesh %1: %2",
+  "cns_replacer_physics_vanilla_failed": "Could not load current vanilla mesh %1: %2",
   "cns_replacer_target_label": "Replacement target asset",
   "cns_select_target_asset": "Select a replacement target…"
 }

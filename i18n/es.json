@@ -691,6 +691,9 @@
   "cns_conversion_done": "Terminó la conversión del outfit.",
   "cns_conversion_failed": "Falló la conversión del outfit.",
   "cns_result_batch": "%1 de %2 mods convertidos.\n%3",
+  "cns_replacer_physics_repaired": "Se repararon las referencias de física faltantes del replacer usando la malla vanilla actual.",
+  "cns_replacer_physics_repair_failed": "No se pudieron reparar las referencias de física de la malla replacer %1: %2",
+  "cns_replacer_physics_vanilla_failed": "No se pudo cargar la malla vanilla actual %1: %2",
   "cns_replacer_target_label": "Asset de destino del reemplazo",
   "cns_select_target_asset": "Elegí un asset de destino…"
 }

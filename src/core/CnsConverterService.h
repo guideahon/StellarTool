@@ -63,6 +63,9 @@ public:
     static QJsonObject relocateAssetJson(const QJsonObject &asset,
                                          const QMap<QString, QString> &relocations,
                                          const QString &omittedAssetPath = {});
+    static QJsonObject repairReplacerPhysicsReferences(const QJsonObject &asset,
+                                                        const QJsonObject &vanillaAsset,
+                                                        const QString &rootPath);
     static QString normalizeAssetPath(const QString &path);
     static QString shortId(const QString &text);
     static QList<CompatibilityCopy> fusionCompatibilityCopies(
@@ -102,6 +105,11 @@ private:
                              const QMap<QString, QString> &relocations,
                              QString *error,
                              const QString &omittedAssetPath = {}) const;
+    bool repairReplacerPhysicsReferencesOnDisk(const QString &rootUasset,
+                                               const QString &rootPath,
+                                               const QString &workDir,
+                                               bool *repaired,
+                                               QString *error) const;
 
     // Un replacer puede reemplazar texturas compartidas que un outfit sigue
     // leyendo desde materiales vanilla. Al convertir, se aíslan materiales y
