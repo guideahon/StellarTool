@@ -70,9 +70,12 @@ y sliders para parámetros de rugosidad/metalicidad presentes en los materiales.
 `replacer --replace "Fusion Suit"` agrega además las copias de Fusion NoAcc y
 de los materiales de slot que el juego fuerza en el jefe final, si CUE4Parse
 puede leerlos.
-`replacer --omit-post-process-animblueprint` pone en null el campo
-`PostProcessAnimBlueprint` de la malla raíz y omite del paquete el asset al que
-apuntaba. Se cancela si otro asset del mod también lo referencia.
+Por defecto, el replacer conserva el `PostProcessAnimBlueprint` de la malla
+vanilla actual e ignora la referencia que traiga el mod fuente. Esto evita
+arrastrar blueprints antiguos o irresolubles. `replacer
+--omit-post-process-animblueprint` elimina la propiedad de la malla raíz y omite
+del paquete el asset al que apuntaba la fuente. Se cancela si otro asset del
+mod también lo referencia.
 En cualquier replacer, la malla resultante conserva el esquema de la malla
 vanilla actual del destino: exports auxiliares (incluidos morph targets) y
 propiedades requeridas se mantienen, mientras los datos de la fuente se copian

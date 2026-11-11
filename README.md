@@ -29,10 +29,11 @@ La interfaz incluye temas **Claro**, **Oscuro** y **OLED** (negro puro), selecci
   hacia el replacer Fusion Suit, también genera las variantes de malla y,
   cuando CUE4Parse puede leer los slots, los materiales que el juego fuerza
   durante el jefe final. El modo headless ofrece `--omit-post-process-animblueprint`
-  para crear una variante de compatibilidad sin el blueprint post-proceso de la
-  malla raíz. Al generar cualquier replacer, usa la malla vanilla actual como
-  esquema: conserva sus exports auxiliares y propiedades (incluidos morph
-  targets), y copia desde el mod solo los datos con tipos compatibles. Luego
+  para crear una variante sin la referencia al blueprint postproceso de la
+  malla raíz. Por defecto conserva el blueprint vanilla actual. Al generar
+  cualquier replacer, usa la malla vanilla actual como esquema: conserva sus
+  exports auxiliares y propiedades (incluidos morph targets), y copia desde el
+  mod solo los datos con tipos compatibles. Luego
   verifica las referencias, serializa y vuelve a montar y leer el IoStore final;
   no genera el ZIP si una referencia usada queda sin resolver.
 - **CNS ID Fixer** analiza mods IoStore, muestra rutas para distinguir

@@ -1324,11 +1324,10 @@ QJsonObject CnsConverterService::adaptReplacerMeshToVanillaSchema(
             const int targetIndex = propertyIndex(targetData, name);
             if (omitPostProcessAnimBlueprint) {
                 if (targetIndex >= 0) targetData.removeAt(targetIndex);
-            } else if (targetIndex >= 0) {
-                targetData.replace(targetIndex,
-                                   mergeProperty(sourcePropertyValue,
-                                                 targetData.at(targetIndex)));
             }
+            // Keep the current game's animation blueprint reference. Old outfit
+            // mods may point to a removed or unresolved blueprint, while the
+            // vanilla target already supplies the current compatible asset.
             continue;
         }
         if (engineOwnedProperties.contains(normalizedName)) continue;
@@ -2044,10 +2043,10 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         return result;
     }
     QString omittedAnimBlueprintPath;
-    if (request.mode == Mode::ToReplacer && request.omitPostProcessAnimBlueprint) {
+    if (request.mode == Mode::ToReplacer) {
         const QString rootFile = assetFiles.value(key(rootPath));
         if (rootFile.isEmpty()) {
-            result.error = QStringLiteral("No se encontró el archivo de la malla raíz para quitar su AnimBlueprint.");
+            result.error = QStringLiteral("No se encontró el archivo de la malla raíz para adaptar su AnimBlueprint.");
             return result;
         }
         const QString inspectJson = QDir(temp.path()).filePath(QStringLiteral("root-inspect.json"));
@@ -2068,9 +2067,11 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
         }
         omittedAnimBlueprintPath = postProcessAnimBlueprintPath(rootDoc.object());
         if (omittedAnimBlueprintPath.isEmpty()) {
-            result.error = QStringLiteral("La malla raíz no tiene un PostProcessAnimBlueprint que se pueda quitar.");
-            return result;
-        }
+            if (request.omitPostProcessAnimBlueprint) {
+                result.error = QStringLiteral("La malla raíz no tiene un PostProcessAnimBlueprint que se pueda quitar.");
+                return result;
+            }
+        } else {
         if (key(omittedAnimBlueprintPath) == key(rootPath)) {
             result.error = QStringLiteral("El PostProcessAnimBlueprint apunta a la propia malla; se canceló la reparación.");
             return result;
@@ -2114,15 +2115,20 @@ CnsConverterService::Result CnsConverterService::convert(const Request &request)
                 return result;
             }
         }
+        // The output root uses the destination game's PPA by default, so never
+        // carry the source mod's old PPA package into the replacer.
         assetFiles.remove(key(omittedAnimBlueprintPath));
         moddedAssets.erase(std::remove_if(moddedAssets.begin(), moddedAssets.end(),
                                          [&](const QString &asset) {
                                              return key(asset) == key(omittedAnimBlueprintPath);
                                          }),
                             moddedAssets.end());
-        result.warnings << QStringLiteral(
-            "Se quitó PostProcessAnimBlueprint (%1) de la malla raíz y se omitió ese asset del replacer.")
-                                .arg(omittedAnimBlueprintPath);
+        if (request.omitPostProcessAnimBlueprint) {
+            result.warnings << QStringLiteral(
+                "Se quitó PostProcessAnimBlueprint (%1) de la malla raíz y se omitió ese asset del replacer.")
+                                    .arg(omittedAnimBlueprintPath);
+        }
+        }
     }
     AssetInfo sourceInfo = cnsInfos.value(key(rootPath), m_rootInfos.value(key(rootPath)));
     if (sourceInfo.path.isEmpty()) sourceInfo.path = rootPath;

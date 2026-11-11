@@ -323,6 +323,23 @@ void TestCnsConverter::adaptsReplacerMeshToCurrentVanillaSchema() {
     QVERIFY(!findProperty(QStringLiteral("ShadowPhysicsAsset")).isEmpty());
     QCOMPARE(adapted.value(QStringLiteral("NameMap")).toArray().last().toString(),
              QStringLiteral("ModOnlyName"));
+
+    const QJsonObject preservedPpa = CnsConverterService::adaptReplacerMeshToVanillaSchema(
+        source, vanilla, QStringLiteral("/Game/Art/Mesh"), false, &error);
+    QVERIFY2(!preservedPpa.isEmpty(), qPrintable(error));
+    const QJsonArray preservedProperties = preservedPpa.value(QStringLiteral("Exports"))
+                                               .toArray().at(1).toObject()
+                                               .value(QStringLiteral("Data")).toArray();
+    bool foundVanillaPpa = false;
+    for (const QJsonValue &value : preservedProperties) {
+        const QJsonObject property = value.toObject();
+        if (property.value(QStringLiteral("Name")).toString()
+            == QStringLiteral("PostProcessAnimBlueprint")) {
+            foundVanillaPpa = true;
+            QCOMPARE(property.value(QStringLiteral("Value")).toInt(), -4);
+        }
+    }
+    QVERIFY(foundVanillaPpa);
 }
 
 void TestCnsConverter::removesUnresolvedReplacerDependencyChains() {
