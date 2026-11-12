@@ -68,13 +68,13 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
   la verificación confirma que redujeron las referencias compartidas; los
   originales convertidos se respaldan en `~mods/disabled/`. Requiere CNS
   instalado únicamente para esas conversiones de conflictos `Package_Id`. En
-  modo headless, `fixids --apply` hace la reparación completa; con
+  La acción **Reparar instalación** actúa directamente sobre la carpeta `~mods`
+  configurada: instala los outfits CNS compatibles y mueve sus fuentes a
+  `~mods/disabled` después de confirmar. En modo headless, `fixids --apply` hace
+  la misma reparación; con
   `--apply --ids-only` se limita el cambio a `Container_Id`.
-  El modo `fixids --isolate --out <carpeta>` genera ZIPs CNS independientes para
-  los paquetes en conflicto, sin tocar los originales, para que puedas
-  instalarlos por separado en Vortex y desactivar allí cada fuente. El reporte
-  identifica qué paquete aporta cada asset; los no compatibles con CNS quedan
-  detallados y producen un resultado parcial.
+  El reporte identifica qué paquete aporta cada asset; los que no se pueden
+  convertir de forma segura permanecen activos y quedan detallados.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con

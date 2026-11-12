@@ -24,7 +24,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. Si un cambio seleccionado de una tabla no se puede verificar, excluye la tabla completa para no ocultar el mod fuente y lo detalla en `merge_report.txt`. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera un ZIP instalable. `replacer` requiere que el mod fuente incluya el asset raíz del outfit; si solo incluye texturas/dependencias, se rechaza porque no puede reemplazar la malla. Repara referencias faltantes o `UnknownExport` de PhysicsAsset/ShadowPhysicsAsset desde la malla vanilla actual del destino, elimina imports `UnknownExport` huérfanos y valida el `.uasset` serializado; falla con detalle si queda una referencia sin resolver. `replacer --replace <outfit>` acepta los destinos de outfit vanilla (`Body`) que aparecen en el desplegable rápido; la interfaz avanzada también lista otros tipos de asset. `cns` aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. Compara también los `Package_Id` de los mods con los contenedores originales del juego para detectar reemplazos globales que pueden pisar texturas o materiales usados por outfits CNS. Los conflictos entre mods muestran la ruta interna del asset y cada contenedor por separado; cuando hay un `.dekcns.json` coincidente, muestra `DisplayName`, `UniqueFitID` y variantes para identificar qué outfit aporta cada fuente. `--isolate --out <dir>` genera ZIPs CNS separados para los contenedores en conflicto, sin editar ni desactivar los originales; requiere `--out` fuera de la carpeta analizada y devuelve código 4 si algunos contenedores no se pueden convertir o el destino ya contiene un ZIP. `--apply` repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles con colisiones entre mods o con assets originales. La reconstrucción de cabecera respalda la familia original en `~mods/disabled/`; no cambia el tipo de mod. Exige la carpeta `~mods` activa configurada y verifica la salida. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
+| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. Compara también los `Package_Id` de los mods con los contenedores originales del juego para detectar reemplazos globales que pueden pisar texturas o materiales usados por outfits CNS. Los conflictos entre mods muestran la ruta interna del asset y cada contenedor por separado; cuando hay un `.dekcns.json` coincidente, muestra `DisplayName`, `UniqueFitID` y variantes para identificar qué outfit aporta cada fuente. `--apply` actúa directamente sobre la carpeta `~mods` activa: repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles en conflicto. Instala las conversiones y mueve sus originales a `~mods/disabled/`; los paquetes incompatibles permanecen activos y quedan reportados. Exige la carpeta `~mods` activa configurada y verifica el resultado. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si quedan conflictos o errores sin reparar. |
 | Baseline / Ajustes | `baseline`, `detect`, `status`, `storage` | Construye baseline, detecta juego, consulta instalación y gestiona la carpeta de trabajo temporal. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -48,7 +48,6 @@ StellarTool.exe --headless presets
 StellarTool.exe --headless cns --mod "C:\outfit.zip" --out "C:\salida" [--name "Outfit"]
 StellarTool.exe --headless replacer --mod "C:\outfit.zip" --out "C:\salida" --replace "Black Pearl" [--select "2"] [--omit-post-process-animblueprint]
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods"
-StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --isolate --out "C:\StellarMods\CNS-Isolated"
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply
 StellarTool.exe --headless fixids --mod "C:\StellarBlade\SB\Content\Paks\~mods" --apply --ids-only
 StellarTool.exe --headless baseline --game "C:\Steam\steamapps\common\StellarBlade"
@@ -116,13 +115,11 @@ global aunque no haya otro mod que use ese mismo ID. Al aplicar la reparación,
 intenta convertir a CNS los outfits compatibles y verifica que bajen las
 referencias en conflicto antes de conservar el cambio.
 
-`fixids --isolate --out <dir>` usa ese diagnóstico y genera cada conversión
-compatible como un ZIP independiente en una carpeta externa a `~mods`. No cambia
-los archivos instalados: se pueden revisar e instalar los ZIPs por separado en
-Vortex y desactivar manualmente sus originales después. Los contenedores que no
-sean outfits compatibles con el conversor quedan listados como fallidos; el
-código de salida es 4 si el resultado es parcial. Este modo no se combina con
-`--apply`, `--ids-only` ni `--fix-textures`.
+`fixids --apply` actúa directamente sobre la instalación: instala los outfits
+CNS que el conversor puede reparar y mueve sus fuentes originales a
+`~mods/disabled/`. Requiere confirmación explícita mediante `--apply`; los
+contenedores incompatibles no se cambian y quedan en el reporte. El código de
+salida es 4 si la reparación queda parcial.
 
 Además, `fixids --apply` verifica los `.utoc` con `retoc verify`. Si el único
 fallo es el hash del chunk `ContainerHeader` y la tabla de chunks sigue presente,

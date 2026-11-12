@@ -221,12 +221,10 @@ La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
 juego configurada; requiere confirmación en UI y `--apply` en modo headless.
 En headless, `--apply` ejecuta la reparación completa; `--ids-only` conserva la
 corrección limitada a `Container_Id`.
-La página también ofrece **Independizar recursos compartidos**: repite el mismo
-escaneo y escribe ZIPs CNS separados en una carpeta externa a `~mods`, sin
-instalar ni mover sus fuentes. `fixids --isolate --out <dir>` es el comando
-headless equivalente; permite revisar e instalar los resultados por separado,
-y devuelve código 4 si quedan contenedores no convertibles o ZIPs que no se
-pudieron escribir.
+La acción **Reparar instalación** usa este flujo directamente sobre el `~mods`
+activo: instala los CNS compatibles y mueve sus fuentes a `~mods/disabled` con
+confirmación. `fixids --apply` es el comando headless equivalente; devuelve
+código 4 si quedan conflictos o contenedores no convertibles.
 Para instalar outfits convertidos también exige encontrar la carpeta o el
 paquete de CNS; si no está instalado, deja todos los mods activos sin cambios.
 Si no puede leer los slots/parámetros de materiales, extraer una textura o
@@ -382,7 +380,6 @@ StellarTool --headless status
 StellarTool --headless detect
 StellarTool --headless uninstall [--paks] [--helper]
 StellarTool --headless fixids    --mod <dir> [--apply]
-StellarTool --headless fixids    --mod <dir> --isolate --out <dir>
 StellarTool --headless presets
 StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]
 StellarTool --headless save-from-json --input <json> --out <sav>

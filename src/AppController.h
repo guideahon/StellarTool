@@ -213,8 +213,6 @@ public:
     Q_INVOKABLE void openCnsOutputDir();
     Q_INVOKABLE void runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes);
     Q_INVOKABLE void fixCnsIdsAndTextures(const QUrl &directoryUrl);
-    Q_INVOKABLE void isolateCnsIdConflicts(const QUrl &directoryUrl,
-                                            const QUrl &outputDirUrl);
     QString cnsIdFixerReport() const { return m_cnsIdFixerReport; }
     bool cnsIdFixerOk() const { return m_cnsIdFixerOk; }
     bool cnsIdFixerIncomplete() const { return m_cnsIdFixerIncomplete; }

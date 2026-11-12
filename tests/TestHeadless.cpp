@@ -223,19 +223,11 @@ void TestHeadless::fixidsNeedsADirectory() {
     QVERIFY(validationError(QStringLiteral("fixids"),
                             withMods({QStringLiteral("C:/mods/outfit")})).isEmpty());
 
-    auto isolate = withMods({QStringLiteral("C:/mods/~mods")});
-    isolate.isolateConflicts = true;
-    QVERIFY(!validationError(QStringLiteral("fixids"), isolate).isEmpty());
-    isolate.outDir = QStringLiteral("C:/mods/output");
-    QVERIFY(validationError(QStringLiteral("fixids"), isolate).isEmpty());
-    isolate.applyFixes = true;
-    QVERIFY(!validationError(QStringLiteral("fixids"), isolate).isEmpty());
-    isolate.applyFixes = false;
-    isolate.idsOnly = true;
-    QVERIFY(!validationError(QStringLiteral("fixids"), isolate).isEmpty());
-    isolate.idsOnly = false;
-    isolate.fixTextures = true;
-    QVERIFY(!validationError(QStringLiteral("fixids"), isolate).isEmpty());
+    auto apply = withMods({QStringLiteral("C:/mods/~mods")});
+    apply.applyFixes = true;
+    QVERIFY(validationError(QStringLiteral("fixids"), apply).isEmpty());
+    apply.idsOnly = true;
+    QVERIFY(validationError(QStringLiteral("fixids"), apply).isEmpty());
 }
 
 void TestHeadless::saveCommandsNeedTheirArguments() {
