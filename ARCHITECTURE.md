@@ -187,8 +187,11 @@ entrada se extrae a una carpeta temporal, los `.uasset` se convierten mediante
 `CnsIdFixerPage` llama a `CnsIdFixerService` en un worker independiente. El
 servicio valida el encabezado y la tabla de chunks de cada `.utoc`, ejecuta
 `retoc verify`, agrupa `Container_Id` repetidos y enumera los `Package_Id` de
-ExportBundle compartidos
-con rutas relativas completas para distinguir contenedores homónimos. La acción
+ExportBundle compartidos con rutas relativas completas para distinguir
+contenedores homónimos. También compara los IDs activos con los de los
+contenedores vanilla en `Paks` (excluye `~mods`, LogicMods, backups y stages) y
+resuelve sus rutas de asset con retoc cuando están disponibles, para detectar
+reemplazos globales que alteren recursos usados por outfits CNS. La acción
 de reparación puede reconstruir un hash inválido del chunk `ContainerHeader`:
 extrae y vuelve a empaquetar el mismo contenido IoStore, comprueba que los
 `Package_Id` no cambiaron y verifica el resultado antes de instalarlo. Este

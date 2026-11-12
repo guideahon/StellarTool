@@ -101,6 +101,10 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 
 ### CNS ID Fixer ✅
 - Sección propia para escanear recursivamente mods IoStore instalados.
+- Compara los `Package_Id` activos con los contenedores vanilla del juego,
+  excluyendo mods, LogicMods, backups y stages, y reporta la ruta del asset
+  reemplazado. La reparación intenta convertir a CNS los outfits compatibles con
+  esas colisiones y valida que bajen las referencias antes de conservarla.
 - Detección y corrección de `Container_Id` duplicados con backup y verificación.
 - Botón **Fix IDs and textures**: intenta convertir por separado los contenedores
   con `Package_Id` compartidos, aísla materiales/texturas y despliega los outfits

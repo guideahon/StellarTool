@@ -31,6 +31,7 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QStorageInfo>
+#include <QSet>
 #include <QUrl>
 #include <QRegularExpression>
 
@@ -202,6 +203,7 @@ void AppController::runCnsIdFixer(const QUrl &directoryUrl, bool applyFixes) {
             m_cnsIdFixerIncomplete = result.ok && applyFixes
                 && (!result.integrityIssues.isEmpty()
                     || result.packageConflicts > 0
+                    || result.vanillaPackageConflicts > 0
                     || result.fixedContainers < result.duplicateContainers);
             if (!result.ok) emit errorOccurred(result.error);
             emit cnsIdFixerFinished(result.ok);
@@ -315,7 +317,14 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
 
         QList<ConvertedOutfit> convertedOutfits;
         QStringList packageConflictCandidates;
-        for (const QString &path : initial.sharedPackageContainerPaths) {
+        QStringList allPackageConflictPaths = initial.sharedPackageContainerPaths;
+        allPackageConflictPaths.append(initial.vanillaPackageContainerPaths);
+        QSet<QString> seenPackageConflictPaths;
+        for (const QString &path : allPackageConflictPaths) {
+            const QString normalized = QDir::cleanPath(
+                QFileInfo(path).absoluteFilePath()).toCaseFolded();
+            if (seenPackageConflictPaths.contains(normalized)) continue;
+            seenPackageConflictPaths.insert(normalized);
             // A damaged replacer stays a replacer. If its Package_Id conflict
             // remains, report it instead of silently changing its outfit mode.
             if (!integrityPaths.contains(path, Qt::CaseInsensitive))
@@ -324,9 +333,11 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         const int total = packageConflictCandidates.size();
         if (total == 0) {
             lines << (initial.packageConflicts == 0
+                          && initial.vanillaPackageConflicts == 0
                 ? t(QStringLiteral("cns_fixer_fix_no_conflicts"))
                 : t(QStringLiteral("cns_fixer_fix_replacer_conflicts_remain"))
-                      .arg(initial.packageConflicts));
+                      .arg(initial.packageConflicts
+                           + initial.vanillaPackageConflicts));
             const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
             if (!idFix.ok) {
                 finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
@@ -338,6 +349,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                                       .arg(idFix.fixedContainers)
                   << idFix.report;
             const bool incomplete = idFix.packageConflicts > 0
+                || idFix.vanillaPackageConflicts > 0
                 || idFix.fixedContainers < idFix.duplicateContainers
                 || initial.integrityIssues.size() > repackedReplacerPaths.size();
             cleanStage();
@@ -642,11 +654,14 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             }
         }
 
-        // Keep a partial repair only when it measurably reduces shared package
-        // references. If it makes no progress, restore the exact source files.
+        // Keep a partial repair only when it measurably reduces shared or
+        // vanilla Package_Id references. Otherwise restore the exact sources.
         const CnsIdFixerService::Result verification = m_cnsIdFixer->run(sourceRoot, false);
-        if (!verification.ok
-            || verification.sharedPackageReferences >= initial.sharedPackageReferences) {
+        const int initialPackageReferences = initial.sharedPackageReferences
+            + initial.vanillaPackageReferences;
+        const int verifiedPackageReferences = verification.sharedPackageReferences
+            + verification.vanillaPackageReferences;
+        if (!verification.ok || verifiedPackageReferences >= initialPackageReferences) {
             removeInstalled(installedFiles);
             const bool restored = restoreOriginals();
             cleanStage();
@@ -677,6 +692,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
               << t(QStringLiteral("cns_fixer_fix_summary"))
                     .arg(convertedOutfits.size()).arg(originalMoves.size());
         const bool incomplete = idFix.packageConflicts > 0
+            || idFix.vanillaPackageConflicts > 0
             || idFix.fixedContainers < idFix.duplicateContainers
             || initial.integrityIssues.size() > repackedReplacerPaths.size();
         if (incomplete)

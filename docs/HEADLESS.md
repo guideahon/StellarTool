@@ -24,7 +24,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. Si un cambio seleccionado de una tabla no se puede verificar, excluye la tabla completa para no ocultar el mod fuente y lo detalla en `merge_report.txt`. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera un ZIP instalable. `replacer` requiere que el mod fuente incluya el asset raíz del outfit; si solo incluye texturas/dependencias, se rechaza porque no puede reemplazar la malla. Repara referencias faltantes o `UnknownExport` de PhysicsAsset/ShadowPhysicsAsset desde la malla vanilla actual del destino, elimina imports `UnknownExport` huérfanos y valida el `.uasset` serializado; falla con detalle si queda una referencia sin resolver. `replacer --replace <outfit>` acepta los destinos de outfit vanilla (`Body`) que aparecen en el desplegable rápido; la interfaz avanzada también lista otros tipos de asset. `cns` aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. `--apply` repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles que participan en conflictos `Package_Id`. La reconstrucción de cabecera respalda la familia original en `~mods/disabled/`; no cambia el tipo de mod. Exige la carpeta `~mods` activa configurada y verifica la salida. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
+| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. Compara también los `Package_Id` de los mods con los contenedores originales del juego para detectar reemplazos globales que pueden pisar texturas o materiales usados por outfits CNS. `--apply` repara `Container_Id`, reconstruye los hashes reparables del chunk `ContainerHeader` preservando las rutas del replacer y convierte a CNS los outfits compatibles con colisiones entre mods o con assets originales. La reconstrucción de cabecera respalda la familia original en `~mods/disabled/`; no cambia el tipo de mod. Exige la carpeta `~mods` activa configurada y verifica la salida. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` queda como alias compatible. Devuelve código 4 si queda una reparación parcial. |
 | Baseline / Ajustes | `baseline`, `detect`, `status`, `storage` | Construye baseline, detecta juego, consulta instalación y gestiona la carpeta de trabajo temporal. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -103,6 +103,14 @@ las exitosas e informa el resultado parcial; el código de salida es 4. El coman
 requiere `--apply`, que es la confirmación explícita del cambio productivo.
 `--fix-textures` se conserva como alias compatible y también requiere `--apply`.
 CNS debe estar instalado para desplegar los outfits convertidos.
+
+El escaneo de `fixids` compara además los `Package_Id` activos con los de los
+contenedores originales bajo `Paks`, excluyendo `~mods`, `LogicMods`, backups y
+stages de Stellar Tool. El reporte muestra las rutas vanilla afectadas cuando
+`retoc` puede listarlas. Así detecta un reemplazo de textura o material global
+aunque no haya otro mod que use ese mismo ID. Al aplicar la reparación, intenta
+convertir a CNS los outfits compatibles y verifica que bajen las referencias
+en conflicto antes de conservar el cambio.
 
 Además, `fixids --apply` verifica los `.utoc` con `retoc verify`. Si el único
 fallo es el hash del chunk `ContainerHeader` y la tabla de chunks sigue presente,

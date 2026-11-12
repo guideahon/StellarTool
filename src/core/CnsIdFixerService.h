@@ -34,7 +34,10 @@ public:
         int fixedContainers = 0;
         int packageConflicts = 0;
         int sharedPackageReferences = 0;
+        int vanillaPackageConflicts = 0;
+        int vanillaPackageReferences = 0;
         QStringList sharedPackageContainerPaths;
+        QStringList vanillaPackageContainerPaths;
         QStringList repairableHeaderHashPaths;
         QList<IntegrityIssue> integrityIssues;
         QString report;
@@ -45,10 +48,12 @@ public:
 
     // Escanea .utoc recursivamente. Si fixDuplicates es true, conserva el
     // primer Container_Id y asigna IDs determinísticos a los duplicados.
-    // También devuelve los contenedores implicados en Package_Id compartidos.
+    // También devuelve los contenedores implicados en Package_Id compartidos
+    // entre mods y en colisiones con los contenedores vanilla de Paks.
     // Cada escritura crea antes <archivo>.cnsidfixer.bak.
     Result run(const QString &directory, bool fixDuplicates,
-               bool verifyContents = false) const;
+               bool verifyContents = false,
+               const QString &vanillaPaksDirectory = {}) const;
     bool packageIdsMatch(const QString &firstUtoc, const QString &secondUtoc,
                          QString *error = nullptr) const;
     RepairResult repairHeaderHashMismatches(const QString &directory,

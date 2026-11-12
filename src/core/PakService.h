@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QObject>
+#include <QMap>
 #include <QString>
 
 namespace st {
@@ -48,6 +49,10 @@ public:
     // Nombres de assets dentro de un contenedor Zen (vía retoc unpack), sin
     // convertir. Útil para informar qué tablas toca un mod Zen no convertible.
     QStringList listZenAssets(const QString &utocPath);
+    // IDs de paquete y rutas de assets listados por retoc (sin extraerlos).
+    bool listIoStorePackagePaths(const QString &utocPath, const QString &mountFolder,
+                                 QMap<quint64, QString> *paths,
+                                 QString *error = nullptr);
     bool pack(const QString &contentDir, const QString &outPak, QString *error = nullptr);
     // retoc UE4.26 only maps <project>/Content/... or plugin Content paths
     // to package names. Reject unsupported input with the offending path.
@@ -80,7 +85,8 @@ public:
     bool createZip(const QString &srcDir, const QString &outZip, QString *error = nullptr);
 
 private:
-    bool runProcess(const QString &exe, const QStringList &args, QString *error, int timeoutMs = 300000);
+    bool runProcess(const QString &exe, const QStringList &args, QString *error,
+                    int timeoutMs = 300000, QString *output = nullptr);
 };
 
 } // namespace st

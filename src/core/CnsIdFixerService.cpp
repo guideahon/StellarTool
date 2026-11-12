@@ -1,6 +1,7 @@
 #include "CnsIdFixerService.h"
 
 #include "PakService.h"
+#include "GamePaths.h"
 #include "Translator.h"
 
 #include <QCryptographicHash>
@@ -168,7 +169,8 @@ bool CnsIdFixerService::patchContainer(const Container &container, quint64 newId
 
 CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
                                                   bool fixDuplicates,
-                                                  bool verifyContents) const {
+                                                  bool verifyContents,
+                                                  const QString &vanillaPaksDirectory) const {
     Result result;
     const QFileInfo root(directory);
     if (!root.isDir()) {
@@ -227,6 +229,61 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
             ? QStringLiteral("No se encontraron archivos .utoc en la carpeta.")
             : warnings.join(QLatin1Char('\n'));
         return result;
+    }
+
+    // Package_Id is the hash of an asset package path. Comparing only the
+    // installed mods misses the common case of one mod replacing a vanilla
+    // texture/material used by another CNS outfit. Build the original-game ID
+    // set from Paks itself, excluding the active mod/install staging folders.
+    QSet<quint64> vanillaPackageIds;
+    QList<Container> vanillaContainerFiles;
+    int vanillaContainers = 0;
+    const QString vanillaRoot = vanillaPaksDirectory.isEmpty()
+        ? GamePaths::paksDir() : vanillaPaksDirectory;
+    const QFileInfo vanillaRootInfo(vanillaRoot);
+    if ((m_pak || !vanillaPaksDirectory.isEmpty()) && vanillaRootInfo.isDir()) {
+        const QString modsRootAbs = QDir::cleanPath(root.canonicalFilePath());
+        QDirIterator vanillaIt(vanillaRoot, {QStringLiteral("*.utoc")}, QDir::Files,
+                               QDirIterator::Subdirectories);
+        while (vanillaIt.hasNext()) {
+            const QString path = vanillaIt.next();
+            const QString relative = QDir::fromNativeSeparators(
+                QDir(vanillaRoot).relativeFilePath(path));
+            const QStringList parts = relative.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+            const bool stagedOrMod = std::any_of(parts.cbegin(), parts.cend(),
+                [](const QString &part) {
+                    const QString folded = part.toCaseFolded();
+                    return folded == QLatin1String("~mods")
+                        || folded == QLatin1String("logicmods")
+                        || folded == QLatin1String("disabled")
+                        || folded == QLatin1String("backup")
+                        || folded == QLatin1String("backups")
+                        || folded.startsWith(QLatin1String("backup_"))
+                        || folded.endsWith(QLatin1String("_backup"))
+                        || folded.startsWith(QLatin1String(".stellartool_"))
+                        || folded.startsWith(QLatin1String("~st_builder_"));
+                });
+            if (stagedOrMod) continue;
+
+            const QString absolute = QDir::cleanPath(QFileInfo(path).canonicalFilePath());
+            const QString modsPrefix = modsRootAbs + QLatin1Char('/');
+            if (!modsRootAbs.isEmpty()
+                && (absolute.compare(modsRootAbs, Qt::CaseInsensitive) == 0
+                    || absolute.startsWith(modsPrefix, Qt::CaseInsensitive)))
+                continue;
+
+            Container vanilla;
+            QString readError;
+            if (!readContainer(path, &vanilla, &readError)) {
+                warnings << tr_(QStringLiteral("cns_id_vanilla_read_failed"))
+                                .arg(relative, readError);
+                continue;
+            }
+            ++vanillaContainers;
+            for (quint64 packageId : vanilla.packageIds)
+                vanillaPackageIds.insert(packageId);
+            vanillaContainerFiles << vanilla;
+        }
     }
 
     QHash<quint64, QList<int>> byContainerId;
@@ -319,6 +376,71 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
         lines << QStringLiteral("Sin recursos compartidos.");
     else
         lines << QStringLiteral("No se modifican: esos IDs dependen de la ruta del recurso.");
+
+    lines << QString() << tr_(QStringLiteral("cns_id_vanilla_section"));
+    QHash<quint64, QSet<int>> vanillaOverrides;
+    for (auto group = byPackageId.cbegin(); group != byPackageId.cend(); ++group) {
+        if (!vanillaPackageIds.contains(group.key())) continue;
+        result.vanillaPackageReferences += group.value().size();
+        vanillaOverrides.insert(group.key(), group.value());
+        for (int index : group.value()) sharedPackageContainers.insert(index);
+    }
+
+    QSet<int> vanillaOverrideContainers;
+    for (auto group = vanillaOverrides.cbegin(); group != vanillaOverrides.cend(); ++group)
+        vanillaOverrideContainers.unite(group.value());
+    for (int index : vanillaOverrideContainers)
+        result.vanillaPackageContainerPaths << containers.at(index).path;
+    result.vanillaPackageContainerPaths.sort(Qt::CaseInsensitive);
+
+    lines << tr_(QStringLiteral("cns_id_vanilla_scan_info")).arg(vanillaContainers);
+    if (vanillaOverrides.isEmpty()) {
+        lines << tr_(QStringLiteral("cns_id_vanilla_none"));
+    } else {
+        QMap<quint64, QString> pathByPackageId;
+        if (m_pak) {
+            for (const Container &vanilla : vanillaContainerFiles) {
+                const bool containsConflict = std::any_of(
+                    vanilla.packageIds.cbegin(), vanilla.packageIds.cend(),
+                    [&vanillaOverrides](quint64 packageId) {
+                        return vanillaOverrides.contains(packageId);
+                    });
+                if (!containsConflict) continue;
+
+                QMap<quint64, QString> packagePaths;
+                QString pathError;
+                if (!m_pak->listIoStorePackagePaths(vanilla.path,
+                                                    vanillaRoot,
+                                                    &packagePaths, &pathError)) {
+                    warnings << tr_(QStringLiteral("cns_id_vanilla_list_failed"))
+                                    .arg(QDir::fromNativeSeparators(
+                                             QDir(vanillaRoot).relativeFilePath(vanilla.path)),
+                                         pathError);
+                    continue;
+                }
+                for (auto it = packagePaths.cbegin(); it != packagePaths.cend(); ++it)
+                    if (vanillaOverrides.contains(it.key()))
+                        pathByPackageId.insert(it.key(), it.value());
+            }
+        }
+        QList<quint64> packageIds = vanillaOverrides.keys();
+        std::sort(packageIds.begin(), packageIds.end());
+        for (quint64 packageId : packageIds) {
+            QStringList names;
+            for (int index : vanillaOverrides.value(packageId))
+                names << displayPath(containers.at(index));
+            names.sort(Qt::CaseInsensitive);
+            const QString assetPath = pathByPackageId.value(packageId);
+            lines << tr_(QStringLiteral("cns_id_vanilla_conflict_line"))
+                         .arg(idText(packageId),
+                              assetPath.isEmpty()
+                                  ? tr_(QStringLiteral("cns_id_vanilla_path_unknown"))
+                                  : assetPath,
+                              names.join(QStringLiteral(" ↔ ")));
+        }
+        lines << tr_(QStringLiteral("cns_id_vanilla_conversion_note"));
+    }
+    result.vanillaPackageConflicts = vanillaOverrides.size();
 
     if (!warnings.isEmpty())
         lines << QString() << QStringLiteral("Advertencias:") << warnings;

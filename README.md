@@ -56,8 +56,10 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
   inválido en el chunk `ContainerHeader`, reconstruye el contenedor preservando
   las rutas del replacer y respalda los archivos anteriores en
   `~mods/disabled/`; no convierte ese mod a CNS. La acción de reparación
-  también procesa conflictos
-  `Package_Id`: intenta convertir cada participante por separado, instala en
+  también procesa conflictos `Package_Id` entre mods y reemplazos de assets
+  originales del juego: compara con los contenedores vanilla y muestra la ruta
+  afectada cuando está disponible. Intenta convertir cada participante por
+  separado, instala en
   CNS los outfits compatibles, mantiene activos los paquetes que no puede
   convertir y detalla los conflictos restantes. Solo conserva conversiones si
   la verificación confirma que redujeron las referencias compartidas; los

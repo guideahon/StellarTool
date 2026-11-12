@@ -15,10 +15,12 @@
 #include <QMutex>
 #include <QProcess>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QLoggingCategory>
+#include <QtEndian>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -349,7 +351,8 @@ bool PakService::repackIoStoreContainer(const QString &utocPath, const QString &
     return true;
 }
 
-bool PakService::runProcess(const QString &exe, const QStringList &args, QString *error, int timeoutMs) {
+bool PakService::runProcess(const QString &exe, const QStringList &args, QString *error,
+                            int timeoutMs, QString *output) {
     QProcess p;
     p.setProcessChannelMode(QProcess::MergedChannels);
     // retoc/cue4parse necesitan oo2core (Oodle). retoc la busca JUNTO A SU
@@ -389,6 +392,7 @@ bool PakService::runProcess(const QString &exe, const QStringList &args, QString
         return false;
     }
     const QString out = QString::fromLocal8Bit(p.readAll());
+    if (output) *output = out;
     if (p.exitStatus() != QProcess::NormalExit || p.exitCode() != 0) {
         qCWarning(lcPak) << "fail:" << exe << p.exitCode() << out;
         if (error) *error = QStringLiteral("%1 falló (código %2): %3")
@@ -522,6 +526,73 @@ QStringList PakService::listZenAssets(const QString &utocPath) {
     QDir(tmp).removeRecursively();
     names.sort();
     return names;
+}
+
+bool PakService::listIoStorePackagePaths(const QString &utocPath,
+                                         const QString &mountFolder,
+                                         QMap<quint64, QString> *paths,
+                                         QString *error) {
+    if (paths) paths->clear();
+    const QString retoc = cnsRetocPath();
+    if (retoc.isEmpty()) {
+        if (error) *error = QStringLiteral("Falta tools/CNSRepacker/retoc.exe.");
+        return false;
+    }
+    if (mountFolder.isEmpty() || !QFileInfo(mountFolder).isDir()) {
+        if (error) *error = QStringLiteral("La carpeta de montaje IoStore no existe.");
+        return false;
+    }
+
+    QString output;
+    if (!runProcess(retoc,
+                    {QStringLiteral("list"), QStringLiteral("--package"),
+                     QStringLiteral("--path"), QStringLiteral("--mount-folder"),
+                     QDir::toNativeSeparators(mountFolder),
+                     QDir::toNativeSeparators(utocPath)},
+                    error, 120000, &output))
+        return false;
+
+    // retoc prints a 16-digit package ID followed by the 8-digit chunk type,
+    // then a size/hash field and the chunk type name. Paths are relative to
+    // mount-folder.
+    static const QRegularExpression row(QStringLiteral(
+        R"(^\s*.*?\s+([0-9A-Fa-f]{16})[0-9A-Fa-f]{8}\s+\S+\s+ExportBundleData\s+(\S+\.uasset)\s*$)"));
+    for (const QString &line : output.split(QLatin1Char('\n'))) {
+        const auto match = row.match(line);
+        if (!match.hasMatch()) continue;
+        // retoc renders the eight package-ID bytes in stored order, while the
+        // service and UTOC table represent the same bytes as little-endian.
+        const QByteArray idBytes = QByteArray::fromHex(
+            match.captured(1).toLatin1());
+        if (idBytes.size() != int(sizeof(quint64))) continue;
+        const quint64 packageId = qFromLittleEndian<quint64>(
+            reinterpret_cast<const uchar *>(idBytes.constData()));
+
+        QString assetPath = QDir::fromNativeSeparators(match.captured(2));
+        const int content = assetPath.indexOf(QStringLiteral("/Content/"), 0,
+                                              Qt::CaseInsensitive);
+        if (content >= 0) {
+            const QString mountRoot = assetPath.left(content).section(QLatin1Char('/'),
+                                                                      -1);
+            const QString packageRoot = mountRoot.isEmpty()
+                    || mountRoot.compare(QLatin1String("SB"), Qt::CaseInsensitive) == 0
+                ? QStringLiteral("Game") : mountRoot;
+            assetPath = QLatin1Char('/') + packageRoot + QLatin1Char('/')
+                + assetPath.mid(content + 9);
+        } else if (assetPath.startsWith(QStringLiteral("Content/"), Qt::CaseInsensitive)) {
+            assetPath = QStringLiteral("/Game/") + assetPath.mid(8);
+        } else {
+            continue;
+        }
+        assetPath.chop(QStringLiteral(".uasset").size());
+        if (paths) paths->insert(packageId, assetPath);
+    }
+    if (paths && paths->isEmpty()) {
+        if (error) *error = QStringLiteral("retoc no devolvió rutas de paquetes para %1.")
+                                .arg(QFileInfo(utocPath).fileName());
+        return false;
+    }
+    return true;
 }
 
 QString PakService::compatGlobalDir(QString *error) {

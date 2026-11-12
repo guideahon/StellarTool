@@ -100,6 +100,47 @@ private slots:
         QCOMPARE(result.sharedPackageContainerPaths.size(), 3);
     }
 
+    void detectsPackageIdOverridesOfVanillaAssets() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString mods = dir.filePath("Paks/~mods");
+        const QString vanilla = dir.filePath("Paks");
+        QVERIFY(QDir().mkpath(dir.filePath("Paks/~mods/Astra")));
+        writeUtoc(dir.filePath("Paks/pakchunk0.utoc"), 0x1001, {0xAA, 0xBB});
+        writeUtoc(dir.filePath("Paks/~mods/Astra/Astra_P.utoc"), 0x2001, {0xAA, 0xCC});
+
+        CnsIdFixerService service;
+        const auto result = service.run(mods, false, false, vanilla);
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QCOMPARE(result.packageConflicts, 0);
+        QCOMPARE(result.vanillaPackageConflicts, 1);
+        QCOMPARE(result.vanillaPackageReferences, 1);
+        QCOMPARE(result.vanillaPackageContainerPaths.size(), 1);
+        QCOMPARE(result.vanillaPackageContainerPaths.first(),
+                 dir.filePath("Paks/~mods/Astra/Astra_P.utoc"));
+    }
+
+    void doesNotTreatModAndBackupContainersAsVanilla() {
+        QTemporaryDir dir;
+        QVERIFY(dir.isValid());
+        const QString mods = dir.filePath("Paks/~mods");
+        const QString vanilla = dir.filePath("Paks");
+        QVERIFY(QDir().mkpath(dir.filePath("Paks/~mods/active")));
+        QVERIFY(QDir().mkpath(dir.filePath("Paks/LogicMods")));
+        QVERIFY(QDir().mkpath(dir.filePath("Paks/disabled")));
+        QVERIFY(QDir().mkpath(dir.filePath("Paks/backups")));
+        writeUtoc(dir.filePath("Paks/~mods/active/mod.utoc"), 0x1001, {0xAA});
+        writeUtoc(dir.filePath("Paks/LogicMods/other.utoc"), 0x1002, {0xAA});
+        writeUtoc(dir.filePath("Paks/disabled/backup.utoc"), 0x1003, {0xAA});
+        writeUtoc(dir.filePath("Paks/backups/older.utoc"), 0x1004, {0xAA});
+
+        CnsIdFixerService service;
+        const auto result = service.run(mods, false, false, vanilla);
+        QVERIFY2(result.ok, qPrintable(result.error));
+        QCOMPARE(result.vanillaPackageConflicts, 0);
+        QCOMPARE(result.vanillaPackageReferences, 0);
+    }
+
     void fixesDuplicateAndCreatesBackup() {
         QTemporaryDir dir;
         QVERIFY(dir.isValid());
