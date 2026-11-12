@@ -143,6 +143,10 @@ if (BUILD_TESTS)
         PREFIX "/"
         FILES ${LIVE_BRIDGE_FILES}
     )
+    qt_add_resources(StellarToolTests "i18n"
+        PREFIX "/"
+        FILES ${I18N_FILES}
+    )
     target_include_directories(StellarToolTests PRIVATE src tests)
     target_link_libraries(StellarToolTests PRIVATE Qt6::Core Qt6::Quick Qt6::Concurrent Qt6::Widgets Qt6::Test Qt6::Network)
     target_compile_definitions(StellarToolTests PRIVATE

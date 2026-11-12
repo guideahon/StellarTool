@@ -58,7 +58,10 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
   `~mods/disabled/`; no convierte ese mod a CNS. La acción de reparación
   también procesa conflictos `Package_Id` entre mods y reemplazos de assets
   originales del juego: compara con los contenedores vanilla y muestra la ruta
-  afectada cuando está disponible. Intenta convertir cada participante por
+  afectada cuando está disponible. Para colisiones entre mods muestra cada
+  contenedor por separado, la ruta interna del asset y los datos CNS asociados
+  (`DisplayName`, `UniqueFitID` y variantes), aunque varios paquetes anuncien
+  el mismo outfit. Intenta convertir cada participante por
   separado, instala en
   CNS los outfits compatibles, mantiene activos los paquetes que no puede
   convertir y detalla los conflictos restantes. Solo conserva conversiones si
@@ -67,6 +70,11 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
   instalado únicamente para esas conversiones de conflictos `Package_Id`. En
   modo headless, `fixids --apply` hace la reparación completa; con
   `--apply --ids-only` se limita el cambio a `Container_Id`.
+  El modo `fixids --isolate --out <carpeta>` genera ZIPs CNS independientes para
+  los paquetes en conflicto, sin tocar los originales, para que puedas
+  instalarlos por separado en Vortex y desactivar allí cada fuente. El reporte
+  identifica qué paquete aporta cada asset; los no compatibles con CNS quedan
+  detallados y producen un resultado parcial.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con

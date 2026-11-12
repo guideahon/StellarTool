@@ -23,6 +23,7 @@ class AppController;
 //   StellarTool --headless detect
 //   StellarTool --headless uninstall [--paks] [--helper]
 //   StellarTool --headless fixids    --mod <~mods> [--apply [--ids-only]]
+//   StellarTool --headless fixids    --mod <~mods> --isolate --out <dir>
 //   StellarTool --headless presets
 //   StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]
 //   StellarTool --headless save-from-json --input <json> --out <sav>
@@ -61,6 +62,7 @@ public:
         bool applyFixes = false;
         bool fixTextures = false;
         bool idsOnly = false;
+        bool isolateConflicts = false;
         QString input;
         QString action;
         QString oldName;

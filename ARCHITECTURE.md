@@ -122,7 +122,7 @@ el asset incompatible.
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
 | `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Conserva los tipos declarados por el usmap y completa FNames/tipos de arrays vacíos antes de escribir. |
 | `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con las bases CNSRepacker 1.13, exige que el mod fuente incluya el asset raíz antes de crear un replacer, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. En replacers, adapta la malla del mod al esquema vanilla actual preservando exports y propiedades auxiliares (incluidos morph targets), copia solo datos compatibles, repara referencias de física, serializa y valida una extracción del IoStore final; rechaza referencias usadas que sigan sin resolver. Al convertir a CNS aísla materiales/texturas compartidos en el namespace del outfit y genera opciones para alternar texturas reemplazadas y ajustar rugosidad/metalicidad desde CNS. Al convertir hacia el replacer Fusion Suit agrega la malla NoAcc y las copias de materiales que el jefe asigna por índice de slot. |
-| `CnsIdFixerService` | verifica la integridad de mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta `Package_Id` compartidos y reconstruye hashes inválidos de `ContainerHeader` conservando assets y rutas del replacer. |
+| `CnsIdFixerService` | verifica la integridad de mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta `Package_Id` compartidos con rutas de asset y fuentes de contenedor independientes (incluida la identidad CNS cuando existe), y reconstruye hashes inválidos de `ContainerHeader` conservando assets y rutas del replacer. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
 | `ReShadePresetService` | detecta `SB/Binaries/Win64/ReShade.ini`, mantiene la biblioteca de presets en `%LOCALAPPDATA%/StellarTool/reshade/`, importa/exporta y restaura copias administradas en el juego con backup previo. Comprueba de forma best-effort los shaders referenciados. |
 | `SaveConverterService` | fachada async para el conversor de partidas de lotress: `.sav` ↔ JSON y reparación CNS, ejecutado con el Python embebido del paquete Builder. |
@@ -190,8 +190,12 @@ servicio valida el encabezado y la tabla de chunks de cada `.utoc`, ejecuta
 ExportBundle compartidos con rutas relativas completas para distinguir
 contenedores homónimos. También compara los IDs activos con los de los
 contenedores vanilla en `Paks` (excluye `~mods`, LogicMods, backups y stages) y
-resuelve sus rutas de asset con retoc cuando están disponibles, para detectar
-reemplazos globales que alteren recursos usados por outfits CNS. La acción
+resuelve rutas de asset con retoc cuando están disponibles. Para paquetes que
+colisionan entre sí, también lista cada `.utoc` de origen por separado y asocia
+su descriptor `.dekcns.json` por `DisplayName`, `UniqueFitID` y variantes; así
+se distinguen outfits con el mismo nombre visible y se identifica qué mod
+aporta cada recurso. Esto detecta reemplazos globales que alteren recursos
+usados por outfits CNS. La acción
 de reparación puede reconstruir un hash inválido del chunk `ContainerHeader`:
 extrae y vuelve a empaquetar el mismo contenido IoStore, comprueba que los
 `Package_Id` no cambiaron y verifica el resultado antes de instalarlo. Este
@@ -217,6 +221,12 @@ La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
 juego configurada; requiere confirmación en UI y `--apply` en modo headless.
 En headless, `--apply` ejecuta la reparación completa; `--ids-only` conserva la
 corrección limitada a `Container_Id`.
+La página también ofrece **Independizar recursos compartidos**: repite el mismo
+escaneo y escribe ZIPs CNS separados en una carpeta externa a `~mods`, sin
+instalar ni mover sus fuentes. `fixids --isolate --out <dir>` es el comando
+headless equivalente; permite revisar e instalar los resultados por separado,
+y devuelve código 4 si quedan contenedores no convertibles o ZIPs que no se
+pudieron escribir.
 Para instalar outfits convertidos también exige encontrar la carpeta o el
 paquete de CNS; si no está instalado, deja todos los mods activos sin cambios.
 Si no puede leer los slots/parámetros de materiales, extraer una textura o
@@ -372,6 +382,7 @@ StellarTool --headless status
 StellarTool --headless detect
 StellarTool --headless uninstall [--paks] [--helper]
 StellarTool --headless fixids    --mod <dir> [--apply]
+StellarTool --headless fixids    --mod <dir> --isolate --out <dir>
 StellarTool --headless presets
 StellarTool --headless save-to-json   --input <sav> --out <json> [--indent <n>]
 StellarTool --headless save-from-json --input <json> --out <sav>

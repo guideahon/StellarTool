@@ -49,7 +49,8 @@ public:
     // Escanea .utoc recursivamente. Si fixDuplicates es true, conserva el
     // primer Container_Id y asigna IDs determinísticos a los duplicados.
     // También devuelve los contenedores implicados en Package_Id compartidos
-    // entre mods y en colisiones con los contenedores vanilla de Paks.
+    // entre mods y en colisiones con los contenedores vanilla de Paks. El
+    // reporte resuelve rutas de asset y asocia descriptores CNS a cada source.
     // Cada escritura crea antes <archivo>.cnsidfixer.bak.
     Result run(const QString &directory, bool fixDuplicates,
                bool verifyContents = false,

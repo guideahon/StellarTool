@@ -105,6 +105,14 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
   excluyendo mods, LogicMods, backups y stages, y reporta la ruta del asset
   reemplazado. La reparación intenta convertir a CNS los outfits compatibles con
   esas colisiones y valida que bajen las referencias antes de conservarla.
+- En colisiones entre mods, el reporte muestra la ruta interna del asset y cada
+  contenedor por separado, además de `DisplayName`, `UniqueFitID` y variantes del
+  descriptor CNS coincidente para distinguir outfits con nombres iguales.
+- Acción **Independizar recursos compartidos** y `fixids --isolate --out <dir>`:
+  crean un ZIP CNS por contenedor compatible en una carpeta externa, sin editar
+  ni desactivar fuentes instaladas, para que se puedan administrar por separado
+  desde Vortex. Los contenedores no convertibles quedan identificados en el
+  reporte y hacen que el resultado sea parcial.
 - Detección y corrección de `Container_Id` duplicados con backup y verificación.
 - Botón **Fix IDs and textures**: intenta convertir por separado los contenedores
   con `Package_Id` compartidos, aísla materiales/texturas y despliega los outfits

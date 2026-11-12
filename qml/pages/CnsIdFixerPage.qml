@@ -7,6 +7,7 @@ import ".."
 Item {
     id: page
     property string modsPath: App.defaultOutDir()
+    property string isolationOutputPath: App.defaultOutDir() + "/CNS-Isolated"
 
     function folderUrl(path) {
         return Qt.resolvedUrl("file:///" + path.replace(/\\/g, "/"))
@@ -112,6 +113,71 @@ Item {
             }
 
             Rectangle {
+                Layout.fillWidth: true
+                implicitHeight: isolationForm.implicitHeight + 28
+                radius: Theme.radius
+                color: Theme.panel
+                border.color: Theme.border
+
+                ColumnLayout {
+                    id: isolationForm
+                    anchors.fill: parent
+                    anchors.margins: 14
+                    spacing: 10
+
+                    Label {
+                        text: I18n.s.cns_fixer_appearance_title
+                        color: Theme.text
+                        font.pixelSize: 17
+                        font.bold: true
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: I18n.s.cns_fixer_appearance_desc
+                        color: Theme.textDim
+                        wrapMode: Text.Wrap
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        text: I18n.s.cns_fixer_appearance_note
+                        color: Theme.textDim
+                        wrapMode: Text.Wrap
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Label {
+                            text: I18n.s.output_folder
+                            color: Theme.text
+                            font.bold: true
+                        }
+                        TextField {
+                            Layout.fillWidth: true
+                            text: page.isolationOutputPath
+                            placeholderText: I18n.s.choose_output_folder
+                            color: Theme.text
+                            onTextEdited: page.isolationOutputPath = text
+                        }
+                        Button {
+                            text: I18n.s.choose
+                            onClicked: isolationFolderDialog.open()
+                        }
+                    }
+                    RowLayout {
+                        Layout.alignment: Qt.AlignRight
+                        Button {
+                            text: I18n.s.cns_fixer_appearance_button
+                            highlighted: true
+                            enabled: !App.busy && page.modsPath.length > 0
+                                     && page.isolationOutputPath.length > 0
+                            onClicked: App.isolateCnsIdConflicts(
+                                           page.folderUrl(page.modsPath),
+                                           page.folderUrl(page.isolationOutputPath))
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
                 visible: App.cnsIdFixerReport.length > 0
                 Layout.fillWidth: true
                 implicitHeight: reportLabel.implicitHeight + 28
@@ -136,6 +202,13 @@ Item {
         id: folderDialog
         title: I18n.s.choose_mod_folder
         onAccepted: page.modsPath = decodeURIComponent(
+            selectedFolder.toString().replace("file:///", ""))
+    }
+
+    FolderDialog {
+        id: isolationFolderDialog
+        title: I18n.s.choose_output_folder
+        onAccepted: page.isolationOutputPath = decodeURIComponent(
             selectedFolder.toString().replace("file:///", ""))
     }
 

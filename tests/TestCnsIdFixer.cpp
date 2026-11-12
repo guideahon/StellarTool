@@ -1,4 +1,5 @@
 #include "core/CnsIdFixerService.h"
+#include "Translator.h"
 
 #include <QDir>
 #include <QFile>
@@ -72,7 +73,25 @@ private slots:
         QVERIFY(QDir().mkpath(dir.filePath("mod-b")));
         writeUtoc(dir.filePath("mod-a/Minervha_Master_P.utoc"), 0x1001, {0xAA});
         writeUtoc(dir.filePath("mod-b/Minervha_Master_P.utoc"), 0x1002, {0xAA});
+        const QByteArray descriptorA = R"json([
+            {"UniqueFitID":"fit-a","DisplayName":"YoRHa 2 - Short Skirt",
+             "OutfitNames":["Stockings","Bare feet"]}
+        ])json";
+        const QByteArray descriptorB = R"json([
+            {"UniqueFitID":"fit-b","DisplayName":"YoRHa 2 - Short Skirt",
+             "OutfitNames":["Full High Boots","Only Leg Band"]}
+        ])json";
+        QFile fileA(dir.filePath("mod-a/Minervha_Master_P.dekcns.json"));
+        QVERIFY(fileA.open(QIODevice::WriteOnly));
+        QCOMPARE(fileA.write(descriptorA), descriptorA.size());
+        fileA.close();
+        QFile fileB(dir.filePath("mod-b/Minervha_Master_P.dekcns.json"));
+        QVERIFY(fileB.open(QIODevice::WriteOnly));
+        QCOMPARE(fileB.write(descriptorB), descriptorB.size());
+        fileB.close();
 
+        Translator translator;
+        translator.setLanguage(QStringLiteral("en"));
         CnsIdFixerService service;
         const auto result = service.run(dir.path(), false);
         QVERIFY2(result.ok, qPrintable(result.error));
@@ -80,6 +99,11 @@ private slots:
         QCOMPARE(result.sharedPackageReferences, 1);
         QVERIFY(result.report.contains(QStringLiteral("mod-a/Minervha_Master_P.utoc")));
         QVERIFY(result.report.contains(QStringLiteral("mod-b/Minervha_Master_P.utoc")));
+        QVERIFY(result.report.contains(QStringLiteral("YoRHa 2 - Short Skirt")));
+        QVERIFY(result.report.contains(QStringLiteral("UniqueFitID: fit-a")));
+        QVERIFY(result.report.contains(QStringLiteral("Stockings, Bare feet")));
+        QVERIFY(result.report.contains(QStringLiteral("UniqueFitID: fit-b")));
+        QVERIFY(result.report.contains(QStringLiteral("Full High Boots, Only Leg Band")));
     }
 
     void countsAllExtraReferencesForSharedPackages() {

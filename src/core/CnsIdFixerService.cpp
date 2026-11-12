@@ -12,6 +12,9 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QHash>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QSet>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -42,6 +45,67 @@ QByteArray littleEndianId(quint64 id) {
     qToLittleEndian<quint64>(id, reinterpret_cast<uchar *>(bytes.data()));
     return bytes;
 }
+
+struct CnsOutfitIdentity {
+    QString displayName;
+    QString uniqueFitId;
+    QStringList variants;
+};
+
+QList<CnsOutfitIdentity> readCnsOutfitIdentities(const QString &containerPath) {
+    const QFileInfo containerInfo(containerPath);
+    QStringList acceptedStems{containerInfo.completeBaseName()};
+    if (acceptedStems.constFirst().endsWith(QLatin1String("_P"), Qt::CaseInsensitive))
+        acceptedStems << acceptedStems.constFirst().left(acceptedStems.constFirst().size() - 2);
+
+    QList<CnsOutfitIdentity> identities;
+    const QDir directory(containerInfo.absolutePath());
+    const QFileInfoList descriptors = directory.entryInfoList(
+        {QStringLiteral("*.dekcns.json")}, QDir::Files, QDir::Name);
+    for (const QFileInfo &descriptor : descriptors) {
+        QString descriptorStem = descriptor.fileName();
+        const QString descriptorSuffix = QStringLiteral(".dekcns.json");
+        if (!descriptorStem.endsWith(descriptorSuffix, Qt::CaseInsensitive)) continue;
+        descriptorStem.chop(descriptorSuffix.size());
+        const bool matchesContainer = std::any_of(
+            acceptedStems.cbegin(), acceptedStems.cend(),
+            [&descriptorStem](const QString &stem) {
+                return stem.compare(descriptorStem, Qt::CaseInsensitive) == 0;
+            });
+        if (!matchesContainer) continue;
+
+        QFile file(descriptor.absoluteFilePath());
+        if (!file.open(QIODevice::ReadOnly)) continue;
+        const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+        QJsonArray entries;
+        if (document.isArray()) {
+            entries = document.array();
+        } else if (document.isObject()) {
+            const QJsonObject object = document.object();
+            if (object.contains(QStringLiteral("DisplayName")))
+                entries.append(object);
+            else if (object.value(QStringLiteral("Outfits")).isArray())
+                entries = object.value(QStringLiteral("Outfits")).toArray();
+        }
+
+        for (const QJsonValue &value : entries) {
+            if (!value.isObject()) continue;
+            const QJsonObject object = value.toObject();
+            CnsOutfitIdentity identity;
+            identity.displayName = object.value(QStringLiteral("DisplayName")).toString().trimmed();
+            identity.uniqueFitId = object.value(QStringLiteral("UniqueFitID")).toString().trimmed();
+            const QJsonArray names = object.value(QStringLiteral("OutfitNames")).toArray();
+            for (const QJsonValue &name : names) {
+                const QString variant = name.toString().trimmed();
+                if (!variant.isEmpty() && !identity.variants.contains(variant, Qt::CaseInsensitive))
+                    identity.variants << variant;
+            }
+            if (!identity.displayName.isEmpty() || !identity.uniqueFitId.isEmpty())
+                identities << identity;
+        }
+    }
+    return identities;
+}
 }
 
 struct CnsIdFixerService::Container {
@@ -51,6 +115,7 @@ struct CnsIdFixerService::Container {
     quint32 entryCount = 0;
     QList<quint64> packageIds;
     QList<qint64> containerChunkOffsets;
+    QList<CnsOutfitIdentity> outfitIdentities;
 };
 
 CnsIdFixerService::CnsIdFixerService(PakService *pak, QObject *parent)
@@ -205,6 +270,7 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
             }
             continue;
         }
+        container.outfitIdentities = readCnsOutfitIdentities(path);
         if (verifyContents && m_pak) {
             QString verifyError;
             if (!m_pak->verifyIoStoreContainer(path, &verifyError)) {
@@ -355,27 +421,95 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     if (!foundContainerConflict)
         lines << QStringLiteral("Sin IDs duplicados.");
 
-    lines << QString() << QStringLiteral("Package_Id");
+    lines << QString() << QStringLiteral("Package_Id")
+          << tr_(QStringLiteral("cns_id_shared_section"));
     QSet<int> sharedPackageContainers;
+    QList<quint64> sharedPackageIds;
     for (auto group = byPackageId.cbegin(); group != byPackageId.cend(); ++group) {
         if (group.value().size() < 2) continue;
-        ++result.packageConflicts;
-        result.sharedPackageReferences += group.value().size() - 1;
-        QStringList names;
-        for (int index : group.value()) {
-            sharedPackageContainers.insert(index);
-            names << displayPath(containers[index]);
+        sharedPackageIds << group.key();
+        for (int index : group.value()) sharedPackageContainers.insert(index);
+    }
+    std::sort(sharedPackageIds.begin(), sharedPackageIds.end());
+
+    QHash<int, QMap<quint64, QString>> modPackagePaths;
+    QList<int> sharedContainerIndices = sharedPackageContainers.values();
+    std::sort(sharedContainerIndices.begin(), sharedContainerIndices.end(),
+              [&containers, &displayPath](int lhs, int rhs) {
+                  return displayPath(containers.at(lhs)).compare(
+                      displayPath(containers.at(rhs)), Qt::CaseInsensitive) < 0;
+              });
+    if (m_pak) {
+        for (int index : sharedContainerIndices) {
+            QMap<quint64, QString> paths;
+            QString pathError;
+            if (!m_pak->listIoStorePackagePaths(containers.at(index).path, directory,
+                                                &paths, &pathError)) {
+                warnings << tr_(QStringLiteral("cns_id_shared_list_failed"))
+                                .arg(displayPath(containers.at(index)), pathError);
+                continue;
+            }
+            modPackagePaths.insert(index, paths);
         }
-        names.sort(Qt::CaseInsensitive);
-        lines << QStringLiteral("%1: %2").arg(idText(group.key()), names.join(QStringLiteral(" ↔ ")));
+    }
+
+    const auto sourceLines = [&containers, &displayPath](int index) {
+        QStringList resultLines;
+        const Container &container = containers.at(index);
+        resultLines << QStringLiteral("  ")
+                           + tr_(QStringLiteral("cns_id_shared_source"))
+                                 .arg(displayPath(container));
+        if (container.outfitIdentities.isEmpty()) {
+            resultLines << QStringLiteral("    ")
+                           + tr_(QStringLiteral("cns_id_shared_no_cns_descriptor"));
+            return resultLines;
+        }
+        for (const CnsOutfitIdentity &identity : container.outfitIdentities) {
+            resultLines << QStringLiteral("    ")
+                           + tr_(QStringLiteral("cns_id_shared_fit_detail"))
+                                 .arg(identity.displayName.isEmpty()
+                                          ? tr_(QStringLiteral("cns_id_shared_name_unknown"))
+                                          : identity.displayName,
+                                      identity.variants.isEmpty()
+                                          ? tr_(QStringLiteral("cns_id_shared_variants_unknown"))
+                                          : identity.variants.join(QStringLiteral(", ")),
+                                      identity.uniqueFitId.isEmpty()
+                                          ? tr_(QStringLiteral("cns_id_shared_fit_id_unknown"))
+                                          : identity.uniqueFitId);
+        }
+        return resultLines;
+    };
+
+    for (quint64 packageId : sharedPackageIds) {
+        ++result.packageConflicts;
+        const QSet<int> owners = byPackageId.value(packageId);
+        result.sharedPackageReferences += owners.size() - 1;
+        QStringList assetPaths;
+        QList<int> sortedOwners = owners.values();
+        std::sort(sortedOwners.begin(), sortedOwners.end(),
+                  [&containers, &displayPath](int lhs, int rhs) {
+                      return displayPath(containers.at(lhs)).compare(
+                          displayPath(containers.at(rhs)), Qt::CaseInsensitive) < 0;
+                  });
+        for (int index : sortedOwners) {
+            const QString assetPath = modPackagePaths.value(index).value(packageId);
+            if (!assetPath.isEmpty() && !assetPaths.contains(assetPath, Qt::CaseInsensitive))
+                assetPaths << assetPath;
+        }
+        assetPaths.sort(Qt::CaseInsensitive);
+        lines << tr_(QStringLiteral("cns_id_shared_conflict_line"))
+                     .arg(idText(packageId), assetPaths.isEmpty()
+                              ? tr_(QStringLiteral("cns_id_shared_path_unknown"))
+                              : assetPaths.join(QStringLiteral(" ↔ ")));
+        for (int index : sortedOwners) lines << sourceLines(index);
     }
     for (int index : sharedPackageContainers)
         result.sharedPackageContainerPaths << containers.at(index).path;
     result.sharedPackageContainerPaths.sort(Qt::CaseInsensitive);
     if (result.packageConflicts == 0)
-        lines << QStringLiteral("Sin recursos compartidos.");
+        lines << tr_(QStringLiteral("cns_id_shared_none"));
     else
-        lines << QStringLiteral("No se modifican: esos IDs dependen de la ruta del recurso.");
+        lines << tr_(QStringLiteral("cns_id_shared_note"));
 
     lines << QString() << tr_(QStringLiteral("cns_id_vanilla_section"));
     QHash<quint64, QSet<int>> vanillaOverrides;
@@ -437,6 +571,13 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
                                   ? tr_(QStringLiteral("cns_id_vanilla_path_unknown"))
                                   : assetPath,
                               names.join(QStringLiteral(" ↔ ")));
+            QList<int> owners = vanillaOverrides.value(packageId).values();
+            std::sort(owners.begin(), owners.end(),
+                      [&containers, &displayPath](int lhs, int rhs) {
+                          return displayPath(containers.at(lhs)).compare(
+                              displayPath(containers.at(rhs)), Qt::CaseInsensitive) < 0;
+                      });
+            for (int index : owners) lines << sourceLines(index);
         }
         lines << tr_(QStringLiteral("cns_id_vanilla_conversion_note"));
     }
