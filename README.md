@@ -167,6 +167,11 @@ incluye en el paquete desktop ni se instala dentro del juego automáticamente.
 4. **Conflictos**: elegí el ganador por cada uno (o "preferir mod X en todo").
 5. **Merge**: elegí destino (idealmente `steamapps\common\StellarBlade\SB\Content\Paks\~mods`) y generá el pak. La tool verifica el resultado reconvirtiendo cada tabla. Los mods originales no se tocan: revisá `merge_report.txt` antes de desactivarlos. Si una tabla queda excluida o no escrita, mantené habilitado el mod que la cambia; el prefijo `zzz` da prioridad de carga al merge para las tablas que sí entraron.
 
+En **Easy Merge**, la acción de desactivar mods fuente los mueve a una carpeta de
+respaldo dentro de `~mods/disabled/` y agrega `.disabled` a cada archivo. Así
+dejan de tener extensiones activas como `.pak`, `.ucas` o `.utoc`; para
+restaurarlos, devolvelos a su ubicación original y quitá ese sufijo.
+
 Los proyectos (mods + selecciones + resoluciones) se guardan como `.stproj`.
 
 También se pueden crear mods declarativos desde TOML. `patch-validate` revisa

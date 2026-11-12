@@ -397,5 +397,8 @@
   "cns_replacer_physics_repair_failed": "Could not repair physics references in replacer mesh %1: %2",
   "cns_replacer_physics_vanilla_failed": "Could not load current vanilla mesh %1: %2",
   "cns_replacer_target_label": "Replacement target asset",
-  "cns_select_target_asset": "Select a replacement target…"
+  "cns_select_target_asset": "Select a replacement target…",
+  "easy_disable_confirm": "元の Mod %1 個を ~mods\\disabled に移動し、ゲームに読み込まれないよう各ファイルに .disabled を追加しますか？ファイルは保持され、元に戻せます。",
+  "easy_disabled_done": "元の Mod %1 個を移動し、.disabled を付けて名前を変更しました。",
+  "easy_disable_failed": "元の Mod %1 を無効化できませんでした: %2"
 }

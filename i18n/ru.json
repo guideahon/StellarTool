@@ -397,5 +397,8 @@
   "cns_replacer_physics_repair_failed": "Could not repair physics references in replacer mesh %1: %2",
   "cns_replacer_physics_vanilla_failed": "Could not load current vanilla mesh %1: %2",
   "cns_replacer_target_label": "Replacement target asset",
-  "cns_select_target_asset": "Select a replacement target…"
+  "cns_select_target_asset": "Select a replacement target…",
+  "easy_disable_confirm": "Переместить исходные моды (%1) в ~mods\\disabled и добавить .disabled к каждому файлу, чтобы игра их не загружала? Файлы сохраняются и могут быть восстановлены.",
+  "easy_disabled_done": "Исходные моды (%1) перемещены и переименованы с суффиксом .disabled.",
+  "easy_disable_failed": "Не удалось отключить исходный мод %1: %2"
 }

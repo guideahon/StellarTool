@@ -143,7 +143,10 @@ Páginas (`qml/pages`):
 2. **ChangesPage** — árbol: Mod → Tabla → Fila → Propiedad. Cada hoja con CheckBox, texto resumen ("`CharacterTable / EVE / MaxHP: 100 → 250`"), badge de conflicto. Filtros: solo conflictos / por tabla / búsqueda.
 3. **ConflictsPage** — vista lado a lado por `ConflictGroup`: valor de cada mod (y baseline si hay), RadioButtons para elegir ganador, "aplicar mod X a todos sus conflictos".
 4. **MergePage** — resumen del plan (N cambios, M conflictos resueltos, pendientes bloquean), destino del pak, log de progreso, resultado con verificación.
-5. **EasyMergePage** — flujo simplificado de merge.
+5. **EasyMergePage** — flujo simplificado de merge. Su acción para desactivar
+   mods fuente confirmados los respalda bajo `~mods/disabled/` y agrega
+   `.disabled` a cada archivo; la carpeta por sí sola no es la señal de
+   desactivación, porque un loader puede buscar contenedores de forma recursiva.
 6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
 7. **CnsConverterPage** — flujo rápido de replacer desde ZIP con selección del outfit vanilla de destino; conserva el conversor avanzado replacer ↔ CNS.
 8. **CnsIdFixerPage** — escaneo de IDs e integridad IoStore; corrige hashes reparables de `ContainerHeader` conservando replacers y genera CNS aislados para outfits compatibles con conflictos `Package_Id`.

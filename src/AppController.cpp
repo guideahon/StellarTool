@@ -1940,6 +1940,123 @@ static bool sourceInMods(const QString &sourcePath) {
     return src.startsWith(base) && !src.contains(QLatin1String("/disabled/"));
 }
 
+bool AppController::moveSourceModToDisabled(const QString &sourcePath,
+                                           const QString &modsDirectory,
+                                           const QString &disabledRunRoot,
+                                           QString *error) {
+    const auto fail = [error](const QString &message) {
+        if (error) *error = message;
+        return false;
+    };
+    const QString modsRoot = QDir::cleanPath(QFileInfo(modsDirectory).absoluteFilePath());
+    const QString sourceRoot = QDir::cleanPath(QFileInfo(sourcePath).absoluteFilePath());
+    const QString disabledRoot = QDir::cleanPath(
+        QDir(modsRoot).filePath(QStringLiteral("disabled")));
+    const QString targetRoot = QDir::cleanPath(
+        QFileInfo(disabledRunRoot).absoluteFilePath());
+    const auto isWithin = [](const QString &path, const QString &parent) {
+        const QString child = QDir::fromNativeSeparators(QDir::cleanPath(path));
+        QString root = QDir::fromNativeSeparators(QDir::cleanPath(parent));
+        if (!root.endsWith(QLatin1Char('/'))) root += QLatin1Char('/');
+        return child.startsWith(root, Qt::CaseInsensitive);
+    };
+
+    const QFileInfo sourceInfo(sourceRoot);
+    if (!sourceInfo.exists()) return fail(QStringLiteral("Source no longer exists."));
+    if (!isWithin(sourceRoot, modsRoot) || sourceRoot.compare(modsRoot, Qt::CaseInsensitive) == 0)
+        return fail(QStringLiteral("Source is outside the active ~mods folder."));
+    const QString relativeSource = QDir::fromNativeSeparators(
+        QDir(modsRoot).relativeFilePath(sourceRoot));
+    if (relativeSource.compare(QStringLiteral("disabled"), Qt::CaseInsensitive) == 0
+        || relativeSource.startsWith(QStringLiteral("disabled/"), Qt::CaseInsensitive))
+        return fail(QStringLiteral("Source is already under ~mods/disabled."));
+    if (!isWithin(targetRoot, disabledRoot)
+        || targetRoot.compare(disabledRoot, Qt::CaseInsensitive) == 0)
+        return fail(QStringLiteral("Backup destination must be inside ~mods/disabled."));
+    if (sourceInfo.isSymLink() && sourceInfo.isDir())
+        return fail(QStringLiteral("Directory symlinks cannot be disabled safely."));
+
+    QStringList sourceFiles;
+    if (sourceInfo.isDir()) {
+        QDirIterator it(sourceRoot,
+                        QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden | QDir::System,
+                        QDirIterator::Subdirectories);
+        while (it.hasNext()) {
+            const QFileInfo item(it.next());
+            if (item.isDir() && !item.isSymLink()) continue;
+            sourceFiles << QDir::cleanPath(item.absoluteFilePath());
+        }
+    } else {
+        sourceFiles << sourceRoot;
+        const QFileInfo info(sourceRoot);
+        const QString stem = info.completeBaseName();
+        const QStringList companions{
+            QStringLiteral(".pak"), QStringLiteral(".ucas"), QStringLiteral(".utoc"),
+            QStringLiteral(".sig"), QStringLiteral(".dekcns.json"),
+            QStringLiteral(".dekani.json"), QStringLiteral(".cnslink.json")};
+        for (const QString &suffix : companions) {
+            const QString companion = info.dir().filePath(stem + suffix);
+            if (QFileInfo::exists(companion)) sourceFiles << QDir::cleanPath(companion);
+        }
+    }
+
+    QStringList uniqueSources;
+    for (const QString &source : sourceFiles) {
+        const QString relative = QDir::fromNativeSeparators(
+            QDir(modsRoot).relativeFilePath(source));
+        if (relative == QLatin1String("..") || relative.startsWith(QLatin1String("../"))
+            || QDir::isAbsolutePath(relative))
+            return fail(QStringLiteral("A source file is outside the active ~mods folder."));
+        if (!uniqueSources.contains(source, Qt::CaseInsensitive)) uniqueSources << source;
+    }
+    if (uniqueSources.isEmpty()) return fail(QStringLiteral("Source contains no files to disable."));
+
+    QList<QPair<QString, QString>> moves;
+    QSet<QString> destinations;
+    for (const QString &source : uniqueSources) {
+        const QString relative = QDir::fromNativeSeparators(
+            QDir(modsRoot).relativeFilePath(source));
+        const QString destination = QDir(targetRoot).filePath(
+            relative + QStringLiteral(".disabled"));
+        const QString foldedDestination = QDir::cleanPath(destination).toCaseFolded();
+        if (QFileInfo::exists(destination) || destinations.contains(foldedDestination))
+            return fail(QStringLiteral("A disabled backup already exists at %1.").arg(destination));
+        destinations.insert(foldedDestination);
+        moves.append(qMakePair(source, destination));
+    }
+
+    if (!QDir().mkpath(targetRoot))
+        return fail(QStringLiteral("Could not create the disabled backup folder."));
+    QList<QPair<QString, QString>> moved;
+    const auto rollback = [&moved] {
+        bool restored = true;
+        for (auto it = moved.crbegin(); it != moved.crend(); ++it) {
+            QDir().mkpath(QFileInfo(it->first).absolutePath());
+            if (QFileInfo::exists(it->second) && !QFile::rename(it->second, it->first))
+                restored = false;
+        }
+        return restored;
+    };
+    for (const auto &move : moves) {
+        if (!QDir().mkpath(QFileInfo(move.second).absolutePath())
+            || !QFile::rename(move.first, move.second)) {
+            const bool restored = rollback();
+            return fail(QStringLiteral("Could not move %1 to its disabled backup%2")
+                            .arg(move.first, restored ? QStringLiteral(".")
+                                                     : QStringLiteral("; rollback was incomplete.")));
+        }
+        moved << move;
+    }
+
+    if (sourceInfo.isDir() && !QDir(sourceRoot).removeRecursively()) {
+        const bool restored = rollback();
+        return fail(QStringLiteral("Could not remove the empty source folder%1")
+                        .arg(restored ? QStringLiteral(".")
+                                      : QStringLiteral("; rollback was incomplete.")));
+    }
+    return true;
+}
+
 int AppController::disableableSourceCount() const {
     int n = 0;
     for (const auto &m : m_mods)
@@ -1948,8 +2065,14 @@ int AppController::disableableSourceCount() const {
 }
 
 int AppController::disableSourceMods() {
-    const QString disabledDir = GamePaths::modsDir() + QStringLiteral("/disabled");
-    QDir().mkpath(disabledDir);
+    const QString modsRoot = GamePaths::modsDir();
+    const QString disabledDir = QDir(modsRoot).filePath(QStringLiteral("disabled"));
+    const QString runId = QDateTime::currentDateTimeUtc().toString(
+        QStringLiteral("yyyyMMdd_HHmmss_zzz")) + QLatin1Char('_')
+        + CnsConverterService::shortId(modsRoot
+                                       + QString::number(QDateTime::currentMSecsSinceEpoch()));
+    const QString disabledRunRoot = QDir(disabledDir).filePath(
+        QStringLiteral("StellarTool_Disabled_") + runId);
     int moved = 0;
     for (const auto &m : m_mods) {
         if (!sourceInMods(m.sourcePath)) continue;
@@ -1957,33 +2080,14 @@ int AppController::disableSourceMods() {
         // No ofrecer ni ejecutar la desactivación de ese mod evita que el
         // usuario deje el merge aparentemente instalado pero sin esa tabla.
         if (m_lastProtectedModIds.contains(m.id)) continue;
-        const QFileInfo fi(m.sourcePath);
-        // Mover el archivo/carpeta y sus compañeros de contenedor (.ucas/.utoc/.sig).
-        QStringList toMove;
-        if (fi.isDir()) {
-            toMove << fi.absoluteFilePath();
+        QString error;
+        if (moveSourceModToDisabled(m.sourcePath, modsRoot, disabledRunRoot, &error)) {
+            ++moved;
         } else {
-            toMove << fi.absoluteFilePath();
-            for (const QString &ext : {QStringLiteral("ucas"), QStringLiteral("utoc"), QStringLiteral("sig")}) {
-                const QString comp = fi.absolutePath() + QLatin1Char('/')
-                    + fi.completeBaseName() + QLatin1Char('.') + ext;
-                if (QFileInfo::exists(comp)) toMove << comp;
-            }
+            emit errorOccurred(t(QStringLiteral("easy_disable_failed")).arg(m.name, error));
         }
-        bool ok = true;
-        for (const QString &p : toMove) {
-            const QString dst = disabledDir + QLatin1Char('/') + QFileInfo(p).fileName();
-            QFile::remove(dst);
-            QDir dstDir(dst);
-            if (QFileInfo(p).isDir()) {
-                if (dstDir.exists()) dstDir.removeRecursively();
-                ok = QDir().rename(p, dst) && ok;
-            } else {
-                ok = QFile::rename(p, dst) && ok;
-            }
-        }
-        if (ok) ++moved;
     }
+    if (moved == 0 && QDir(disabledRunRoot).exists()) QDir(disabledRunRoot).removeRecursively();
     return moved;
 }
 

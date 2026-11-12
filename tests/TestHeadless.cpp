@@ -8,6 +8,8 @@
 
 #include <QFile>
 #include <QDir>
+#include <QDirIterator>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QSettings>
 
@@ -36,6 +38,7 @@ private slots:
     void storageRequiresValidActionAndPath();
     void storageUsesSelectedDrive();
     void storageCleanupPreservesPersistentData();
+    void sourceModDisableAddsInactiveSuffixAndPreservesBackups();
 };
 
 namespace {
@@ -154,6 +157,57 @@ void TestHeadless::nexusReportLinkHandlesForVersionNames() {
                  QStringLiteral("SoEasyMode-1264-for1-4-1-1759923018")),
              QStringLiteral("https://www.nexusmods.com/stellarblade/mods/1264"));
     QVERIFY(st::AppController::nexusModUrlForReport(QStringLiteral("renamed-mod")).isEmpty());
+}
+
+void TestHeadless::sourceModDisableAddsInactiveSuffixAndPreservesBackups() {
+    const auto writeFixture = [](const QString &path, const QByteArray &contents) {
+        if (!QDir().mkpath(QFileInfo(path).absolutePath())) return false;
+        QFile file(path);
+        if (!file.open(QIODevice::WriteOnly)) return false;
+        return file.write(contents) == contents.size();
+    };
+
+    QTemporaryDir temp;
+    QVERIFY(temp.isValid());
+    const QString mods = QDir(temp.path()).filePath(QStringLiteral("~mods"));
+    const QString source = QDir(mods).filePath(QStringLiteral("YoRHa"));
+    const QString disabled = QDir(mods).filePath(QStringLiteral("disabled/StellarTool_Disabled_test"));
+    QVERIFY(writeFixture(QDir(source).filePath(QStringLiteral("YoRHa.pak")), "pak"));
+    QVERIFY(writeFixture(QDir(source).filePath(QStringLiteral("YoRHa.ucas")), "ucas"));
+    QVERIFY(writeFixture(QDir(source).filePath(QStringLiteral("YoRHa.utoc")), "utoc"));
+    QVERIFY(writeFixture(QDir(source).filePath(QStringLiteral("textures/diffuse.uasset")), "asset"));
+
+    QString error;
+    QVERIFY2(st::AppController::moveSourceModToDisabled(source, mods, disabled, &error),
+             qPrintable(error));
+    QVERIFY(!QFileInfo::exists(source));
+    for (const QString &relative : {
+             QStringLiteral("YoRHa/YoRHa.pak.disabled"),
+             QStringLiteral("YoRHa/YoRHa.ucas.disabled"),
+             QStringLiteral("YoRHa/YoRHa.utoc.disabled"),
+             QStringLiteral("YoRHa/textures/diffuse.uasset.disabled")}) {
+        QVERIFY(QFileInfo::exists(QDir(disabled).filePath(relative)));
+    }
+    QDirIterator activeContainers(disabled,
+                                  {QStringLiteral("*.pak"), QStringLiteral("*.ucas"),
+                                   QStringLiteral("*.utoc")},
+                                  QDir::Files, QDirIterator::Subdirectories);
+    QVERIFY(!activeContainers.hasNext());
+
+    const QString collisionSource = QDir(mods).filePath(QStringLiteral("Collision"));
+    const QString collisionDisabled = QDir(mods).filePath(
+        QStringLiteral("disabled/StellarTool_Disabled_collision"));
+    const QString original = QDir(collisionSource).filePath(QStringLiteral("collision.pak"));
+    const QString existingBackup = QDir(collisionDisabled).filePath(
+        QStringLiteral("Collision/collision.pak.disabled"));
+    QVERIFY(writeFixture(original, "original"));
+    QVERIFY(writeFixture(existingBackup, "keep existing backup"));
+    QVERIFY(!st::AppController::moveSourceModToDisabled(
+        collisionSource, mods, collisionDisabled, &error));
+    QVERIFY(QFileInfo::exists(original));
+    QFile backup(existingBackup);
+    QVERIFY(backup.open(QIODevice::ReadOnly));
+    QCOMPARE(backup.readAll(), QByteArray("keep existing backup"));
 }
 
 void TestHeadless::unknownCommandIsRejected() {

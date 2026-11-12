@@ -397,5 +397,8 @@
   "cns_replacer_physics_repair_failed": "Could not repair physics references in replacer mesh %1: %2",
   "cns_replacer_physics_vanilla_failed": "Could not load current vanilla mesh %1: %2",
   "cns_replacer_target_label": "Replacement target asset",
-  "cns_select_target_asset": "Select a replacement target…"
+  "cns_select_target_asset": "Select a replacement target…",
+  "easy_disable_confirm": "%1 Quell-Mod(s) nach ~mods\\disabled verschieben und jede Datei mit .disabled ergänzen, damit sie nicht geladen wird? Die Dateien bleiben erhalten und können wiederhergestellt werden.",
+  "easy_disabled_done": "%1 Quell-Mod(s) verschoben und mit .disabled umbenannt.",
+  "easy_disable_failed": "Quell-Mod %1 konnte nicht deaktiviert werden: %2"
 }

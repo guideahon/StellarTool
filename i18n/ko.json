@@ -397,5 +397,8 @@
   "cns_replacer_physics_repair_failed": "Could not repair physics references in replacer mesh %1: %2",
   "cns_replacer_physics_vanilla_failed": "Could not load current vanilla mesh %1: %2",
   "cns_replacer_target_label": "Replacement target asset",
-  "cns_select_target_asset": "Select a replacement target…"
+  "cns_select_target_asset": "Select a replacement target…",
+  "easy_disable_confirm": "원본 모드 %1개를 ~mods\\disabled로 이동하고 게임에서 로드되지 않도록 모든 파일에 .disabled를 추가할까요? 파일은 보존되며 복원할 수 있습니다.",
+  "easy_disabled_done": "원본 모드 %1개를 이동하고 .disabled를 추가해 이름을 변경했습니다.",
+  "easy_disable_failed": "원본 모드 %1을(를) 비활성화하지 못했습니다: %2"
 }

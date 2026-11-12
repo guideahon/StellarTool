@@ -79,6 +79,12 @@ public:
     // Convierte el sufijo de descarga de Nexus en un enlace para el reporte.
     // Se expone como helper puro para poder fijar variantes "for1-4-1" en tests.
     static QString nexusModUrlForReport(const QString &modName);
+    // Mueve un mod dentro de ~mods a una carpeta de backup y agrega `.disabled`
+    // a cada archivo, para que un loader recursivo no lo vuelva a montar.
+    static bool moveSourceModToDisabled(const QString &sourcePath,
+                                       const QString &modsDirectory,
+                                       const QString &disabledRunRoot,
+                                       QString *error = nullptr);
     bool exportZip() const { return m_exportZip; }
     bool cancellable() const { return m_buildPid.load() != 0; }
     // Mata el árbol del build en curso (python + repak/retoc hijos). No-op si
