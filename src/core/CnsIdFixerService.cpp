@@ -291,9 +291,15 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     }
     result.containers = containers.size();
     if (containers.isEmpty()) {
-        result.error = warnings.isEmpty()
-            ? QStringLiteral("No se encontraron archivos .utoc en la carpeta.")
-            : warnings.join(QLatin1Char('\n'));
+        if (warnings.isEmpty()) {
+            result.ok = true;
+            result.report = tr_(QStringLiteral("cns_id_empty"));
+        } else if (verifyContents && !result.integrityIssues.isEmpty()) {
+            result.ok = true;
+            result.report = warnings.join(QLatin1Char('\n'));
+        } else {
+            result.error = warnings.join(QLatin1Char('\n'));
+        }
         return result;
     }
 
@@ -391,6 +397,7 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
                 const QString reason = tr_(QStringLiteral("cns_id_skip_integrity_failure"));
                 warnings << QStringLiteral("%1: %2").arg(displayPath(container), reason);
                 lines << QStringLiteral("  %1: %2").arg(displayPath(container), reason);
+                result.unfixedDuplicateContainerPaths << container.path;
                 continue;
             }
             QByteArray seed = QFileInfo(container.path).canonicalFilePath().toUtf8();
@@ -415,6 +422,7 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
                 warnings << error;
                 lines << QStringLiteral("  %1: NO MODIFICADO — %2")
                     .arg(displayPath(container), error);
+                result.unfixedDuplicateContainerPaths << container.path;
             }
         }
     }

@@ -126,7 +126,7 @@ int main(int argc, char *argv[]) {
         parser.addOption({QStringLiteral("install-helper"), QStringLiteral("Instalar y activar el helper UE4SS")});
         parser.addOption({QStringLiteral("paks"), QStringLiteral("uninstall: quitar los paks que instaló la tool")});
         parser.addOption({QStringLiteral("helper"), QStringLiteral("uninstall: quitar el helper que instaló la tool")});
-        parser.addOption({QStringLiteral("apply"), QStringLiteral("fixids: reparar Container_Id y hashes ContainerHeader reparables; convertir conflictos Package_Id entre mods o con assets originales; por defecto solo reporta")});
+        parser.addOption({QStringLiteral("apply"), QStringLiteral("fixids: reparar Container_Id y hashes ContainerHeader; aislar Package_Id compartidos o reemplazos vanilla y respaldar los pendientes en ~mods/disabled; por defecto solo reporta")});
         parser.addOption({QStringLiteral("ids-only"), QStringLiteral("fixids: limitar --apply a Container_Id; no reconstruir IoStore ni convertir conflictos Package_Id")});
         parser.addOption({QStringLiteral("fix-textures"), QStringLiteral("fixids: alias compatible para aplicar la reparación completa; requiere --apply")});
         parser.addOption({QStringLiteral("input"), QStringLiteral("Archivo de entrada para partidas/ReShade"), QStringLiteral("archivo")});

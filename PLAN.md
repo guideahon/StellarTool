@@ -102,23 +102,24 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 ### CNS ID Fixer ✅
 - Sección propia para escanear recursivamente mods IoStore instalados.
 - Compara los `Package_Id` activos con los contenedores vanilla del juego,
-  excluyendo mods, LogicMods, backups y stages, y reporta la ruta del asset
-  reemplazado. La reparación intenta convertir a CNS los outfits compatibles con
-  esas colisiones y valida que bajen las referencias antes de conservarla.
+  excluyendo mods, LogicMods, backups y stages. Reporta los reemplazos vanilla
+  porque pueden alterar texturas o materiales usados por otros outfits; los
+  `Package_Id` compartidos entre mods también se aíslan por separado.
 - En colisiones entre mods, el reporte muestra la ruta interna del asset y cada
   contenedor por separado, además de `DisplayName`, `UniqueFitID` y variantes del
   descriptor CNS coincidente para distinguir outfits con nombres iguales.
 - Acción **Reparar instalación** y `fixids --apply`: convierten directamente en
-  CNS los outfits compatibles en conflicto, instalan las conversiones y mueven
-  las fuentes reemplazadas a `~mods/disabled` tras confirmación. Los contenedores
-  no convertibles permanecen activos y quedan identificados en el reporte.
+  CNS los outfits compatibles en conflicto. Tras confirmación, mueve a respaldos
+  en `~mods/disabled` cualquier contenedor que conserve colisiones entre mods,
+  reemplazos vanilla globales o errores de integridad irreparables. Verifica que
+  el escaneo final no reporte problemas.
 - Detección y corrección de `Container_Id` duplicados con backup y verificación.
-- Botón **Fix IDs and textures**: intenta convertir por separado los contenedores
-  con `Package_Id` compartidos, aísla materiales/texturas y despliega los outfits
-  compatibles en `CustomNanosuitSystem/Cosmetics`. Los paquetes incompatibles
-  permanecen activos y se reportan. Solo conserva las conversiones si reducen
-  las referencias compartidas; si queda algún conflicto, informa una reparación
-  parcial y corrige también los `Container_Id` que sean compatibles.
+- La reparación intenta convertir por separado los contenedores con `Package_Id`
+  compartidos, aísla materiales/texturas y despliega los outfits compatibles en
+  `CustomNanosuitSystem/Cosmetics`. Solo conserva las conversiones si reducen
+  las referencias entre mods; cualquier conflicto restante se respalda bajo
+  `~mods/disabled`. También repara los `Container_Id` compatibles y valida el
+  resultado final.
 - Los reportes del escaneo muestran rutas relativas completas para desambiguar
   contenedores con el mismo nombre.
 - Verifica la integridad IoStore y reconstruye hashes dañados del `ContainerHeader`

@@ -115,6 +115,135 @@ struct MergeTableReport {
     QString failure;
     QString firstDifference;
 };
+
+struct DisableConflictingSourcesResult {
+    enum class Failure { None, OutsideRoot, DestinationExists, CreateDirectory, Move, Rollback };
+    Failure failure = Failure::None;
+    QString failedPath;
+    QStringList disabledContainers;
+    QList<QPair<QString, QString>> movedFiles;
+};
+
+QStringList unresolvedCnsSourcePaths(const st::CnsIdFixerService::Result &scan) {
+    QStringList paths = scan.sharedPackageContainerPaths;
+    paths.append(scan.vanillaPackageContainerPaths);
+    paths.append(scan.unfixedDuplicateContainerPaths);
+    for (const auto &issue : scan.integrityIssues) paths << issue.path;
+
+    QStringList unique;
+    QSet<QString> seen;
+    for (const QString &path : paths) {
+        const QString absolute = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+        const QString key = absolute.toCaseFolded();
+        if (seen.contains(key)) continue;
+        seen.insert(key);
+        unique << absolute;
+    }
+    return unique;
+}
+
+bool hasUnresolvedCnsIssues(const st::CnsIdFixerService::Result &scan) {
+    return !scan.ok || scan.packageConflicts > 0 || !scan.integrityIssues.isEmpty()
+        || scan.vanillaPackageConflicts > 0
+        || scan.duplicateContainers > scan.fixedContainers;
+}
+
+DisableConflictingSourcesResult moveCnsSourcesToDisabled(
+    const QString &sourceRoot, const QString &disabledRoot,
+    const QStringList &containerPaths) {
+    DisableConflictingSourcesResult result;
+    const QString root = QDir::cleanPath(QFileInfo(sourceRoot).absoluteFilePath());
+    const QStringList companionSuffixes{
+        QStringLiteral(".utoc"), QStringLiteral(".ucas"), QStringLiteral(".pak"),
+        QStringLiteral(".sig"), QStringLiteral(".dekcns.json"),
+        QStringLiteral(".dekani.json"), QStringLiteral(".cnslink.json")};
+    QStringList sources;
+    QSet<QString> seenSources;
+    auto addSource = [&](const QString &path) {
+        if (!QFileInfo::exists(path)) return;
+        const QString absolute = QDir::cleanPath(QFileInfo(path).absoluteFilePath());
+        const QString relative = QDir::fromNativeSeparators(QDir(root).relativeFilePath(absolute));
+        if (relative == QLatin1String("..")
+            || relative.startsWith(QLatin1String("../"))
+            || QDir::isAbsolutePath(relative)) {
+            result.failure = DisableConflictingSourcesResult::Failure::OutsideRoot;
+            result.failedPath = absolute;
+            return;
+        }
+        const QString key = absolute.toCaseFolded();
+        if (seenSources.contains(key)) return;
+        seenSources.insert(key);
+        sources << absolute;
+    };
+
+    for (const QString &containerPath : containerPaths) {
+        if (result.failure != DisableConflictingSourcesResult::Failure::None) break;
+        if (!QFileInfo::exists(containerPath)) continue;
+        const QFileInfo info(containerPath);
+        addSource(info.absoluteFilePath());
+        const QString stem = info.completeBaseName();
+        for (const QString &suffix : companionSuffixes)
+            addSource(info.dir().filePath(stem + suffix));
+        QString descriptorStem = stem;
+        if (descriptorStem.endsWith(QLatin1String("_P"), Qt::CaseInsensitive))
+            descriptorStem.chop(2);
+        for (const QString &suffix : {QStringLiteral(".dekcns.json"),
+                                       QStringLiteral(".dekani.json"),
+                                       QStringLiteral(".cnslink.json")})
+            addSource(info.dir().filePath(descriptorStem + suffix));
+        addSource(info.absoluteFilePath() + QStringLiteral(".cnsidfixer.bak"));
+        if (result.failure == DisableConflictingSourcesResult::Failure::None) {
+            result.disabledContainers << QDir::fromNativeSeparators(
+                QDir(root).relativeFilePath(info.absoluteFilePath()));
+        }
+    }
+    if (result.failure != DisableConflictingSourcesResult::Failure::None) return result;
+    if (sources.isEmpty()) return result;
+
+    QList<QPair<QString, QString>> pendingMoves;
+    for (const QString &source : sources) {
+        const QString relative = QDir::fromNativeSeparators(QDir(root).relativeFilePath(source));
+        const QString destination = QDir(disabledRoot).filePath(relative + QStringLiteral(".disabled"));
+        if (QFileInfo::exists(destination)) {
+            result.failure = DisableConflictingSourcesResult::Failure::DestinationExists;
+            result.failedPath = destination;
+            return result;
+        }
+        pendingMoves << qMakePair(source, destination);
+    }
+    if (!QDir().mkpath(disabledRoot)) {
+        result.failure = DisableConflictingSourcesResult::Failure::CreateDirectory;
+        result.failedPath = disabledRoot;
+        return result;
+    }
+
+    for (const auto &move : pendingMoves) {
+        if (!QDir().mkpath(QFileInfo(move.second).absolutePath())) {
+            result.failure = DisableConflictingSourcesResult::Failure::CreateDirectory;
+            result.failedPath = QFileInfo(move.second).absolutePath();
+        } else if (!QFile::rename(move.first, move.second)) {
+            result.failure = DisableConflictingSourcesResult::Failure::Move;
+            result.failedPath = move.first;
+        } else {
+            result.movedFiles << move;
+            continue;
+        }
+
+        QList<QPair<QString, QString>> stillMoved;
+        for (auto it = result.movedFiles.crbegin(); it != result.movedFiles.crend(); ++it) {
+            QDir().mkpath(QFileInfo(it->first).absolutePath());
+            if (!QFile::rename(it->second, it->first)) {
+                stillMoved.prepend(*it);
+                result.failure = DisableConflictingSourcesResult::Failure::Rollback;
+            }
+        }
+        result.movedFiles = stillMoved;
+        if (result.failure == DisableConflictingSourcesResult::Failure::Rollback)
+            result.disabledContainers.clear();
+        return result;
+    }
+    return result;
+}
 }
 
 namespace st {
@@ -235,6 +364,8 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                                        + QString::number(QDateTime::currentMSecsSinceEpoch()));
     const QString stageRoot = QDir(paksRoot).filePath(
         QStringLiteral(".StellarTool_CnsFix_") + runId);
+    const QString disabledRoot = QDir(sourceRoot).filePath(
+        QStringLiteral("disabled/StellarTool_Fix_") + runId);
     if (QFileInfo::exists(stageRoot)) {
         m_cnsIdFixerReport = t(QStringLiteral("cns_fixer_fix_stage_failed"))
             .arg(stageRoot, t(QStringLiteral("cns_fixer_fix_reason_stage_exists")));
@@ -246,7 +377,7 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
 
     setBusy(true, t(QStringLiteral("cns_fixer_fix_scanning")));
     m_cnsIdFixerIncomplete = false;
-    std::ignore = QtConcurrent::run([this, sourceRoot, paksRoot, stageRoot, runId] {
+    std::ignore = QtConcurrent::run([this, sourceRoot, paksRoot, stageRoot, disabledRoot, runId] {
         struct ConvertedOutfit {
             QString sourceContainerPath;
             QStringList stagedFiles;
@@ -265,6 +396,17 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         };
         auto cleanStage = [&stageRoot] {
             if (QFileInfo::exists(stageRoot)) QDir(stageRoot).removeRecursively();
+        };
+        auto restoreMoves = [&disabledRoot](QList<QPair<QString, QString>> *moves) {
+            bool restored = true;
+            for (auto it = moves->crbegin(); it != moves->crend(); ++it) {
+                QDir().mkpath(QFileInfo(it->first).absolutePath());
+                if (QFileInfo::exists(it->second) && !QFile::rename(it->second, it->first))
+                    restored = false;
+            }
+            if (restored) QDir(disabledRoot).removeRecursively();
+            moves->clear();
+            return restored;
         };
 
         QStringList lines;
@@ -317,6 +459,8 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
 
         QList<ConvertedOutfit> convertedOutfits;
         QStringList packageConflictCandidates;
+        // A vanilla replacement can change resources used by other outfits,
+        // so isolate it too even when no second mod ships that package.
         QStringList allPackageConflictPaths = initial.sharedPackageContainerPaths;
         allPackageConflictPaths.append(initial.vanillaPackageContainerPaths);
         QSet<QString> seenPackageConflictPaths;
@@ -325,19 +469,59 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
                 QFileInfo(path).absoluteFilePath()).toCaseFolded();
             if (seenPackageConflictPaths.contains(normalized)) continue;
             seenPackageConflictPaths.insert(normalized);
-            // A damaged replacer stays a replacer. If its Package_Id conflict
-            // remains, report it instead of silently changing its outfit mode.
-            if (!integrityPaths.contains(path, Qt::CaseInsensitive))
+            // A repaired header hash no longer blocks outfit conversion. Keep
+            // truly damaged sources untouched until the final safe fallback.
+            const bool integrityRepaired = repackedReplacerPaths.contains(
+                path, Qt::CaseInsensitive);
+            if (!integrityPaths.contains(path, Qt::CaseInsensitive) || integrityRepaired)
                 packageConflictCandidates << path;
         }
         const int total = packageConflictCandidates.size();
+        auto disableRemaining = [this, &lines, &sourceRoot, &disabledRoot](
+            const CnsIdFixerService::Result &scan,
+            QList<QPair<QString, QString>> *movedFiles) {
+            const QStringList paths = unresolvedCnsSourcePaths(scan);
+            if (paths.isEmpty()) return true;
+            const DisableConflictingSourcesResult disabled = moveCnsSourcesToDisabled(
+                sourceRoot, disabledRoot, paths);
+            if (disabled.failure != DisableConflictingSourcesResult::Failure::None) {
+                *movedFiles += disabled.movedFiles;
+                QString reason;
+                switch (disabled.failure) {
+                case DisableConflictingSourcesResult::Failure::OutsideRoot:
+                    reason = t(QStringLiteral("cns_fixer_fix_reason_move_outside"));
+                    break;
+                case DisableConflictingSourcesResult::Failure::DestinationExists:
+                    reason = t(QStringLiteral("cns_fixer_fix_reason_move_collision"));
+                    break;
+                case DisableConflictingSourcesResult::Failure::CreateDirectory:
+                    reason = t(QStringLiteral("cns_fixer_fix_reason_dirs_create"));
+                    break;
+                case DisableConflictingSourcesResult::Failure::Rollback:
+                    reason = t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                    break;
+                case DisableConflictingSourcesResult::Failure::Move:
+                    reason = t(QStringLiteral("cns_fixer_fix_reason_move_original"));
+                    break;
+                case DisableConflictingSourcesResult::Failure::None:
+                    break;
+                }
+                lines << t(QStringLiteral("cns_fixer_fix_move_failed"))
+                             .arg(disabled.failedPath, reason);
+                return false;
+            }
+            *movedFiles += disabled.movedFiles;
+            lines << t(QStringLiteral("cns_fixer_fix_unresolved_disabled"))
+                         .arg(disabled.disabledContainers.size()).arg(disabledRoot);
+            for (const QString &path : disabled.disabledContainers)
+                lines << t(QStringLiteral("cns_fixer_fix_unresolved_disabled_item")).arg(path);
+            return true;
+        };
         if (total == 0) {
-            lines << (initial.packageConflicts == 0
-                          && initial.vanillaPackageConflicts == 0
+            lines << (initial.packageConflicts == 0 && initial.vanillaPackageConflicts == 0
                 ? t(QStringLiteral("cns_fixer_fix_no_conflicts"))
                 : t(QStringLiteral("cns_fixer_fix_replacer_conflicts_remain"))
-                      .arg(initial.packageConflicts
-                           + initial.vanillaPackageConflicts));
+                      .arg(initial.packageConflicts + initial.vanillaPackageConflicts));
             const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
             if (!idFix.ok) {
                 finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
@@ -348,15 +532,34 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             lines << QString() << t(QStringLiteral("cns_fixer_fix_id_summary"))
                                       .arg(idFix.fixedContainers)
                   << idFix.report;
-            const bool incomplete = idFix.packageConflicts > 0
-                || idFix.vanillaPackageConflicts > 0
-                || idFix.fixedContainers < idFix.duplicateContainers
-                || initial.integrityIssues.size() > repackedReplacerPaths.size();
+            QList<QPair<QString, QString>> disabledMoves;
+            if (!disableRemaining(idFix, &disabledMoves)) {
+                const bool restored = restoreMoves(&disabledMoves);
+                if (!restored)
+                    lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                cleanStage();
+                finish(false, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            const CnsIdFixerService::Result verification = disabledMoves.isEmpty()
+                ? idFix : m_cnsIdFixer->run(sourceRoot, false, true);
+            if (hasUnresolvedCnsIssues(verification)) {
+                const bool restored = restoreMoves(&disabledMoves);
+                lines << t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
+                      << verification.report;
+                if (!restored)
+                    lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                cleanStage();
+                finish(false, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            if (!disabledMoves.isEmpty())
+                lines << verification.report;
             cleanStage();
             finish(true, lines.join(QLatin1Char('\n')),
-                   incomplete ? QStringLiteral("cns_fixer_fix_partial_status")
-                              : QStringLiteral("cns_fixer_fix_done"),
-                   incomplete);
+                   QStringLiteral("cns_fixer_fix_done"));
             return;
         } else {
             lines << t(QStringLiteral("cns_fixer_fix_found")).arg(total);
@@ -365,8 +568,37 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             if (!QFileInfo::exists(cnsLogic + QStringLiteral(".utoc"))
                 && !QFileInfo::exists(cnsLogic + QStringLiteral(".pak"))) {
                 lines << QString() << t(QStringLiteral("cns_fixer_fix_cns_required"));
+                const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
+                if (!idFix.ok) {
+                    finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
+                                       + idFix.error,
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                QList<QPair<QString, QString>> disabledMoves;
+                if (!disableRemaining(idFix, &disabledMoves)) {
+                    const bool restored = restoreMoves(&disabledMoves);
+                    if (!restored)
+                        lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                    finish(false, lines.join(QLatin1Char('\n')),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                const CnsIdFixerService::Result verification = disabledMoves.isEmpty()
+                    ? idFix : m_cnsIdFixer->run(sourceRoot, false, true);
+                if (hasUnresolvedCnsIssues(verification)) {
+                    const bool restored = restoreMoves(&disabledMoves);
+                    lines << t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
+                          << verification.report;
+                    if (!restored)
+                        lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                    finish(false, lines.join(QLatin1Char('\n')),
+                           QStringLiteral("cns_fixer_fix_failed_status"));
+                    return;
+                }
+                if (!disabledMoves.isEmpty()) lines << verification.report;
                 finish(true, lines.join(QLatin1Char('\n')),
-                       QStringLiteral("cns_fixer_fix_partial_status"), true);
+                       QStringLiteral("cns_fixer_fix_done"));
                 return;
             }
             if (!QDir().mkpath(stageRoot)) {
@@ -494,7 +726,6 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
 
         if (convertedOutfits.isEmpty()) {
             cleanStage();
-            lines << QString() << t(QStringLiteral("cns_fixer_fix_partial"));
             const CnsIdFixerService::Result idFix = m_cnsIdFixer->run(sourceRoot, true, true);
             if (!idFix.ok) {
                 finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
@@ -504,16 +735,36 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             }
             lines << t(QStringLiteral("cns_fixer_fix_id_summary")).arg(idFix.fixedContainers)
                   << idFix.report;
+            QList<QPair<QString, QString>> disabledMoves;
+            if (!disableRemaining(idFix, &disabledMoves)) {
+                const bool restored = restoreMoves(&disabledMoves);
+                if (!restored)
+                    lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                finish(false, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            const CnsIdFixerService::Result verification = disabledMoves.isEmpty()
+                ? idFix : m_cnsIdFixer->run(sourceRoot, false, true);
+            if (hasUnresolvedCnsIssues(verification)) {
+                const bool restored = restoreMoves(&disabledMoves);
+                lines << t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
+                      << verification.report;
+                if (!restored)
+                    lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                finish(false, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            if (!disabledMoves.isEmpty()) lines << verification.report;
             finish(true, lines.join(QLatin1Char('\n')),
-                   QStringLiteral("cns_fixer_fix_partial_status"), true);
+                   QStringLiteral("cns_fixer_fix_done"));
             return;
         }
 
         // Stage every conversion successfully before moving any installed file.
         // Preserve each source path under disabled and add a suffix so UE's
         // recursive ~mods loader cannot load the backup as another live mod.
-        const QString disabledRoot = QDir(sourceRoot).filePath(
-            QStringLiteral("disabled/StellarTool_Fix_") + runId);
         const QString cosmeticsDir = QDir(sourceRoot).filePath(
             QStringLiteral("CustomNanosuitSystem/Cosmetics"));
         QList<QPair<QString, QString>> originalMoves;
@@ -602,15 +853,8 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
         }
 
         QList<QPair<QString, QString>> movedOriginals;
-        auto restoreOriginals = [&movedOriginals, &disabledRoot] {
-            bool restored = true;
-            for (auto it = movedOriginals.crbegin(); it != movedOriginals.crend(); ++it) {
-                QDir().mkpath(QFileInfo(it->first).absolutePath());
-                if (QFileInfo::exists(it->second) && !QFile::rename(it->second, it->first))
-                    restored = false;
-            }
-            if (restored) QDir(disabledRoot).removeRecursively();
-            return restored;
+        auto restoreOriginals = [&restoreMoves, &movedOriginals] {
+            return restoreMoves(&movedOriginals);
         };
         auto removeInstalled = [](const QStringList &paths) {
             for (const QString &path : paths) QFile::remove(path);
@@ -654,23 +898,71 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             }
         }
 
-        // Keep a partial repair only when it measurably reduces shared or
-        // vanilla Package_Id references. Otherwise restore the exact sources.
+        // Keep conversion only when it measurably reduces active-mod collisions
+        // or global vanilla overrides that can affect other outfits.
         const CnsIdFixerService::Result verification = m_cnsIdFixer->run(sourceRoot, false);
         const int initialPackageReferences = initial.sharedPackageReferences
             + initial.vanillaPackageReferences;
         const int verifiedPackageReferences = verification.sharedPackageReferences
             + verification.vanillaPackageReferences;
-        if (!verification.ok || verifiedPackageReferences >= initialPackageReferences) {
+        if (!verification.ok) {
             removeInstalled(installedFiles);
             const bool restored = restoreOriginals();
             cleanStage();
-            QString reason = verification.ok
-                ? t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
-                : verification.error;
+            QString reason = verification.error;
             if (!restored) reason += QLatin1Char('\n')
                 + t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
             finish(false, reason, QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+        if (verifiedPackageReferences >= initialPackageReferences) {
+            removeInstalled(installedFiles);
+            const bool restored = restoreOriginals();
+            if (!restored) {
+                cleanStage();
+                finish(false,
+                       t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            lines << t(QStringLiteral("cns_fixer_fix_no_progress_disabled"));
+            const CnsIdFixerService::Result remainingFix =
+                m_cnsIdFixer->run(sourceRoot, true, true);
+            if (!remainingFix.ok) {
+                cleanStage();
+                finish(false, lines.join(QLatin1Char('\n')) + QLatin1Char('\n')
+                                   + remainingFix.error,
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            QList<QPair<QString, QString>> disabledMoves;
+            if (!disableRemaining(remainingFix, &disabledMoves)) {
+                const bool restoredDisabled = restoreMoves(&disabledMoves);
+                if (!restoredDisabled)
+                    lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                cleanStage();
+                finish(false, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            const CnsIdFixerService::Result finalScan = disabledMoves.isEmpty()
+                ? remainingFix : m_cnsIdFixer->run(sourceRoot, false, true);
+            if (hasUnresolvedCnsIssues(finalScan)) {
+                const bool restoredDisabled = restoreMoves(&disabledMoves);
+                lines << t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
+                      << finalScan.report;
+                if (!restoredDisabled)
+                    lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+                cleanStage();
+                finish(false, lines.join(QLatin1Char('\n')),
+                       QStringLiteral("cns_fixer_fix_failed_status"));
+                return;
+            }
+            lines << remainingFix.report;
+            if (!disabledMoves.isEmpty()) lines << finalScan.report;
+            cleanStage();
+            finish(true, lines.join(QLatin1Char('\n')),
+                   QStringLiteral("cns_fixer_fix_done"));
             return;
         }
 
@@ -686,24 +978,42 @@ void AppController::fixCnsIdsAndTextures(const QUrl &directoryUrl) {
             return;
         }
 
+        const qsizetype movedBeforeFallback = movedOriginals.size();
+        if (!disableRemaining(idFix, &movedOriginals)) {
+            removeInstalled(installedFiles);
+            const bool restored = restoreOriginals();
+            cleanStage();
+            if (!restored)
+                lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+            finish(false, lines.join(QLatin1Char('\n')),
+                   QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+        const CnsIdFixerService::Result finalScan = movedOriginals.size() > movedBeforeFallback
+            ? m_cnsIdFixer->run(sourceRoot, false, true) : idFix;
+        if (hasUnresolvedCnsIssues(finalScan)) {
+            removeInstalled(installedFiles);
+            const bool restored = restoreOriginals();
+            cleanStage();
+            lines << t(QStringLiteral("cns_fixer_fix_postcheck_failed"))
+                  << finalScan.report;
+            if (!restored)
+                lines << t(QStringLiteral("cns_fixer_fix_reason_rollback")).arg(disabledRoot);
+            finish(false, lines.join(QLatin1Char('\n')),
+                   QStringLiteral("cns_fixer_fix_failed_status"));
+            return;
+        }
+
         lines << QString()
               << t(QStringLiteral("cns_fixer_fix_id_summary")).arg(idFix.fixedContainers)
               << t(QStringLiteral("cns_fixer_fix_disabled")).arg(disabledRoot)
               << t(QStringLiteral("cns_fixer_fix_summary"))
                     .arg(convertedOutfits.size()).arg(originalMoves.size());
-        const bool incomplete = idFix.packageConflicts > 0
-            || idFix.vanillaPackageConflicts > 0
-            || idFix.fixedContainers < idFix.duplicateContainers
-            || initial.integrityIssues.size() > repackedReplacerPaths.size();
-        if (incomplete)
-            lines << t(QStringLiteral("cns_fixer_fix_partial"));
-        lines << QString() << idFix.report;
+        lines << QString() << finalScan.report;
         if (!QDir(stageRoot).removeRecursively())
             lines << t(QStringLiteral("cns_fixer_fix_stage_cleanup_warning")).arg(stageRoot);
         finish(true, lines.join(QLatin1Char('\n')),
-               incomplete ? QStringLiteral("cns_fixer_fix_partial_status")
-                          : QStringLiteral("cns_fixer_fix_done"),
-               incomplete);
+               QStringLiteral("cns_fixer_fix_done"));
     });
 }
 

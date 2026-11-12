@@ -571,7 +571,7 @@ int HeadlessRunner::runUninstall(const Options &o) {
 
 int HeadlessRunner::runFixIds(const Options &o) {
     if (o.applyFixes && !o.idsOnly) {
-        out(QStringLiteral("[INFO] Reparando Container_Id y conflictos Package_Id compatibles en %1")
+        out(QStringLiteral("[INFO] Reparando IDs, aislando conflictos entre mods y respaldando los que no se puedan convertir en %1")
                 .arg(o.mods.value(0)));
         m_controller->fixCnsIdsAndTextures(QUrl::fromLocalFile(o.mods.value(0)));
     } else {

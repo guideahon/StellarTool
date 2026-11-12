@@ -205,35 +205,32 @@ extrae y vuelve a empaquetar el mismo contenido IoStore, comprueba que los
 camino conserva las rutas originales del replacer y respalda la familia anterior
 en `~mods/disabled/StellarTool_IoStoreRepair_<run>/` con sufijo `.disabled`.
 Solo se repara automáticamente el error de hash del chunk 0 cuando el
-contenedor conserva su `ContainerHeader`; otros errores quedan en el informe y
-no se convierten a CNS. La acción también convierte cada contenedor en conflicto
-de forma independiente y aísla materiales/texturas con `CnsConverterService`.
-Las conversiones no compatibles se registran y sus originales siguen activos; las
-conversiones válidas se preparan antes de cambiar archivos. La instalación mueve
-solo los originales convertidos a `~mods/disabled/StellarTool_Fix_<run>/`,
-conservando sus rutas y agregando `.disabled` para que el cargador recursivo del
-juego no los monte. Despliega los paquetes y descriptores directamente en
-`~mods/CustomNanosuitSystem/Cosmetics` y verifica que bajen las referencias
-`Package_Id` compartidas. Si no hay progreso o falla la instalación, revierte los
-archivos preparados; si hay progreso parcial, conserva las conversiones exitosas
-y reporta los conflictos restantes. Después corrige `Container_Id` repetidos.
-Los contenedores con errores de integridad no reparables se mantienen como
-replacers activos y no se convierten a CNS de forma implícita; si aún participan
-en conflictos `Package_Id`, el conflicto se informa como pendiente.
+contenedor conserva su `ContainerHeader`. La acción convierte por separado los
+contenedores que comparten `Package_Id` entre mods o reemplazan assets vanilla
+que otros outfits pueden usar, y aísla materiales/texturas con
+`CnsConverterService`. Las conversiones válidas se preparan antes de cambiar
+archivos y se instalan en
+`~mods/CustomNanosuitSystem/Cosmetics`. Si quedan colisiones entre mods,
+reemplazos vanilla globales o errores de integridad no reparables, se mueven
+las familias de contenedor afectadas a
+`~mods/disabled/StellarTool_Fix_<run>/` con sufijo `.disabled` y se listan en el
+reporte; la confirmación de UI advierte este efecto. Un escaneo final debe
+confirmar que ya no haya conflictos entre mods, `Container_Id` duplicados ni
+errores de integridad. Si falla la instalación o la verificación final, se
+revierte la transacción de conversión y movimiento. Después corrige los
+`Container_Id` repetidos que se puedan reparar.
 La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
 juego configurada; requiere confirmación en UI y `--apply` en modo headless.
 En headless, `--apply` ejecuta la reparación completa; `--ids-only` conserva la
 corrección limitada a `Container_Id`.
 La acción **Reparar instalación** usa este flujo directamente sobre el `~mods`
 activo: instala los CNS compatibles y mueve sus fuentes a `~mods/disabled` con
-confirmación. `fixids --apply` es el comando headless equivalente; devuelve
-código 4 si quedan conflictos o contenedores no convertibles.
-Para instalar outfits convertidos también exige encontrar la carpeta o el
-paquete de CNS; si no está instalado, deja todos los mods activos sin cambios.
-Si no puede leer los slots/parámetros de materiales, extraer una textura o
-transportar todos los assets de un outfit, deja ese contenedor activo y continúa
-con los demás. Headless devuelve código 4 cuando la reparación parcial deja
-conflictos pendientes.
+confirmación. `fixids --apply` es el comando headless equivalente. Los outfits
+convertibles se conservan como CNS; si falta CNS o la conversión no puede
+resolver un conflicto, la familia IoStore conflictiva queda en `disabled` con
+`.disabled` para que no siga activo. El escaneo final devuelve código 4 si aún
+detecta una colisión `Package_Id`, un `Container_Id` duplicado o un error de
+integridad.
 
 `LivePage` habla con `LiveService`, expuesto a QML como `Live` (context property
 propia, sin pasar por `AppController`: la página no comparte estado con el

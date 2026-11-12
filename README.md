@@ -55,26 +55,20 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
   `Container_Id` duplicados con backup verificable. Si encuentra un hash
   inválido en el chunk `ContainerHeader`, reconstruye el contenedor preservando
   las rutas del replacer y respalda los archivos anteriores en
-  `~mods/disabled/`; no convierte ese mod a CNS. La acción de reparación
-  también procesa conflictos `Package_Id` entre mods y reemplazos de assets
-  originales del juego: compara con los contenedores vanilla y muestra la ruta
-  afectada cuando está disponible. Para colisiones entre mods muestra cada
-  contenedor por separado, la ruta interna del asset y los datos CNS asociados
-  (`DisplayName`, `UniqueFitID` y variantes), aunque varios paquetes anuncien
-  el mismo outfit. Intenta convertir cada participante por
-  separado, instala en
-  CNS los outfits compatibles, mantiene activos los paquetes que no puede
-  convertir y detalla los conflictos restantes. Solo conserva conversiones si
-  la verificación confirma que redujeron las referencias compartidas; los
-  originales convertidos se respaldan en `~mods/disabled/`. Requiere CNS
-  instalado únicamente para esas conversiones de conflictos `Package_Id`. En
-  La acción **Reparar instalación** actúa directamente sobre la carpeta `~mods`
-  configurada: instala los outfits CNS compatibles y mueve sus fuentes a
-  `~mods/disabled` después de confirmar. En modo headless, `fixids --apply` hace
-  la misma reparación; con
-  `--apply --ids-only` se limita el cambio a `Container_Id`.
-  El reporte identifica qué paquete aporta cada asset; los que no se pueden
-  convertir de forma segura permanecen activos y quedan detallados.
+  `~mods/disabled/`; esa reconstrucción conserva el modo replacer. La acción
+  completa puede convertirlo a CNS si también detecta colisiones. También
+  detecta `Package_Id` compartidos entre mods y reemplazos de assets
+  originales que pueden alterar materiales o texturas usados por otros outfits.
+  Para cada colisión muestra el contenedor, la ruta interna del asset y los datos
+  CNS (`DisplayName`, `UniqueFitID` y variantes). Intenta convertir cada
+  participante por separado y verifica el resultado. Los outfits compatibles se
+  instalan en CNS; cualquier contenedor que siga en conflicto o tenga errores de
+  integridad irreparables se mueve, junto con sus archivos compañeros, a un
+  respaldo recuperable en `~mods/disabled/` con extensión `.disabled`, tras
+  confirmarlo. El escaneo final debe quedar sin conflictos `Package_Id`,
+  `Container_Id` duplicados ni errores de integridad. En modo headless,
+  `fixids --apply` hace la misma reparación; con `--apply --ids-only` se limita
+  el cambio a `Container_Id`.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con
