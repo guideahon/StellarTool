@@ -16,6 +16,15 @@ public:
         QString detail;
         bool repairableHeaderHash = false;
     };
+    struct CnsDescriptorIssue {
+        QString path;
+        QString displayName;
+        QString uniqueFitId;
+        int entryIndex = -1;
+        int totalAssets = 0;
+        bool outfitRootMissing = false;
+        QStringList missingAssets;
+    };
     struct HeaderHashRepair {
         QString path;
         bool repaired = false;
@@ -36,10 +45,13 @@ public:
         int sharedPackageReferences = 0;
         int vanillaPackageConflicts = 0;
         int vanillaPackageReferences = 0;
+        bool descriptorCheckComplete = false;
         QStringList sharedPackageContainerPaths;
         QStringList vanillaPackageContainerPaths;
         QStringList unfixedDuplicateContainerPaths;
         QStringList repairableHeaderHashPaths;
+        QStringList orphanCnsDescriptorPaths;
+        QList<CnsDescriptorIssue> cnsDescriptorIssues;
         QList<IntegrityIssue> integrityIssues;
         QString report;
         QString error;

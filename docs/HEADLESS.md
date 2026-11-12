@@ -24,7 +24,7 @@ Antes de usar un comando:
 | Conflictos / Merge | `merge` | Resuelve por prioridad o `--prefer` y genera el pak/ZIP. Si un cambio seleccionado de una tabla no se puede verificar, excluye la tabla completa para no ocultar el mod fuente y lo detalla en `merge_report.txt`. |
 | Builder | `build`, `presets` | Compila desde JSON, `.stpreset` o preset guardado. |
 | CNS Converter | `cns`, `replacer` | Convierte outfits y genera un ZIP instalable. `replacer` requiere que el mod fuente incluya el asset raíz del outfit; si solo incluye texturas/dependencias, se rechaza porque no puede reemplazar la malla. Repara referencias faltantes o `UnknownExport` de PhysicsAsset/ShadowPhysicsAsset desde la malla vanilla actual del destino, elimina imports `UnknownExport` huérfanos y valida el `.uasset` serializado; falla con detalle si queda una referencia sin resolver. `replacer --replace <outfit>` acepta los destinos de outfit vanilla (`Body`) que aparecen en el desplegable rápido; la interfaz avanzada también lista otros tipos de asset. `cns` aísla materiales/texturas compartidos y agrega controles de reparación compatibles con CNS. |
-| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. Compara los `Package_Id` con vanilla para detectar reemplazos globales que pueden alterar materiales o texturas de otros outfits. Los conflictos entre mods muestran la ruta interna y cada contenedor; si hay descriptor CNS, incluye `DisplayName`, `UniqueFitID` y variantes. `--apply` actúa sobre la carpeta `~mods` activa: repara `Container_Id`, reconstruye hashes reparables de `ContainerHeader`, convierte a CNS los outfits compatibles y mueve a respaldos recuperables en `~mods/disabled/` cualquier contenedor que siga en conflicto, reemplace recursos vanilla de forma global o tenga errores de integridad irreparables. Verifica el estado final. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` es alias compatible. Devuelve código 4 si el escaneo final aún detecta problemas. Requiere `~mods` activa configurada. |
+| CNS ID Fixer | `fixids` | Reporta IDs, rutas e integridad IoStore. Compara `Package_Id` con vanilla e informa posibles reemplazos, pero no convierte un override vanilla aislado porque puede ser intencional. Valida referencias personalizadas de los descriptores CNS (incluidos los roots de autor, no solo `/Game/OutfitMods`) contra assets IoStore; excluye los roots vanilla `Art`, `DLC_1` y `DLC_2`. Detecta filas de menú cuyo paquete no está instalado. Los conflictos entre mods muestran la ruta interna y cada contenedor; si hay descriptor CNS, incluye `DisplayName`, `UniqueFitID` y variantes. `--apply` repara `Container_Id`, reconstruye hashes reparables de `ContainerHeader`, convierte solo colisiones reales entre mods, mueve el descriptor completo si todas sus entradas carecen de assets requeridos y quita solo las entradas rotas de los JSON mixtos, guardando el original en `~mods/disabled/`. Las referencias parciales de material/textura se reportan sin ocultar un outfit que conserva sus assets requeridos. Si el índice no permite comprobar los assets, lo informa como incompleto y no modifica el descriptor por suposición. Usa `--apply --ids-only` para limitarse a `Container_Id`; `--fix-textures` es alias compatible. Devuelve código 4 si quedan conflictos, descriptores huérfanos, errores de integridad o chequeos incompletos. Requiere `~mods` activa configurada. |
 | Baseline / Ajustes | `baseline`, `detect`, `status`, `storage` | Construye baseline, detecta juego, consulta instalación y gestiona la carpeta de trabajo temporal. |
 | Live | `live` | Instala/desinstala bridge, consulta estado y publica valores. |
 | ReShade | `reshade` | Lista, guarda, restaura, renombra, elimina, importa y exporta presets. |
@@ -92,18 +92,34 @@ cadenas de imports desconocidas. Las filas de import sin referencias activas
 se permiten. La conversión falla si no puede extraer la malla vanilla o si
 alguna referencia usada continúa inválida.
 La conversión escribe en la carpeta indicada y no modifica la entrada ni los
-paks del juego. CNS ID Fixer aplica el mismo aislamiento a los contenedores
-IoStore activos que comparten `Package_Id` entre sí. Intenta las conversiones
-una por una y prepara las conversiones aceptadas antes de mover archivos. Los
-contenedores que aún choquen o tengan errores de integridad irreparables se
-mueven junto con sus archivos compañeros a respaldos recuperables bajo `~mods/disabled/`
-con extensión `.disabled`. Un único mod reemplazando un asset vanilla se reporta
-como posible origen de cambios sobre texturas/materiales usados por otros
-outfits. La reparación intenta aislar esos reemplazos globales o mueve sus
-contenedores a `disabled` si no es posible convertirlos. Vuelve a escanear y solo
-devuelve éxito cuando no quedan conflictos `Package_Id`, IDs duplicados o errores
-de integridad. El comando
-requiere `--apply`, que confirma este cambio productivo.
+paks del juego. CNS ID Fixer aplica aislamiento a los contenedores IoStore
+activos que comparten `Package_Id` entre mods. Intenta las conversiones una por
+una y prepara las aceptadas antes de mover archivos. Los contenedores que aún
+choquen o tengan errores de integridad irreparables se mueven junto con sus
+archivos compañeros a respaldos recuperables bajo `~mods/disabled/` con extensión
+`.disabled`.
+
+El escaneo compara también con los paquetes originales y valida las rutas
+personalizadas de los descriptores `.dekcns.json` contra los assets presentes en
+IoStore. Incluye roots de autor como `/Game/PaulR0013Mods`, `/Game/Xiaolongnu` y
+`/Game/OUTFITTK930`; deja los roots vanilla `Art`, `DLC_1` y `DLC_2` para el
+chequeo de `Package_Id`. Informa filas aunque les falte la malla, el material o
+la textura. Si todas las entradas del descriptor carecen de sus assets requeridos,
+`--apply` respalda el JSON completo. En descriptores mixtos, quita solo las
+entradas rotas y respalda el JSON original antes de escribir la versión filtrada.
+Los faltantes parciales de materiales/texturas se reportan sin ocultar una entrada
+que conserva sus assets requeridos. Para
+restaurar cualquier asset ausente, hay que habilitar y volver a desplegar el mod
+fuente en Vortex. Si algún índice de paquete no se puede leer, hay un PAK legacy
+o un UCAS sin UTOC, o no hay contenedores activos, el chequeo se informa como
+incompleto y no mueve el descriptor por una suposición.
+
+Un reemplazo vanilla individual se informa como posible override, pero no se
+convierte ni se desactiva automáticamente: puede ser un replacer intencional.
+Solo las colisiones `Package_Id` reales entre mods se aíslan de forma automática.
+El escaneo final devuelve éxito cuando no quedan colisiones entre mods, filas CNS
+huérfanas, IDs duplicados ni errores de integridad. El comando requiere
+`--apply`, que confirma este cambio productivo.
 `--fix-textures` se conserva como alias compatible y también requiere `--apply`.
 CNS debe estar instalado para desplegar los outfits convertidos.
 

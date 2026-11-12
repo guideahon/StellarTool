@@ -122,7 +122,7 @@ el asset incompatible.
 | `TableDiffEngine` | diff JSON recursivo: mod vs baseline → `ChangeItem[]`; cruza mods → `ConflictGroup[]`. |
 | `MergeEngine` | aplica `MergePlan` sobre JSON base, invoca fromjson + pack, valida resultado (re-tojson y re-diff de verificación). Conserva los tipos declarados por el usmap y completa FNames/tipos de arrays vacíos antes de escribir. |
 | `CnsConverterService` | conversor nativo C++ replacer ↔ CNS: descubre raíces con las bases CNSRepacker 1.13, exige que el mod fuente incluya el asset raíz antes de crear un replacer, reubica dependencias, reescribe referencias UAssetAPI y empaqueta con retoc. En replacers, adapta la malla del mod al esquema vanilla actual preservando exports y propiedades auxiliares (incluidos morph targets), copia solo datos compatibles, repara referencias de física, serializa y valida una extracción del IoStore final; rechaza referencias usadas que sigan sin resolver. Al convertir a CNS aísla materiales/texturas compartidos en el namespace del outfit y genera opciones para alternar texturas reemplazadas y ajustar rugosidad/metalicidad desde CNS. Al convertir hacia el replacer Fusion Suit agrega la malla NoAcc y las copias de materiales que el jefe asigna por índice de slot. |
-| `CnsIdFixerService` | verifica la integridad de mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta `Package_Id` compartidos con rutas de asset y fuentes de contenedor independientes (incluida la identidad CNS cuando existe), y reconstruye hashes inválidos de `ContainerHeader` conservando assets y rutas del replacer. |
+| `CnsIdFixerService` | verifica la integridad de mods IoStore, corrige `Container_Id` duplicados con backup verificable, reporta `Package_Id` compartidos entre mods con rutas de asset y fuentes independientes (incluida la identidad CNS), y comprueba que los descriptores CNS referencien assets personalizados presentes en IoStore. Los reemplazos vanilla individuales se reportan como posibles overrides, no se convierten automáticamente. |
 | `LiveService` | control en vivo del juego (fase 1: FOV, velocidad, salto). Instala el bridge Lua propio `StellarToolLive` en los mods de UE4SS y habla con él por archivos de texto atómicos. No inyecta código ni lee memoria. |
 | `ReShadePresetService` | detecta `SB/Binaries/Win64/ReShade.ini`, mantiene la biblioteca de presets en `%LOCALAPPDATA%/StellarTool/reshade/`, importa/exporta y restaura copias administradas en el juego con backup previo. Comprueba de forma best-effort los shaders referenciados. |
 | `SaveConverterService` | fachada async para el conversor de partidas de lotress: `.sav` ↔ JSON y reparación CNS, ejecutado con el Python embebido del paquete Builder. |
@@ -149,7 +149,7 @@ Páginas (`qml/pages`):
    desactivación, porque un loader puede buscar contenedores de forma recursiva.
 6. **BuilderPage** — Stellar Souls Builder: cuestionario para compilar mods personalizados.
 7. **CnsConverterPage** — flujo rápido de replacer desde ZIP con selección del outfit vanilla de destino; conserva el conversor avanzado replacer ↔ CNS.
-8. **CnsIdFixerPage** — escaneo de IDs e integridad IoStore; corrige hashes reparables de `ContainerHeader` conservando replacers y genera CNS aislados para outfits compatibles con conflictos `Package_Id`.
+8. **CnsIdFixerPage** — escaneo de IDs, integridad IoStore y descriptores CNS huérfanos; corrige hashes reparables conservando replacers, genera CNS aislados solo para colisiones `Package_Id` entre mods y respalda descriptores cuyos assets personalizados faltan.
 9. **LivePage** — control en vivo mientras el juego corre: instalar/desinstalar el bridge, FOV, velocidad, salto.
 10. **SettingsPage** — configuración: ruta del juego, tema, idioma, mappings, actualizaciones.
 11. **SaveConverterPage** — conversor y reparador de partidas, con backup automático y crédito a lotress.
@@ -206,19 +206,28 @@ camino conserva las rutas originales del replacer y respalda la familia anterior
 en `~mods/disabled/StellarTool_IoStoreRepair_<run>/` con sufijo `.disabled`.
 Solo se repara automáticamente el error de hash del chunk 0 cuando el
 contenedor conserva su `ContainerHeader`. La acción convierte por separado los
-contenedores que comparten `Package_Id` entre mods o reemplazan assets vanilla
-que otros outfits pueden usar, y aísla materiales/texturas con
-`CnsConverterService`. Las conversiones válidas se preparan antes de cambiar
-archivos y se instalan en
-`~mods/CustomNanosuitSystem/Cosmetics`. Si quedan colisiones entre mods,
-reemplazos vanilla globales o errores de integridad no reparables, se mueven
-las familias de contenedor afectadas a
-`~mods/disabled/StellarTool_Fix_<run>/` con sufijo `.disabled` y se listan en el
-reporte; la confirmación de UI advierte este efecto. Un escaneo final debe
-confirmar que ya no haya conflictos entre mods, `Container_Id` duplicados ni
-errores de integridad. Si falla la instalación o la verificación final, se
-revierte la transacción de conversión y movimiento. Después corrige los
-`Container_Id` repetidos que se puedan reparar.
+contenedores que comparten `Package_Id` entre mods y aísla sus materiales/texturas
+con `CnsConverterService`. Un reemplazo vanilla individual se reporta como
+posible override, pero no se convierte automáticamente porque puede ser un
+replacer intencional. El servicio indexa las rutas de assets de IoStore y las
+compara con las rutas personalizadas de cada descriptor CNS, incluidos los
+roots de autor; los roots vanilla `Art`, `DLC_1` y `DLC_2` quedan bajo el
+chequeo de `Package_Id`. Así detecta entradas que aparecen en el menú aunque su
+paquete no esté instalado. Las conversiones válidas se preparan antes de cambiar
+archivos y se instalan en `~mods/CustomNanosuitSystem/Cosmetics`; los
+descriptores cuyas entradas no tienen sus assets requeridos en contenedores activos se respaldan bajo
+`~mods/disabled/StellarTool_Fix_<run>/` con sufijo `.disabled`. Los conflictos
+entre mods y errores de integridad no reparables también se respaldan y se
+listan. Si el índice no permite comprobar los assets, el fixer informa el
+chequeo incompleto (incluidos PAK legacy, UCAS huérfanos y ausencia de
+contenedores activos) y no modifica descriptores por suposición. En JSON con
+entradas válidas y rotas, elimina solo las entradas que no tienen sus assets
+requeridos y respalda el archivo original `.dekcns.json` con sufijo `.disabled`.
+Un escaneo final debe
+confirmar que ya no haya conflictos entre mods, descriptores huérfanos,
+`Container_Id` duplicados ni errores de integridad. Si falla la instalación o la
+verificación final, se revierte la transacción de conversión y movimiento.
+Después corrige los `Container_Id` repetidos que se puedan reparar.
 La acción solo acepta la carpeta `~mods` activa que corresponde a la ruta de
 juego configurada; requiere confirmación en UI y `--apply` en modo headless.
 En headless, `--apply` ejecuta la reparación completa; `--ids-only` conserva la

@@ -56,19 +56,20 @@ la aplicación y copiar cualquier `.uasset`/`.uexp` que se quiera conservar de
   inválido en el chunk `ContainerHeader`, reconstruye el contenedor preservando
   las rutas del replacer y respalda los archivos anteriores en
   `~mods/disabled/`; esa reconstrucción conserva el modo replacer. La acción
-  completa puede convertirlo a CNS si también detecta colisiones. También
-  detecta `Package_Id` compartidos entre mods y reemplazos de assets
-  originales que pueden alterar materiales o texturas usados por otros outfits.
-  Para cada colisión muestra el contenedor, la ruta interna del asset y los datos
-  CNS (`DisplayName`, `UniqueFitID` y variantes). Intenta convertir cada
-  participante por separado y verifica el resultado. Los outfits compatibles se
-  instalan en CNS; cualquier contenedor que siga en conflicto o tenga errores de
-  integridad irreparables se mueve, junto con sus archivos compañeros, a un
-  respaldo recuperable en `~mods/disabled/` con extensión `.disabled`, tras
-  confirmarlo. El escaneo final debe quedar sin conflictos `Package_Id`,
-  `Container_Id` duplicados ni errores de integridad. En modo headless,
-  `fixids --apply` hace la misma reparación; con `--apply --ids-only` se limita
-  el cambio a `Container_Id`.
+  completa puede convertirlo a CNS si detecta colisiones `Package_Id` entre
+  mods. Para cada colisión muestra el contenedor, la ruta interna del asset y los
+  datos CNS (`DisplayName`, `UniqueFitID` y variantes), luego verifica la
+  conversión antes de instalarla. También compara los paquetes con los assets
+  originales y valida que cada descriptor CNS apunte a assets personalizados
+  presentes en IoStore, incluidos los paquetes que usan roots de autor. Así
+  detecta filas que aparecen en CNS aunque falten sus assets requeridos, y también
+  rutas de material o textura ausentes. Al aplicar, respalda el JSON original y
+  retira solo las entradas que no tienen assets requeridos instalados bajo
+  `~mods/disabled/` con extensión `.disabled`; para recuperar esos outfits hay
+  que habilitar y volver a desplegar su mod en Vortex. Los reemplazos vanilla
+  individuales se reportan, pero no se convierten ni desactivan automáticamente
+  porque pueden ser intencionales. En modo headless, `fixids --apply` hace la
+  misma reparación; con `--apply --ids-only` se limita el cambio a `Container_Id`.
 - **Live** modifica el juego mientras corre: campo de visión, velocidad de
   movimiento y fuerza de salto. Instala un bridge Lua propio en los mods de
   UE4SS (que se instala aparte; Stellar Tool no lo distribuye) y se comunica con

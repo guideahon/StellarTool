@@ -46,11 +46,112 @@ QByteArray littleEndianId(quint64 id) {
     return bytes;
 }
 
+bool pathIsInDisabledFolder(const QString &root, const QString &path) {
+    const QString relative = QDir::fromNativeSeparators(QDir(root).relativeFilePath(path));
+    const QStringList parts = relative.split(QLatin1Char('/'), Qt::SkipEmptyParts);
+    return std::any_of(parts.cbegin(), parts.cend(), [](const QString &part) {
+        return part.compare(QLatin1String("disabled"), Qt::CaseInsensitive) == 0;
+    });
+}
+
 struct CnsOutfitIdentity {
     QString displayName;
     QString uniqueFitId;
+    int entryIndex = -1;
     QStringList variants;
+    QStringList requiredAssetPaths;
+    QStringList customAssetPaths;
 };
+
+QString customCnsPackagePath(QString path) {
+    path = path.trimmed();
+    path.replace(QLatin1Char('\\'), QLatin1Char('/'));
+    const int subobject = path.indexOf(QLatin1Char(':'));
+    if (subobject >= 0) path.truncate(subobject);
+    const int objectName = path.lastIndexOf(QLatin1Char('.'));
+    if (objectName > path.lastIndexOf(QLatin1Char('/'))) path.truncate(objectName);
+    if (!path.startsWith(QStringLiteral("/Game/"), Qt::CaseInsensitive)) return {};
+
+    // Outfit packs use several author-specific mount roots. Check all of them,
+    // while leaving the game's shared Art and DLC packages to the separate
+    // Package_Id collision check (they are expected to exist in vanilla).
+    const QString root = path.mid(6).section(QLatin1Char('/'), 0, 0);
+    static const QSet<QString> vanillaRoots{
+        QStringLiteral("art"), QStringLiteral("dlc_1"), QStringLiteral("dlc_2")};
+    if (vanillaRoots.contains(root.toCaseFolded())) return {};
+    return path;
+}
+
+void collectCnsAssetReferences(const QJsonValue &value, QStringList *paths) {
+    if (value.isString()) {
+        const QString path = customCnsPackagePath(value.toString());
+        if (!path.isEmpty() && !paths->contains(path, Qt::CaseInsensitive))
+            paths->append(path);
+        return;
+    }
+    if (value.isArray()) {
+        for (const QJsonValue &child : value.toArray())
+            collectCnsAssetReferences(child, paths);
+        return;
+    }
+    if (value.isObject()) {
+        const QJsonObject object = value.toObject();
+        for (const QString &key : object.keys())
+            collectCnsAssetReferences(object.value(key), paths);
+    }
+}
+
+QList<CnsOutfitIdentity> readCnsDescriptorEntries(const QString &descriptorPath) {
+    QList<CnsOutfitIdentity> identities;
+    QFile file(descriptorPath);
+    if (!file.open(QIODevice::ReadOnly)) return identities;
+    const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
+    QJsonArray entries;
+    if (document.isArray()) {
+        entries = document.array();
+    } else if (document.isObject()) {
+        const QJsonObject object = document.object();
+        if (object.contains(QStringLiteral("DisplayName")))
+            entries.append(object);
+        else if (object.value(QStringLiteral("Outfits")).isArray())
+            entries = object.value(QStringLiteral("Outfits")).toArray();
+    }
+
+    for (int entryIndex = 0; entryIndex < entries.size(); ++entryIndex) {
+        const QJsonValue value = entries.at(entryIndex);
+        if (!value.isObject()) continue;
+        const QJsonObject object = value.toObject();
+        CnsOutfitIdentity identity;
+        identity.entryIndex = entryIndex;
+        identity.displayName = object.value(QStringLiteral("DisplayName")).toString().trimmed();
+        identity.uniqueFitId = object.value(QStringLiteral("UniqueFitID")).toString().trimmed();
+        const QJsonArray names = object.value(QStringLiteral("OutfitNames")).toArray();
+        for (const QJsonValue &name : names) {
+            const QString variant = name.toString().trimmed();
+            if (!variant.isEmpty() && !identity.variants.contains(variant, Qt::CaseInsensitive))
+                identity.variants << variant;
+        }
+        collectCnsAssetReferences(object.value(QStringLiteral("OutfitPaths")),
+                                  &identity.requiredAssetPaths);
+        const QJsonValue outfitDatas = object.value(QStringLiteral("OutfitDatas"));
+        if (outfitDatas.isArray()) {
+            for (const QJsonValue &outfitData : outfitDatas.toArray())
+                if (outfitData.isObject())
+                    collectCnsAssetReferences(
+                        outfitData.toObject().value(QStringLiteral("Mesh")),
+                        &identity.requiredAssetPaths);
+        } else if (outfitDatas.isObject()) {
+            collectCnsAssetReferences(
+                outfitDatas.toObject().value(QStringLiteral("Mesh")),
+                &identity.requiredAssetPaths);
+        }
+        collectCnsAssetReferences(value, &identity.customAssetPaths);
+        if (!identity.displayName.isEmpty() || !identity.uniqueFitId.isEmpty()
+            || !identity.customAssetPaths.isEmpty())
+            identities << identity;
+    }
+    return identities;
+}
 
 QList<CnsOutfitIdentity> readCnsOutfitIdentities(const QString &containerPath) {
     const QFileInfo containerInfo(containerPath);
@@ -73,36 +174,7 @@ QList<CnsOutfitIdentity> readCnsOutfitIdentities(const QString &containerPath) {
                 return stem.compare(descriptorStem, Qt::CaseInsensitive) == 0;
             });
         if (!matchesContainer) continue;
-
-        QFile file(descriptor.absoluteFilePath());
-        if (!file.open(QIODevice::ReadOnly)) continue;
-        const QJsonDocument document = QJsonDocument::fromJson(file.readAll());
-        QJsonArray entries;
-        if (document.isArray()) {
-            entries = document.array();
-        } else if (document.isObject()) {
-            const QJsonObject object = document.object();
-            if (object.contains(QStringLiteral("DisplayName")))
-                entries.append(object);
-            else if (object.value(QStringLiteral("Outfits")).isArray())
-                entries = object.value(QStringLiteral("Outfits")).toArray();
-        }
-
-        for (const QJsonValue &value : entries) {
-            if (!value.isObject()) continue;
-            const QJsonObject object = value.toObject();
-            CnsOutfitIdentity identity;
-            identity.displayName = object.value(QStringLiteral("DisplayName")).toString().trimmed();
-            identity.uniqueFitId = object.value(QStringLiteral("UniqueFitID")).toString().trimmed();
-            const QJsonArray names = object.value(QStringLiteral("OutfitNames")).toArray();
-            for (const QJsonValue &name : names) {
-                const QString variant = name.toString().trimmed();
-                if (!variant.isEmpty() && !identity.variants.contains(variant, Qt::CaseInsensitive))
-                    identity.variants << variant;
-            }
-            if (!identity.displayName.isEmpty() || !identity.uniqueFitId.isEmpty())
-                identities << identity;
-        }
+        identities.append(readCnsDescriptorEntries(descriptor.absoluteFilePath()));
     }
     return identities;
 }
@@ -246,22 +318,18 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     QList<Container> containers;
     QStringList warnings;
     QSet<QString> integrityFailurePaths;
+    bool packageIndexComplete = true;
     QDirIterator it(directory, {QStringLiteral("*.utoc")}, QDir::Files,
                     QDirIterator::Subdirectories);
     while (it.hasNext()) {
         const QString path = it.next();
         if (path.endsWith(QLatin1String(".cnsidfixer.bak"), Qt::CaseInsensitive))
             continue;
-        const QString relativePath = QDir::fromNativeSeparators(
-            QDir(directory).relativeFilePath(path));
-        const QStringList pathParts = relativePath.split(QLatin1Char('/'), Qt::SkipEmptyParts);
-        if (std::any_of(pathParts.cbegin(), pathParts.cend(), [](const QString &part) {
-                return part.compare(QLatin1String("disabled"), Qt::CaseInsensitive) == 0;
-            }))
-            continue;
+        if (pathIsInDisabledFolder(directory, path)) continue;
         Container container;
         QString error;
         if (!readContainer(path, &container, &error)) {
+            packageIndexComplete = false;
             warnings << error;
             if (verifyContents) {
                 result.integrityIssues << IntegrityIssue{path, error, false};
@@ -290,17 +358,44 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
         containers << container;
     }
     result.containers = containers.size();
-    if (containers.isEmpty()) {
-        if (warnings.isEmpty()) {
-            result.ok = true;
-            result.report = tr_(QStringLiteral("cns_id_empty"));
-        } else if (verifyContents && !result.integrityIssues.isEmpty()) {
-            result.ok = true;
-            result.report = warnings.join(QLatin1Char('\n'));
-        } else {
-            result.error = warnings.join(QLatin1Char('\n'));
+
+    // A CNS descriptor can remain deployed after Vortex removes the outfit's
+    // IoStore files. The menu then shows a selectable row whose asset path can
+    // never load. Index active custom package paths so the fixer can identify
+    // and quarantine those stale descriptors without guessing from filenames.
+    QDirIterator legacyPakIt(directory,
+                             {QStringLiteral("*.pak"), QStringLiteral("*.ucas")}, QDir::Files,
+                             QDirIterator::Subdirectories);
+    while (legacyPakIt.hasNext()) {
+        const QString archivePath = legacyPakIt.next();
+        if (pathIsInDisabledFolder(directory, archivePath)) continue;
+        const QFileInfo pakInfo(archivePath);
+        if (!QFileInfo::exists(pakInfo.dir().filePath(
+                pakInfo.completeBaseName() + QStringLiteral(".utoc"))))
+            packageIndexComplete = false;
+    }
+    if (containers.isEmpty()) packageIndexComplete = false;
+
+    QSet<QString> installedCustomAssetPaths;
+    if (m_pak && packageIndexComplete) {
+        for (const Container &container : containers) {
+            QMap<quint64, QString> packagePaths;
+            QString pathError;
+            if (!m_pak->listIoStorePackagePaths(container.path, directory,
+                                                &packagePaths, &pathError)) {
+                packageIndexComplete = false;
+                warnings << tr_(QStringLiteral("cns_id_asset_index_failed"))
+                                .arg(QDir::fromNativeSeparators(
+                                         QDir(directory).relativeFilePath(container.path)),
+                                     pathError);
+                installedCustomAssetPaths.clear();
+                break;
+            }
+            for (auto it = packagePaths.cbegin(); it != packagePaths.cend(); ++it) {
+                const QString path = customCnsPackagePath(it.value());
+                if (!path.isEmpty()) installedCustomAssetPaths.insert(path.toCaseFolded());
+            }
         }
-        return result;
     }
 
     // Package_Id is the hash of an asset package path. Comparing only the
@@ -358,6 +453,90 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
         }
     }
 
+    result.descriptorCheckComplete = m_pak && packageIndexComplete;
+    if (result.descriptorCheckComplete) {
+        QDirIterator descriptorIt(directory, {QStringLiteral("*.dekcns.json")}, QDir::Files,
+                                  QDirIterator::Subdirectories);
+        while (descriptorIt.hasNext()) {
+            const QString descriptorPath = descriptorIt.next();
+            if (pathIsInDisabledFolder(directory, descriptorPath)) continue;
+            const QList<CnsOutfitIdentity> identities =
+                readCnsDescriptorEntries(descriptorPath);
+            bool hasAssetEntries = false;
+            bool allEntriesMissingRoot = true;
+            for (const CnsOutfitIdentity &identity : identities) {
+                if (identity.customAssetPaths.isEmpty()) {
+                    allEntriesMissingRoot = false;
+                    continue;
+                }
+                hasAssetEntries = true;
+                QStringList missingAssets;
+                for (const QString &assetPath : identity.customAssetPaths)
+                    if (!installedCustomAssetPaths.contains(assetPath.toCaseFolded()))
+                        missingAssets << assetPath;
+                if (missingAssets.isEmpty()) {
+                    allEntriesMissingRoot = false;
+                    continue;
+                }
+
+                QStringList missingRequiredAssets;
+                for (const QString &assetPath : identity.requiredAssetPaths)
+                    if (!installedCustomAssetPaths.contains(assetPath.toCaseFolded()))
+                        missingRequiredAssets << assetPath;
+
+                CnsDescriptorIssue issue;
+                issue.path = descriptorPath;
+                issue.displayName = identity.displayName;
+                issue.uniqueFitId = identity.uniqueFitId;
+                issue.entryIndex = identity.entryIndex;
+                issue.totalAssets = identity.customAssetPaths.size();
+                issue.outfitRootMissing = !identity.requiredAssetPaths.isEmpty()
+                    ? missingRequiredAssets.size() == identity.requiredAssetPaths.size()
+                    : missingAssets.size() == identity.customAssetPaths.size();
+                issue.missingAssets = missingAssets;
+                result.cnsDescriptorIssues << issue;
+                if (!issue.outfitRootMissing) allEntriesMissingRoot = false;
+            }
+            if (hasAssetEntries && allEntriesMissingRoot) {
+                const QString absolute = QDir::cleanPath(
+                    QFileInfo(descriptorPath).absoluteFilePath());
+                if (!result.orphanCnsDescriptorPaths.contains(absolute,
+                                                              Qt::CaseInsensitive))
+                    result.orphanCnsDescriptorPaths << absolute;
+            }
+        }
+    }
+
+    const auto appendDescriptorReport = [this, &directory, &result](QStringList *lines) {
+        *lines << QString() << tr_(QStringLiteral("cns_id_asset_refs_section"));
+        if (!result.descriptorCheckComplete) {
+            *lines << tr_(QStringLiteral("cns_id_asset_check_unavailable"));
+            return;
+        }
+        if (result.cnsDescriptorIssues.isEmpty()) {
+            *lines << tr_(QStringLiteral("cns_id_asset_refs_none"));
+            return;
+        }
+        for (const CnsDescriptorIssue &issue : result.cnsDescriptorIssues) {
+            QString identity = issue.displayName.isEmpty()
+                ? issue.uniqueFitId : issue.displayName;
+            if (identity.isEmpty()) identity = QFileInfo(issue.path).fileName();
+            const QString key = issue.outfitRootMissing
+                ? QStringLiteral("cns_id_asset_root_missing")
+                : QStringLiteral("cns_id_asset_ref_missing");
+            *lines << tr_(key)
+                          .arg(QDir::fromNativeSeparators(
+                                   QDir(directory).relativeFilePath(issue.path)),
+                               identity,
+                               QString::number(issue.missingAssets.size()),
+                               QString::number(issue.totalAssets),
+                               issue.missingAssets.join(QStringLiteral(", ")));
+        }
+        *lines << tr_(QStringLiteral("cns_id_asset_orphan_count"))
+                      .arg(result.orphanCnsDescriptorPaths.size())
+               << tr_(QStringLiteral("cns_id_asset_ref_action"));
+    };
+
     QHash<quint64, QList<int>> byContainerId;
     QHash<quint64, QSet<int>> byPackageId;
     QSet<quint64> usedIds;
@@ -373,8 +552,10 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     const auto displayPath = [&rootDir](const Container &container) {
         return QDir::fromNativeSeparators(rootDir.relativeFilePath(container.path));
     };
-    lines << QStringLiteral("CNS ID Fixer — %1 contenedores escaneados")
-                 .arg(containers.size());
+    lines << (containers.isEmpty()
+        ? tr_(QStringLiteral("cns_id_empty"))
+        : QStringLiteral("CNS ID Fixer — %1 contenedores escaneados")
+              .arg(containers.size()));
     lines << QString();
     lines << QStringLiteral("Container_Id");
     bool foundContainerConflict = false;
@@ -591,8 +772,16 @@ CnsIdFixerService::Result CnsIdFixerService::run(const QString &directory,
     }
     result.vanillaPackageConflicts = vanillaOverrides.size();
 
+    appendDescriptorReport(&lines);
+
     if (!warnings.isEmpty())
-        lines << QString() << QStringLiteral("Advertencias:") << warnings;
+        lines << QString() << tr_(QStringLiteral("cns_id_warnings")) << warnings;
+    if (containers.isEmpty() && !warnings.isEmpty()
+        && !(verifyContents && !result.integrityIssues.isEmpty())) {
+        result.error = warnings.join(QLatin1Char('\n'));
+        result.report = lines.join(QLatin1Char('\n'));
+        return result;
+    }
     result.ok = true;
     result.report = lines.join(QLatin1Char('\n'));
     return result;
