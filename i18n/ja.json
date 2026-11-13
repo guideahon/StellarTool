@@ -103,6 +103,7 @@
   "builder_install_helper": "ヘルパーをインストールし有効化（mods.txtを編集）",
   "builder_install_warn": "ゲームファイルを変更します。先にStellar Bladeを閉じてください。",
   "builder_direct_install_vortex": "Vortexがこのゲームのインストールを管理しています。直接インストールせずにビルドし、生成されたZIPをVortexに追加して、Vortexから配置してください。Vortex管理のMODはVortexから削除してください。",
+  "builder_vortex_target_owned": "Vortexのステージングに同じ名前のファイルがあります。VortexからそのMODを削除または無効化してください。Stellar ToolはVortex管理のファイルを削除しません。",
   "builder_game_running": "MODをインストールまたは削除する前に、Stellar Bladeを完全に終了してください。",
   "builder_process_check_failed": "Stellar Bladeが起動中か確認できませんでした。ゲームを終了して再試行してください。",
   "builder_uninstall_failed": "MODをアンインストールできませんでした。詳細はBuilderログを確認してください。",

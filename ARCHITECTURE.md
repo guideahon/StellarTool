@@ -166,8 +166,10 @@ por separado dentro del Builder.
 La escritura directa del Builder valida que Stellar Blade esté cerrado y que
 Vortex no administre la instalación. Cuando detecta staging o manifiestos de
 Vortex, exige compilar sin instalar y desplegar el ZIP desde Vortex; su
-desinstalador directo también se bloquea para no borrar hardlinks administrados
-por Vortex ni dejar sus manifiestos desincronizados.
+desinstalador revisa los nombres exactos del manifiesto contra el staging y
+solo se bloquea si Vortex contiene esos mismos targets o si no puede comprobar
+el staging. Así puede quitar paquetes propios que Vortex no administra, sin
+borrar hardlinks del gestor.
 Las configuraciones independientes de bosses y enemigos normales se muestran
 en grupos separados, contraídos mientras están desactivados. Los ajustes
 numéricos reutilizan el patrón QML `QuantifiedExtra` (check, Vanilla, slider y

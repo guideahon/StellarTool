@@ -2990,6 +2990,8 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
                 QString detail = err.trimmed();
                 if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
                     detail = t(QStringLiteral("builder_direct_install_vortex"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_OWNS_TARGET]")))
+                    detail = t(QStringLiteral("builder_vortex_target_owned"));
                 else if (detail.contains(QStringLiteral("[STELLARTOOL_GAME_RUNNING]")))
                     detail = t(QStringLiteral("builder_game_running"));
                 else if (detail.contains(QStringLiteral("[STELLARTOOL_PROCESS_CHECK_FAILED]")))
@@ -3204,6 +3206,8 @@ void AppController::uninstallMod() {
                 QString detail = err.trimmed();
                 if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
                     detail = t(QStringLiteral("builder_direct_install_vortex"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_OWNS_TARGET]")))
+                    detail = t(QStringLiteral("builder_vortex_target_owned"));
                 else if (detail.contains(QStringLiteral("[STELLARTOOL_GAME_RUNNING]")))
                     detail = t(QStringLiteral("builder_game_running"));
                 else if (detail.contains(QStringLiteral("[STELLARTOOL_PROCESS_CHECK_FAILED]")))
@@ -3230,6 +3234,8 @@ void AppController::uninstallHelper() {
                 QString detail = err.trimmed();
                 if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
                     detail = t(QStringLiteral("builder_direct_install_vortex"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_OWNS_TARGET]")))
+                    detail = t(QStringLiteral("builder_vortex_target_owned"));
                 else if (detail.contains(QStringLiteral("[STELLARTOOL_GAME_RUNNING]")))
                     detail = t(QStringLiteral("builder_game_running"));
                 else if (detail.contains(QStringLiteral("[STELLARTOOL_PROCESS_CHECK_FAILED]")))

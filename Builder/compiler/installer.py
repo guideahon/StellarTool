@@ -140,6 +140,45 @@ def ensure_direct_game_write_allowed(game: str) -> None:
         )
 
 
+def ensure_owned_uninstall_allowed(game: str, pak_bases=(), helper_names=()) -> None:
+    """Permite quitar archivos de Builder solo si Vortex no posee esos targets."""
+    if _game_is_running(game):
+        raise RuntimeError(
+            "[STELLARTOOL_GAME_RUNNING] Cerrá Stellar Blade completamente antes de instalar o quitar mods."
+        )
+    if not _vortex_manages_game(game):
+        return
+
+    appdata = os.environ.get("APPDATA")
+    staging = Path(appdata) / "Vortex" / "stellarblade" / "mods" if appdata else None
+    if staging is None or not staging.is_dir():
+        raise RuntimeError(
+            "[STELLARTOOL_VORTEX_OWNS_TARGET] Vortex administra esta instalación y no pude verificar "
+            "su staging. Quitá el mod desde Vortex para evitar borrar archivos administrados por Vortex."
+        )
+    try:
+        staged_files = {p.name.casefold() for p in staging.rglob("*") if p.is_file()}
+        staged_helpers = {
+            p.name.casefold() for p in staging.rglob("*")
+            if p.is_dir() and p.parent.name.casefold() == "mods"
+            and p.parent.parent.name.casefold() == "ue4ss"
+        }
+    except OSError as exc:
+        raise RuntimeError(
+            "[STELLARTOOL_VORTEX_OWNS_TARGET] No pude verificar los archivos del staging de Vortex. "
+            "Quitá el mod desde Vortex para evitar borrar archivos administrados por Vortex."
+        ) from exc
+
+    shared_paks = [f"{base}{ext}" for base in pak_bases for ext in PAK_SUFFIXES
+                   if f"{base}{ext}".casefold() in staged_files]
+    shared_helpers = [name for name in helper_names if name.casefold() in staged_helpers]
+    if shared_paks or shared_helpers:
+        raise RuntimeError(
+            "[STELLARTOOL_VORTEX_OWNS_TARGET] Vortex tiene archivos con los mismos nombres en su staging. "
+            "Quitá o deshabilitá ese mod desde Vortex; Stellar Tool no borrará archivos que Vortex administra."
+        )
+
+
 def shadow_paks(game: str | None = None) -> list[str]:
     """Paks de Stellar Souls cargables que la tool NO instalo, o duplicados.
 
@@ -466,9 +505,9 @@ def uninstall_paks(game: str, approved: bool = False) -> dict:
     """Elimina de ~mods los paks que la tool instalo (segun manifest)."""
     if not approved:
         raise PermissionError("uninstall_paks requiere aprobacion explicita del usuario")
-    ensure_direct_game_write_allowed(game)
-    dest = gamepaths.paks_dir(game)
     m = load_manifest()
+    ensure_owned_uninstall_allowed(game, pak_bases=m.get("paks", []))
+    dest = gamepaths.paks_dir(game)
     removed = []
     for base in m.get("paks", []):
         for ext in (".pak", ".ucas", ".utoc"):
@@ -485,10 +524,10 @@ def uninstall_helper(game: str, approved: bool = False) -> dict:
     """Elimina las carpetas de helper que instalo la tool y las desactiva (=0)."""
     if not approved:
         raise PermissionError("uninstall_helper requiere aprobacion explicita del usuario")
-    ensure_direct_game_write_allowed(game)
-    mods = gamepaths.ue4ss_mods_dir(game)
     m = load_manifest()
     names = m.get("helpers") or [HELPER_NAME]
+    ensure_owned_uninstall_allowed(game, helper_names=names)
+    mods = gamepaths.ue4ss_mods_dir(game)
     mods_txt = mods / "mods.txt"
     removed = []
     for name in names:

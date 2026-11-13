@@ -103,6 +103,7 @@
   "builder_install_helper": "Installer et activer le helper (modifie mods.txt)",
   "builder_install_warn": "Des fichiers du jeu seront modifies. Fermez Stellar Blade.",
   "builder_direct_install_vortex": "Vortex gere cette installation. Compilez sans installation directe, ajoutez le ZIP genere a Vortex, puis deployez-le depuis Vortex. Supprimez les mods geres par Vortex dans Vortex.",
+  "builder_vortex_target_owned": "Le staging Vortex contient des fichiers portant les memes noms. Supprimez ou desactivez ce mod dans Vortex ; Stellar Tool ne supprimera pas les fichiers geres par Vortex.",
   "builder_game_running": "Fermez completement Stellar Blade avant d'installer ou de supprimer des mods.",
   "builder_process_check_failed": "Impossible de verifier si Stellar Blade est ouvert. Fermez le jeu et reessayez.",
   "builder_uninstall_failed": "Le mod n'a pas pu etre desinstalle. Consultez le journal du Builder.",
