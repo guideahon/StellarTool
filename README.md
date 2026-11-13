@@ -109,7 +109,10 @@ antes de usar funciones que convierten o escriben assets, incluido Stellar Souls
 Builder. El SDK .NET 10 también funciona porque incluye ese runtime, pero no hace
 falta instalar el SDK. La mayoría de las operaciones solo genera salidas; las
 acciones de instalación directa están identificadas y piden confirmación antes de
-cambiar la carpeta activa de mods.
+cambiar la carpeta activa de mods. El Builder también bloquea la instalación y
+desinstalación directa si Stellar Blade está abierto o Vortex administra esa
+instalación: compilá sin instalación directa, agregá el ZIP resultante a Vortex y
+desplegalo allí para que Vortex mantenga sincronizados sus hardlinks y manifiestos.
 
 ### Actualizaciones
 
@@ -342,6 +345,9 @@ Qué helpers se conservan sale de lo que la build **compiló**, no del check de
 instalar helper: instalando solo los paks, el helper que la build sí quiere
 sobrevive intacto y el que sobra se apaga igual — si no, una build sin helper
 dejaba el anterior corriendo solo.
+La instalación directa solo está disponible cuando Vortex no administra el
+juego; si usás Vortex, importá el ZIP generado y hacé deploy desde Vortex. Quitá
+esos mods desde Vortex para evitar que su estado de despliegue quede desfasado.
 El helper CNS aleatorio espera el flanco confirmado de escudo completo
 (detach de BS_102/salida de SkinSuit). Antes de elegir o escribir un outfit
 vuelve a leer la malla actual y cancela si EVE todavía usa SkinSuit, Tachy o

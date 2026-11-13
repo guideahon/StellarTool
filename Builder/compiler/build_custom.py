@@ -396,6 +396,7 @@ def backup_before_install(game: str, paks_dir: Path, helper_src: Path, install: 
     paks; el rollback necesita el estado anterior completo para reponerlo.
     """
     import buildjournal, installer
+    installer.ensure_direct_game_write_allowed(game)
     bases, helpers = install_targets(paks_dir, helper_src, install)
     buildjournal.record_backup(
         installer.backup_install(game, bases, helpers,
@@ -404,14 +405,21 @@ def backup_before_install(game: str, paks_dir: Path, helper_src: Path, install: 
 
 def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     a = normalize(answers)
-    check_out_dir(out_dir, (install or {}).get("game"))
+    install = install or {}
+    check_out_dir(out_dir, install.get("game"))
+    if install.get("paks") or install.get("helper"):
+        import gamepaths, installer
+        game = gamepaths.detect_game(install.get("game"))
+        if not game:
+            raise RuntimeError("Juego no encontrado; compila sin instalacion directa y usa el ZIP")
+        installer.ensure_direct_game_write_allowed(game)
     # Diario para poder deshacer si el usuario cancela (el build muere de golpe,
     # sin chance de limpiar por su cuenta).
     import buildjournal
     buildjournal.begin(out_dir)
     # La ruta elegida en la UI tambien la necesita el compilador (baselines
     # vanilla escribibles), no solo el instalador.
-    if (install or {}).get("game"):
+    if install.get("game"):
         import gamepaths
         gamepaths.remember_game(install["game"])
     # Solo la ALPHA del helper vanilla: no hay pak que compilar ni preset que

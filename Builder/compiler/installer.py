@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 from pathlib import Path
 
 import gamepaths
@@ -46,6 +47,97 @@ def _save_manifest(m: dict) -> None:
 
 
 PAK_SUFFIXES = (".pak", ".ucas", ".utoc")
+
+
+def _vortex_manages_game(game: str) -> bool:
+    """True si Vortex tiene staging o un despliegue registrado para este juego.
+
+    La instalacion directa copia archivos dentro de los mismos destinos que
+    Vortex administra. Hacerlo deja desincronizados los hardlinks/manifiestos y
+    el siguiente deploy puede borrar o restaurar paquetes sin que Builder lo
+    sepa.
+    """
+    root = Path(game)
+    marker_dirs = (root, root / "SB" / "Binaries" / "Win64")
+    for directory in marker_dirs:
+        try:
+            if any(directory.glob("vortex.deployment.stellarblade*.json")):
+                return True
+        except OSError:
+            pass
+
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        staging = Path(appdata) / "Vortex" / "stellarblade" / "mods"
+        try:
+            if staging.is_dir() and next(staging.iterdir(), None) is not None:
+                return True
+        except OSError:
+            pass
+    return False
+
+
+def _game_is_running(game: str) -> bool:
+    """Detecta el ejecutable de esta instalacion, no otro proceso con el mismo nombre."""
+    if os.name != "nt":
+        return False
+    command = (
+        "$items = @(Get-CimInstance -ClassName Win32_Process "
+        "-Filter \"Name='SB-Win64-Shipping.exe' OR Name='StellarBlade-Win64-Shipping.exe'\" "
+        "-ErrorAction Stop | ForEach-Object { $_.ExecutablePath }); "
+        "ConvertTo-Json -InputObject $items -Compress"
+    )
+    try:
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", command],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=10, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise RuntimeError(
+            "[STELLARTOOL_PROCESS_CHECK_FAILED] No pude comprobar si Stellar Blade sigue abierto. "
+            "Cerralo y volvé a intentar."
+        ) from exc
+    if result.returncode != 0:
+        raise RuntimeError(
+            "[STELLARTOOL_PROCESS_CHECK_FAILED] No pude comprobar si Stellar Blade sigue abierto. "
+            "Cerralo y volvé a intentar."
+        )
+    try:
+        paths = json.loads(result.stdout.strip() or "[]")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(
+            "[STELLARTOOL_PROCESS_CHECK_FAILED] No pude comprobar si Stellar Blade sigue abierto. "
+            "Cerralo y volvé a intentar."
+        ) from exc
+    if isinstance(paths, str):
+        paths = [paths]
+    expected_dir = os.path.normcase(os.path.realpath(
+        str(Path(game) / "SB" / "Binaries" / "Win64")))
+    for path in paths if isinstance(paths, list) else []:
+        if not path:
+            continue
+        process_path = os.path.normcase(os.path.realpath(path))
+        if (os.path.dirname(process_path) == expected_dir
+                and os.path.basename(process_path).casefold() in {
+                    "sb-win64-shipping.exe", "stellarblade-win64-shipping.exe"
+                }):
+            return True
+    return False
+
+
+def ensure_direct_game_write_allowed(game: str) -> None:
+    """Rechaza escrituras directas que puedan dejar el despliegue inconsistente."""
+    if _game_is_running(game):
+        raise RuntimeError(
+            "[STELLARTOOL_GAME_RUNNING] Cerrá Stellar Blade completamente antes de instalar o quitar mods."
+        )
+    if _vortex_manages_game(game):
+        raise RuntimeError(
+            "[STELLARTOOL_VORTEX_MANAGED] Vortex administra esta instalación. "
+            "Compilá sin instalación directa, agregá el ZIP generado a Vortex y desplegalo desde allí. "
+            "Los mods instalados en Vortex también deben quitarse desde Vortex."
+        )
 
 
 def shadow_paks(game: str | None = None) -> list[str]:
@@ -374,6 +466,7 @@ def uninstall_paks(game: str, approved: bool = False) -> dict:
     """Elimina de ~mods los paks que la tool instalo (segun manifest)."""
     if not approved:
         raise PermissionError("uninstall_paks requiere aprobacion explicita del usuario")
+    ensure_direct_game_write_allowed(game)
     dest = gamepaths.paks_dir(game)
     m = load_manifest()
     removed = []
@@ -392,6 +485,7 @@ def uninstall_helper(game: str, approved: bool = False) -> dict:
     """Elimina las carpetas de helper que instalo la tool y las desactiva (=0)."""
     if not approved:
         raise PermissionError("uninstall_helper requiere aprobacion explicita del usuario")
+    ensure_direct_game_write_allowed(game)
     mods = gamepaths.ue4ss_mods_dir(game)
     m = load_manifest()
     names = m.get("helpers") or [HELPER_NAME]

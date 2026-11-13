@@ -2876,7 +2876,8 @@ static void applyBuilderEnv(QProcess &proc, const QString &gameDir) {
 }
 
 // Corre python build_custom.py con args de forma sincrona; devuelve stdout.
-static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = nullptr) {
+static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = nullptr,
+                              QString *errorOutput = nullptr) {
     QProcess proc;
     proc.setProgram(pythonExe());
     proc.setArguments(QStringList{builderScript()} + extraArgs);
@@ -2884,6 +2885,7 @@ static QString runBuilderSync(const QStringList &extraArgs, int *exitCode = null
     proc.start();
     proc.waitForFinished(600000);
     if (exitCode) *exitCode = proc.exitCode();
+    if (errorOutput) *errorOutput = QString::fromUtf8(proc.readAllStandardError());
     return QString::fromUtf8(proc.readAllStandardOutput());
 }
 
@@ -2986,6 +2988,12 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
             else if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
             else {
                 QString detail = err.trimmed();
+                if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
+                    detail = t(QStringLiteral("builder_direct_install_vortex"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_GAME_RUNNING]")))
+                    detail = t(QStringLiteral("builder_game_running"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_PROCESS_CHECK_FAILED]")))
+                    detail = t(QStringLiteral("builder_process_check_failed"));
                 if (detail.isEmpty()) detail = QStringLiteral("El proceso no produjo stderr.");
                 const QString prefix = timedOut ? QStringLiteral("El build excedió el tiempo límite.\n") : QString();
                 emit errorOccurred(prefix + detail + QStringLiteral("\n\nLog: ") + logPath);
@@ -3189,9 +3197,23 @@ void AppController::uninstallMod() {
     setBusy(true, t(QStringLiteral("builder_uninstalling")));
     std::ignore = QtConcurrent::run([this] {
         int code = 0;
-        runBuilderSync({QStringLiteral("--uninstall-paks")}, &code);
-        QMetaObject::invokeMethod(this, [this] {
-            setStatus(t(QStringLiteral("builder_uninstalled"))); emit uninstalled(); setBusy(false);
+        QString err;
+        runBuilderSync({QStringLiteral("--uninstall-paks")}, &code, &err);
+        QMetaObject::invokeMethod(this, [this, code, err] {
+            if (code != 0) {
+                QString detail = err.trimmed();
+                if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
+                    detail = t(QStringLiteral("builder_direct_install_vortex"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_GAME_RUNNING]")))
+                    detail = t(QStringLiteral("builder_game_running"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_PROCESS_CHECK_FAILED]")))
+                    detail = t(QStringLiteral("builder_process_check_failed"));
+                emit errorOccurred(detail.isEmpty() ? t(QStringLiteral("builder_uninstall_failed")) : detail);
+            } else {
+                setStatus(t(QStringLiteral("builder_uninstalled")));
+                emit uninstalled();
+            }
+            setBusy(false);
         }, Qt::QueuedConnection);
     });
 }
@@ -3201,9 +3223,23 @@ void AppController::uninstallHelper() {
     setBusy(true, t(QStringLiteral("builder_uninstalling")));
     std::ignore = QtConcurrent::run([this] {
         int code = 0;
-        runBuilderSync({QStringLiteral("--uninstall-helper")}, &code);
-        QMetaObject::invokeMethod(this, [this] {
-            setStatus(t(QStringLiteral("builder_uninstalled"))); emit uninstalled(); setBusy(false);
+        QString err;
+        runBuilderSync({QStringLiteral("--uninstall-helper")}, &code, &err);
+        QMetaObject::invokeMethod(this, [this, code, err] {
+            if (code != 0) {
+                QString detail = err.trimmed();
+                if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
+                    detail = t(QStringLiteral("builder_direct_install_vortex"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_GAME_RUNNING]")))
+                    detail = t(QStringLiteral("builder_game_running"));
+                else if (detail.contains(QStringLiteral("[STELLARTOOL_PROCESS_CHECK_FAILED]")))
+                    detail = t(QStringLiteral("builder_process_check_failed"));
+                emit errorOccurred(detail.isEmpty() ? t(QStringLiteral("builder_uninstall_failed")) : detail);
+            } else {
+                setStatus(t(QStringLiteral("builder_uninstalled")));
+                emit uninstalled();
+            }
+            setBusy(false);
         }, Qt::QueuedConnection);
     });
 }

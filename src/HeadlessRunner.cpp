@@ -557,14 +557,21 @@ int HeadlessRunner::runDetect() {
 }
 
 int HeadlessRunner::runUninstall(const Options &o) {
+    QString operationError;
+    const auto errorConnection = connect(
+        m_controller, &AppController::errorOccurred, this,
+        [&operationError](const QString &message) { operationError = message; });
     if (o.uninstallPaks) {
         m_controller->uninstallMod();
-        if (!waitIdle()) return 3;
+        if (!waitIdle()) { disconnect(errorConnection); return 3; }
+        if (!operationError.isEmpty()) { disconnect(errorConnection); return 5; }
     }
     if (o.uninstallHelper) {
         m_controller->uninstallHelper();
-        if (!waitIdle()) return 3;
+        if (!waitIdle()) { disconnect(errorConnection); return 3; }
+        if (!operationError.isEmpty()) { disconnect(errorConnection); return 5; }
     }
+    disconnect(errorConnection);
     out(m_controller->installedStatus());
     return 0;
 }
