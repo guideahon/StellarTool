@@ -273,12 +273,24 @@ ApplicationWindow {
         title: I18n.s.error
         anchors.centerIn: parent
         width: Math.min(640, win.width - 80)
+        height: Math.min(implicitHeight, win.height - 48)
         standardButtons: Dialog.Ok
         background: Rectangle { color: Theme.panel; border.color: Theme.border; radius: Theme.radius }
-        contentItem: Label {
-            text: errorDialog.errorText
-            color: Theme.text
-            wrapMode: Text.Wrap
+        contentItem: ScrollView {
+            id: errorScroll
+            clip: true
+            implicitWidth: errorDialog.width - 48
+            implicitHeight: Math.min(errorLabel.implicitHeight, Math.max(120, win.height * 0.65))
+            contentWidth: availableWidth
+            ScrollBar.vertical.policy: ScrollBar.AsNeeded
+
+            Label {
+                id: errorLabel
+                width: errorScroll.availableWidth
+                text: errorDialog.errorText
+                color: Theme.text
+                wrapMode: Text.Wrap
+            }
         }
         property string errorText: ""
     }
