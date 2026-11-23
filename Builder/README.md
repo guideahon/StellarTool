@@ -1,8 +1,9 @@
 # Stellar Souls Builder
 
 Compilador por cuestionario: en vez de ~500 variantes prebuilt, el usuario responde
-unas preguntas y obtiene un ZIP instalable con SU mod (pak) + helper (config.lua) +
-guía de instalación en su idioma (10 soportados).
+unas preguntas y obtiene un ZIP instalable para los PAKs y, cuando la selección
+lo necesita, otro ZIP independiente para el helper UE4SS. Las guías están en el
+idioma elegido (10 soportados).
 
 Ver [ARCHITECTURE.md](ARCHITECTURE.md). Manifest de features: [features/manifest.json](features/manifest.json).
 
@@ -53,8 +54,12 @@ python compiler\build_custom.py --out <carpeta> --answers @answers.json
 }
 ```
 
-Salida: `StellarSouls-Custom-<hash>.zip` con `Paks\`, `ue4ss\Mods\StellarSoulsOutfitRestore\`
-(si hay outfit) e `INSTALL_<lang>.txt`.
+Salida: `StellarSouls-Custom-<hash>-Mod.zip` con los PAKs y `INSTALL_<lang>.txt`.
+Si la selección requiere un helper, también se genera
+`StellarSouls-Custom-<hash>-Helper.zip`, con la carpeta del script UE4SS en la
+raíz para que Vortex la reconozca como un mod de script. Importá ambos ZIPs por
+separado; habilitá el helper en **UE4SS Load Order** y desplegá. El helper ZIP
+queda acompañado por una guía de instalación fuera del archivo instalable.
 
 Los extras de gameplay incluyen también el grupo **Base Attribute Enhancement**,
 seleccionable por partes: HP/escudo base, reducción y regeneración de escudo,
@@ -68,7 +73,7 @@ de 10% a 100% en pasos de 10% (60% para proyectos anteriores).
 
 ### Helper vanilla (ALPHA, sin CNS)
 
-`vanillaHelperBuild` agrega `ue4ss\Mods\StellarSoulsVanillaRestore\` al ZIP: el
+`vanillaHelperBuild` agrega `StellarSoulsVanillaRestore\` al ZIP de helper: el
 mismo `main.lua` con distinta `strategy` en `config.lua`, para averiguar qué
 camino de repaint vanilla funciona cuando no hay CNS (caso del QTE de jefe, donde
 el escudo se repara sin que nada re-evalúe el outfit). Las builds están en
@@ -85,14 +90,14 @@ el escudo se repara sin que nada re-evalúe el outfit). Las builds están en
 
 Son ALPHA: sin confirmar in-game, se instala UNA por vez (comparten nombre de
 carpeta) y cada una loguea a `%USERPROFILE%\StellarSoulsVanillaRestore.log`.
-Si es lo único seleccionado, el ZIP sale solo con el helper (sin paks).
+Si es lo único seleccionado, solo se genera el ZIP de helper (sin paks).
 Los zips sueltos para testers salen de `compiler/build_alpha_helpers.py`.
 
 ## Módulos
 
 - `compiler/helper_compiler.py` — genera config.lua desde respuestas (override de flags).
 - `compiler/vanilla_helper.py` — tabla de builds ALPHA del helper sin CNS + compilación.
-- `compiler/build_custom.py` — orquestador: resolve preset → copia paks → compila helper → guía → ZIP.
+- `compiler/build_custom.py` — orquestador: resuelve preset → copia PAKs → compila helper → crea ZIPs separados → genera guías.
 - `features/manifest.json` — catálogo declarativo de preguntas/features.
 - `features/preset_map.json` — combo → paks prebuilt (F1).
 - `i18n/install/*.txt` — plantillas de guía por idioma.

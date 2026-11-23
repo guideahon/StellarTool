@@ -91,7 +91,8 @@ def run(lang="es", out_dir=None):
         answers["helperIntervalSeconds"] = answers.pop("helperInterval")
     out_dir = Path(out_dir or (BUILDER / "output"))
     zip_path = build_custom.build(answers, out_dir)
-    print(f"\n{t('builder.done', lang)}\n  {zip_path}")
+    print(f"\n{t('builder.done', lang)}")
+    build_custom.print_artifact_paths(zip_path)
     return zip_path
 
 

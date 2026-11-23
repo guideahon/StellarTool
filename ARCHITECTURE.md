@@ -163,6 +163,11 @@ selecciones únicas. `table_compiler.py` parte de las tablas vanilla y copia
 solamente los subconjuntos elegidos desde las bases autoritativas del mod. El
 idioma de la guía de instalación se toma de `I18n.language`; no se configura
 por separado dentro del Builder.
+Cuando la configuración requiere un helper, el compilador exporta dos ZIPs:
+`*-Mod.zip` contiene los PAKs y `*-Helper.zip` contiene la carpeta de script UE4SS
+en la raíz, para que Vortex clasifique y despliegue cada tipo por separado. La UI
+y el comando headless reportan ambas rutas. El helper se habilita desde UE4SS Load
+Order en Vortex.
 La escritura directa del Builder valida que Stellar Blade esté cerrado y que
 Vortex no administre la instalación. Cuando detecta staging o manifiestos de
 Vortex, exige compilar sin instalar y desplegar el ZIP desde Vortex; su

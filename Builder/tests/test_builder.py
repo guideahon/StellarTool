@@ -158,10 +158,71 @@ def test_build_end_to_end(tmp_path=None):
     out = Path(tempfile.mkdtemp())
     zip_path = bc.build({"combatProfile": "full", "outfitSkinSuit": True, "miniBoss": "on",
                          "helperMode": "randomPeriodic", "helperIntervalSeconds": 30, "lang": "es"}, out)
-    names = zipfile.ZipFile(zip_path).namelist()
+    with zipfile.ZipFile(zip_path) as zf:
+        names = zf.namelist()
+        guide = zf.read("INSTALL_es.txt").decode("utf-8")
+    helper_zip = bc.helper_zip_for(zip_path)
+    assert helper_zip and helper_zip.exists()
+    with zipfile.ZipFile(helper_zip) as zf:
+        helper_names = zf.namelist()
+    helper_guide = helper_zip.with_name(helper_zip.stem + "-INSTALL.txt").read_text(
+        encoding="utf-8")
     assert any(n.startswith("Paks/") and n.endswith(".pak") for n in names)
-    assert "ue4ss/Mods/StellarSoulsOutfitRestore/Scripts/config.lua" in names
+    assert not any(n.endswith(".lua") for n in names)
+    assert "StellarSoulsOutfitRestore/Scripts/config.lua" in helper_names
+    assert not any(n.endswith(".pak") for n in helper_names)
+    assert not any(n.endswith(".json") for n in helper_names)
+    assert "StellarSouls-Custom-" in guide and "-Helper.zip" in guide
+    assert "UE4SS Load Order" in helper_guide
     assert "INSTALL_es.txt" in names
+
+
+def test_vortex_mod_and_helper_archives_are_classifiable_separately(tmp_path):
+    import zipfile
+    stage = tmp_path / "stage"
+    mods = stage / "ue4ss" / "Mods"
+    (stage / "Paks").mkdir(parents=True)
+    (stage / "Paks" / "Custom.pak").write_bytes(b"pak")
+    helper = mods / "StellarSoulsOutfitRestore" / "Scripts"
+    helper.mkdir(parents=True)
+    (helper / "main.lua").write_text("-- helper", encoding="utf-8")
+    (helper / "config.lua").write_text("-- config", encoding="utf-8")
+    (stage / "INSTALL_es.txt").write_text("import both archives", encoding="utf-8")
+    (stage / "build_manifest.json").write_text("{}", encoding="utf-8")
+
+    mod_zip = tmp_path / "build-Mod.zip"
+    helper_zip = tmp_path / "build-Helper.zip"
+    bc._write_mod_zip(stage, mod_zip)
+    bc._write_helper_zip(mods, helper_zip)
+
+    with zipfile.ZipFile(mod_zip) as zf:
+        mod_names = zf.namelist()
+    with zipfile.ZipFile(helper_zip) as zf:
+        helper_names = zf.namelist()
+    assert "Paks/Custom.pak" in mod_names
+    assert not any(name.endswith(".lua") for name in mod_names)
+    assert "StellarSoulsOutfitRestore/Scripts/main.lua" in helper_names
+    assert not any(name.endswith(".pak") for name in helper_names)
+    assert not any(name.endswith(".json") for name in helper_names)
+
+
+def test_history_reexport_copies_mod_helper_and_install_guide(tmp_path, monkeypatch):
+    import history
+    source = tmp_path / "source"
+    out = tmp_path / "out"
+    source.mkdir()
+    mod_zip = source / "build-Mod.zip"
+    helper_zip = source / "build-Helper.zip"
+    mod_zip.write_bytes(b"mod")
+    helper_zip.write_bytes(b"helper")
+    (source / "build-Helper-INSTALL.txt").write_text("guide", encoding="utf-8")
+    monkeypatch.setattr(history, "get", lambda _hid: {"zip": str(mod_zip)})
+
+    result = Path(history.reexport("test", str(out)))
+
+    assert result.read_bytes() == b"mod"
+    assert (out / "build-Helper.zip").read_bytes() == b"helper"
+    assert (out / "build-Helper-INSTALL.txt").read_text(encoding="utf-8") == "guide"
 
 
 # ---- miniboss_builder core (sin packing, rapido) ----
@@ -1406,10 +1467,11 @@ def test_build_vanilla_helper_only_zip():
                          "vanillaHelperBuild": "alpha6", "lang": "en"}, out)
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
-        guide = zf.read("INSTALL_en.txt").decode("utf-8")
-    assert "ue4ss/Mods/StellarSoulsVanillaRestore/Scripts/main.lua" in names
+    guide = zip_path.with_name(zip_path.stem + "-INSTALL.txt").read_text(encoding="utf-8")
+    assert "StellarSoulsVanillaRestore/Scripts/main.lua" in names
     # helper suelto: no arrastra paks ni el helper CNS
     assert not [n for n in names if n.endswith(".pak")]
+    assert not [n for n in names if n.endswith(".json")]
     assert not [n for n in names if "StellarSoulsOutfitRestore" in n]
     assert "ALPHA6-chain" in guide
 

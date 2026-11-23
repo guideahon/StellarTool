@@ -12,6 +12,7 @@ Item {
     id: root
 
     property string resultZip: ""
+    property string resultHelperZip: ""
     property string gamePath: ""
     property string movesetSourceDir: ""
     property bool movesetCatalogLoaded: false
@@ -535,7 +536,12 @@ Item {
 
     Connections {
         target: App
-        function onBuilderFinished(zipPath) { root.resultZip = zipPath; root.refreshHistory(); root.refreshInstalled() }
+        function onBuilderFinished(zipPath, helperZipPath) {
+            root.resultZip = zipPath
+            root.resultHelperZip = helperZipPath
+            root.refreshHistory()
+            root.refreshInstalled()
+        }
         function onUninstalled() { root.refreshInstalled() }
         // El rollback pudo reponer (o sacar) paks y helper: releer que quedo.
         function onBuildCancelled() { root.refreshInstalled() }
@@ -2187,6 +2193,7 @@ Item {
                     onClicked: {
                         var a = currentAnswers()
                         root.resultZip = ""
+                        root.resultHelperZip = ""
                         App.runBuilder(JSON.stringify(a), toFolderUrl(outField.text),
                                        instPaks.checked, instHelper.checked, root.gamePath)
                     }
@@ -2201,6 +2208,7 @@ Item {
                     enabled: buildButton.enabled
                     onClicked: {
                         root.resultZip = ""
+                        root.resultHelperZip = ""
                         App.runBuilder(JSON.stringify(buildButton.currentAnswers()),
                                        toFolderUrl(outField.text), false, false, root.gamePath)
                     }
@@ -2209,15 +2217,18 @@ Item {
                 Text { visible: App.busy; text: App.statusText; color: Theme.textDim }
 
                 Card {
-                    visible: root.resultZip.length > 0
+                    visible: root.resultZip.length > 0 || root.resultHelperZip.length > 0
                     Layout.fillWidth: true
                     color: Theme.panelAlt
                     implicitHeight: resCol.implicitHeight + 24
                     ColumnLayout {
                         id: resCol
                         anchors.fill: parent; anchors.margins: 12; spacing: 6
-                        Text { text: "✓ " + (I18n.s.builder_done || "Listo. Tu mod:"); color: Theme.ok; font.bold: true }
-                        Text { text: root.resultZip; color: Theme.textDim; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                        Text { text: "✓ " + I18n.s.builder_done; color: Theme.ok; font.bold: true }
+                        Text { visible: root.resultZip.length > 0; text: I18n.s.builder_mod_zip; color: Theme.text; font.bold: true }
+                        Text { visible: root.resultZip.length > 0; text: root.resultZip; color: Theme.textDim; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
+                        Text { visible: root.resultHelperZip.length > 0; text: I18n.s.builder_helper_zip; color: Theme.text; font.bold: true }
+                        Text { visible: root.resultHelperZip.length > 0; text: root.resultHelperZip; color: Theme.textDim; wrapMode: Text.WrapAnywhere; Layout.fillWidth: true }
                     }
                 }
 

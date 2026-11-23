@@ -1,9 +1,10 @@
 """build_custom — orquestador F1 del Stellar Souls Builder.
 
-Toma respuestas del cuestionario y produce un ZIP instalable personalizado:
+Toma respuestas del cuestionario y produce paquetes Vortex instalables:
   - gameplay: copia el/los pak(s) prebuilt del preset que matchea el combo
     (F1 fallback; F2+ los compilara por feature con TableCompiler).
-  - helper: compila config.lua desde las respuestas (helper_compiler).
+  - helper: compila config.lua desde las respuestas (helper_compiler) y lo
+    empaqueta en un ZIP separado para el instalador UE4SS Script de Vortex.
   - guia: INSTALL_<lang>.txt localizada indicando donde va cada archivo.
 
 Uso:
@@ -309,24 +310,104 @@ def check_out_dir(out_dir, game: str | None = None) -> None:
             "para copiar el pak a ~mods.")
 
 
-def build_install_guide(a: dict, plan: dict, paks: list[str], has_helper: bool) -> str:
+def build_install_guide(a: dict, plan: dict, paks: list[str],
+                       helper_names: list[str] | None = None,
+                       helper_zip_name: str = "") -> str:
     lang = a["lang"]
     tpl_path = INSTALL_TEMPLATES / f"{lang}.txt"
     if not tpl_path.exists():
         tpl_path = INSTALL_TEMPLATES / "en.txt"
     tpl = tpl_path.read_text(encoding="utf-8")
     helper_block = ""
-    if has_helper:
+    helper_names = helper_names or []
+    if "StellarSoulsOutfitRestore" in helper_names:
         helper_tpl = INSTALL_TEMPLATES / f"{lang}.helper.txt"
         if not helper_tpl.exists():
             helper_tpl = INSTALL_TEMPLATES / "en.helper.txt"
-        helper_block = helper_tpl.read_text(encoding="utf-8")
+        helper_block = (helper_tpl.read_text(encoding="utf-8")
+                        .replace("{{HELPER_ZIP}}", helper_zip_name)
+                        .replace("{{HELPER_NAMES}}", "StellarSoulsOutfitRestore"))
     return (
         tpl.replace("{{PAKS}}", "\n".join(f"  - {p}.pak / .ucas / .utoc" for p in paks))
         .replace("{{HELPER_BLOCK}}", helper_block)
         .replace("{{PROFILE}}", a["combatProfile"])
         .replace("{{MINIBOSS}}", str(a["miniBoss"]))
     )
+
+
+def _helper_dirs(mods_dir: Path) -> list[Path]:
+    mods_dir = Path(mods_dir)
+    if not mods_dir.is_dir():
+        return []
+    return sorted(d for d in mods_dir.iterdir()
+                  if d.is_dir() and (d / "Scripts").is_dir())
+
+
+def _write_mod_zip(stage: Path, zip_path: Path) -> None:
+    """Empaqueta solo el mod de PAK; Vortex lo clasifica por sus archivos .pak."""
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for f in stage.rglob("*"):
+            if not f.is_file():
+                continue
+            relative = f.relative_to(stage)
+            if relative.parts and relative.parts[0].casefold() == "ue4ss":
+                continue
+            zf.write(f, relative)
+
+
+def _write_helper_zip(mods_dir: Path, zip_path: Path) -> None:
+    """Empaqueta solo las carpetas de script UE4SS para el instalador de Vortex."""
+    helpers = _helper_dirs(mods_dir)
+    if not helpers:
+        raise FileNotFoundError(f"No hay helpers UE4SS en {mods_dir}")
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for helper in helpers:
+            for f in helper.rglob("*"):
+                if f.is_file():
+                    zf.write(f, f.relative_to(mods_dir))
+
+
+def helper_zip_for(mod_zip: Path) -> Path | None:
+    """Devuelve el ZIP de helper compañero de un ZIP principal, si corresponde."""
+    mod_zip = Path(mod_zip)
+    suffix = "-Mod"
+    if not mod_zip.stem.endswith(suffix):
+        return None
+    return mod_zip.with_name(mod_zip.stem[:-len(suffix)] + "-Helper.zip")
+
+
+def artifact_paths(zip_path: Path) -> tuple[Path | None, Path | None]:
+    """Separa el artefacto principal y el helper para la UI, el CLI y el historial."""
+    zip_path = Path(zip_path)
+    if zip_path.stem.endswith("-Helper"):
+        return None, zip_path
+    helper_zip = helper_zip_for(zip_path)
+    return zip_path, helper_zip if helper_zip and helper_zip.is_file() else None
+
+
+def print_artifact_paths(zip_path: Path) -> tuple[Path | None, Path | None]:
+    main_zip, helper_zip = artifact_paths(zip_path)
+    if main_zip:
+        print(f"OK -> {main_zip}")
+    if helper_zip:
+        print(f"HELPER -> {helper_zip}")
+    return main_zip, helper_zip
+
+
+def build_helper_install_guide(lang: str, helper_names: list[str],
+                               helper_zip_name: str, alpha: str = "off") -> str:
+    notes = []
+    if "StellarSoulsOutfitRestore" in helper_names:
+        helper_tpl = INSTALL_TEMPLATES / f"{lang}.helper.txt"
+        if not helper_tpl.exists():
+            helper_tpl = INSTALL_TEMPLATES / "en.helper.txt"
+        notes.append(helper_tpl.read_text(encoding="utf-8")
+                     .replace("{{HELPER_ZIP}}", helper_zip_name)
+                     .replace("{{HELPER_NAMES}}", "StellarSoulsOutfitRestore")
+                     .lstrip("\n"))
+    if "StellarSoulsVanillaRestore" in helper_names and vanilla_helper.is_enabled(alpha):
+        notes.append(vanilla_helper.install_note(alpha).lstrip("\n"))
+    return "\n\n".join(notes)
 
 
 def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = None) -> Path:
@@ -339,21 +420,13 @@ def build_vanilla_helper_only(a: dict, out_dir: Path, install: dict | None = Non
     ue4ss.mkdir(parents=True)
     vanilla_helper.compile_vanilla_helper(alpha, ue4ss)
 
-    (stage / f"INSTALL_{a['lang']}.txt").write_text(
-        vanilla_helper.install_note(alpha).lstrip("\n"), encoding="utf-8")
-    (stage / "build_manifest.json").write_text(
-        json.dumps({"answers": a, "mode": "vanilla-helper-only",
-                    "vanillaHelperBuild": vanilla_helper.build_name(alpha),
-                    "paks": [], "warnings": []},
-                   indent=2, ensure_ascii=False),
-        encoding="utf-8")
-
     digest = hashlib.sha1(json.dumps(a, sort_keys=True).encode()).hexdigest()[:8]
-    zip_path = out_dir / f"StellarSouls-{vanilla_helper.build_name(alpha)}-{digest}.zip"
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in stage.rglob("*"):
-            if f.is_file():
-                zf.write(f, f.relative_to(stage))
+    zip_name = f"StellarSouls-{vanilla_helper.build_name(alpha)}-{digest}-Helper.zip"
+    helper_note = vanilla_helper.install_note(alpha).lstrip("\n")
+    zip_path = out_dir / zip_name
+    _write_helper_zip(ue4ss, zip_path)
+    zip_path.with_name(zip_path.stem + "-INSTALL.txt").write_text(
+        helper_note, encoding="utf-8")
 
     install = install or {}
     if install.get("helper"):
@@ -405,6 +478,7 @@ def backup_before_install(game: str, paks_dir: Path, helper_src: Path, install: 
 
 def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     a = normalize(answers)
+    digest = hashlib.sha1(json.dumps(a, sort_keys=True).encode()).hexdigest()[:8]
     install = install or {}
     check_out_dir(out_dir, install.get("game"))
     if install.get("paks") or install.get("helper"):
@@ -580,20 +654,24 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
     # de Skill* que traen las variantes originales.
     install_moveset_asset_bundles(a, paks_dir, paks_out, compilation_report)
 
+    helper_mods_dir = stage / "ue4ss" / "Mods"
+    helper_names = [p.name for p in _helper_dirs(helper_mods_dir)]
+    helper_zip_name = (f"StellarSouls-Custom-{digest}-Helper.zip"
+                       if helper_names else "")
+
     # Guia localizada.
-    guide = build_install_guide(a, plan, paks_out, plan["needsHelper"])
+    guide = build_install_guide(a, plan, paks_out, helper_names, helper_zip_name)
     if vanilla_helper.is_enabled(alpha):
         guide += vanilla_helper.install_note(alpha)
     (stage / f"INSTALL_{a['lang']}.txt").write_text(guide, encoding="utf-8")
 
     # Manifest de la build (trazabilidad).
-    (stage / "build_manifest.json").write_text(
-        json.dumps({"answers": a, "mode": mode, "preset": plan["folder"],
-                    "paks": paks_out, "warnings": plan["warnings"],
-                    "compilationReport": compilation_report},
-                   indent=2, ensure_ascii=False),
-        encoding="utf-8",
-    )
+    build_manifest = json.dumps(
+        {"answers": a, "mode": mode, "preset": plan["folder"],
+         "paks": paks_out, "helperZip": helper_zip_name or None,
+         "warnings": plan["warnings"], "compilationReport": compilation_report},
+        indent=2, ensure_ascii=False)
+    (stage / "build_manifest.json").write_text(build_manifest, encoding="utf-8")
 
     # Un build de bosses sin trazabilidad anti-farm es demasiado riesgoso para
     # instalarlo: el usuario debe poder auditarlo desde el ZIP sin abrir JSONs
@@ -605,12 +683,15 @@ def build(answers: dict, out_dir: Path, install: dict | None = None) -> Path:
             raise RuntimeError("El build de mini-boss no produjo reporte anti-farm verificable")
 
     # ZIP.
-    digest = hashlib.sha1(json.dumps(a, sort_keys=True).encode()).hexdigest()[:8]
-    zip_path = out_dir / f"StellarSouls-Custom-{digest}.zip"
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        for f in stage.rglob("*"):
-            if f.is_file():
-                zf.write(f, f.relative_to(stage))
+    zip_path = out_dir / f"StellarSouls-Custom-{digest}-Mod.zip"
+    _write_mod_zip(stage, zip_path)
+    if helper_zip_name:
+        helper_guide = build_helper_install_guide(a["lang"], helper_names,
+                                                  helper_zip_name, alpha)
+        helper_zip = out_dir / helper_zip_name
+        _write_helper_zip(helper_mods_dir, helper_zip)
+        helper_zip.with_name(helper_zip.stem + "-INSTALL.txt").write_text(
+            helper_guide, encoding="utf-8")
 
     # Instalacion directa (SOLO con aprobacion del usuario, via `install`).
     install = install or {}
@@ -701,7 +782,7 @@ def main():
     if args.reexport:
         import history
         check_out_dir(args.out or ".", args.game)
-        print(f"OK -> {history.reexport(args.reexport, args.out or '.')}")
+        print_artifact_paths(Path(history.reexport(args.reexport, args.out or ".")))
         return
 
     if args.template:
@@ -720,7 +801,7 @@ def main():
 
     install = {"paks": args.install_paks, "helper": args.install_helper, "game": args.game}
     zip_path = build(answers, Path(args.out), install=install)
-    print(f"OK -> {zip_path}")
+    print_artifact_paths(zip_path)
 
 
 if __name__ == "__main__":

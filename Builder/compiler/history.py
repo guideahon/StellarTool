@@ -79,6 +79,15 @@ def reexport(hid: str, out_dir: str) -> str:
     if src.exists():
         dst = out_dir / src.name
         shutil.copy2(src, dst)
+        import build_custom
+        _, helper_src = build_custom.artifact_paths(src)
+        if helper_src and helper_src != src and helper_src.exists():
+            shutil.copy2(helper_src, out_dir / helper_src.name)
+        for artifact in dict.fromkeys((src, helper_src)):
+            if artifact:
+                guide = artifact.with_name(artifact.stem + "-INSTALL.txt")
+                if guide.exists():
+                    shutil.copy2(guide, out_dir / guide.name)
         return str(dst)
     # perdido: recompilar
     import build_custom

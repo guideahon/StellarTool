@@ -2,8 +2,8 @@ STELLAR SOULS BUILDER
 =====================
 
 Compila tu propio mod de Stellar Souls respondiendo un cuestionario, en vez de
-elegir entre decenas de variantes prebuilt. Genera el pak + el helper (si hace
-falta) + una guia de instalacion en tu idioma, todo en un ZIP.
+elegir entre decenas de variantes prebuilt. Genera un ZIP para los PAKs y, si hace
+falta, otro ZIP para el helper UE4SS, además de las guías en tu idioma.
 
 QUE INCLUYE
 -----------
@@ -25,9 +25,12 @@ USO - INTERFAZ GRAFICA
 4. Responde: perfil de combate, outfit, mini-bosses, helper, idioma, carpeta.
 5. Opcional (si detecto el juego): marca "Instalar el mod en ~mods" y/o
    "Instalar y activar el helper" para que la app lo instale sola (edita mods.txt).
-   Cerra Stellar Blade antes. Si no marcas nada, se genera solo el ZIP.
-6. "Compilar mi mod" -> StellarSouls-Custom-<id>.zip en la carpeta elegida.
-7. Si no instalaste directo, segui el INSTALL_<idioma>.txt dentro del ZIP.
+    Cerra Stellar Blade antes. Si no marcas nada, se generan los ZIP necesarios.
+6. "Compilar mi mod" -> `StellarSouls-Custom-<id>-Mod.zip` y, si hace falta,
+   `StellarSouls-Custom-<id>-Helper.zip` en la carpeta elegida.
+7. Para Vortex, importa los ZIPs por separado, activa el helper en UE4SS Load Order
+   y desplegá. El ZIP del helper contiene `NombreDelHelper\Scripts\*.lua` en la
+   raíz para que Vortex lo reconozca como mod de script UE4SS.
 
 HISTORIAL / PLANTILLAS
 ----------------------
@@ -60,11 +63,14 @@ respuestas.json:
       "lang": "es"
     }
 
-QUE GENERA EL ZIP
+QUE GENERA
 -----------------
-- Paks\                              -> copiar a StellarBlade\SB\Content\Paks\~mods
-- ue4ss\Mods\StellarSoulsOutfitRestore\  -> (si elegiste outfit) copiar a
-  StellarBlade\SB\Binaries\Win64\ue4ss\Mods\   (requiere UE4SS + CNS)
-- INSTALL_<idioma>.txt               -> instrucciones exactas.
+- `*-Mod.zip` contiene los PAKs para Vortex o `StellarBlade\SB\Content\Paks\~mods`.
+- `*-Helper.zip` contiene el script UE4SS separado para Vortex o
+  `StellarBlade\SB\Binaries\Win64\ue4ss\Mods` (cuando la selección requiere helper).
+- El ZIP de helper se importa como un mod independiente; activá el helper en
+  **UE4SS Load Order** antes de desplegar.
+- `INSTALL_<idioma>.txt` y la guía `*-Helper-INSTALL.txt` detallan los pasos.
 
-El detalle de cada archivo esta en la guia incluida en cada ZIP compilado.
+Las instrucciones completas están en la guía del ZIP del mod y en el archivo
+`*-Helper-INSTALL.txt` que acompaña al ZIP del helper.

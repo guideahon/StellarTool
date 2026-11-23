@@ -1,7 +1,9 @@
 
 2) HELPER (CNS / スキンスーツの衣装に必要)
-UE4SS + CNS が必要。古い StellarSoulsOutfitRestore を削除し、フォルダをコピー:
-   ue4ss\Mods\StellarSoulsOutfitRestore
-コピー先:
-   StellarBlade\SB\Binaries\Win64\ue4ss\Mods\StellarSoulsOutfitRestore
+Vortex: {{HELPER_ZIP}} を -Mod ZIP とは別のMODとして追加します。UE4SS Load Orderで
+{{HELPER_NAMES}} を有効にしてからデプロイしてください。
+手動インストール: UE4SS + CNS が必要です。Helper ZIPの{{HELPER_NAMES}}フォルダーを
+次の場所にコピーしてください:
+   StellarBlade\SB\Binaries\Win64\ue4ss\Mods
+`ue4ss\mods.txt` に `{{HELPER_NAMES}} : 1` を追加して有効にします。
 ログ %USERPROFILE%\StellarSoulsOutfitRestore.log で読み込みを確認。

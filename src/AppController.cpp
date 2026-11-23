@@ -2977,15 +2977,19 @@ void AppController::runBuilder(const QString &answersJson, const QUrl &outDirUrl
             }
         }
         QString zip;
-        for (const QString &line : out.split(QLatin1Char('\n')))
+        QString helperZip;
+        for (const QString &line : out.split(QLatin1Char('\n'))) {
             if (line.startsWith(QStringLiteral("OK -> "))) zip = line.mid(6).trimmed();
-        const bool ok = proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0 && !zip.isEmpty();
-        QMetaObject::invokeMethod(this, [this, ok, zip, err, cancelled, timedOut, logPath] {
+            else if (line.startsWith(QStringLiteral("HELPER -> "))) helperZip = line.mid(10).trimmed();
+        }
+        const bool hasArtifacts = !zip.isEmpty() || !helperZip.isEmpty();
+        const bool ok = proc.exitStatus() == QProcess::NormalExit && proc.exitCode() == 0 && hasArtifacts;
+        QMetaObject::invokeMethod(this, [this, ok, zip, helperZip, err, cancelled, timedOut, logPath] {
             emit cancellableChanged();
             // Cancelar no es un error: el build muere a proposito y el usuario
             // ya sabe por que, asi que no se abre el dialogo de error.
             if (cancelled) { setStatus(t(QStringLiteral("builder_cancelled"))); emit buildCancelled(); }
-            else if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
+            else if (ok) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip, helperZip); }
             else {
                 QString detail = err.trimmed();
                 if (detail.contains(QStringLiteral("[STELLARTOOL_VORTEX_MANAGED]")))
@@ -3258,10 +3262,16 @@ void AppController::reexportBuild(const QString &id, const QUrl &outDirUrl) {
         int code = 0;
         const QString out = runBuilderSync({QStringLiteral("--reexport"), id, QStringLiteral("--out"), outDir}, &code);
         QString zip;
-        for (const QString &line : out.split(QLatin1Char('\n')))
+        QString helperZip;
+        for (const QString &line : out.split(QLatin1Char('\n'))) {
             if (line.startsWith(QStringLiteral("OK -> "))) zip = line.mid(6).trimmed();
-        QMetaObject::invokeMethod(this, [this, zip] {
-            if (!zip.isEmpty()) { setStatus(t(QStringLiteral("builder_done"))); emit builderFinished(zip); }
+            else if (line.startsWith(QStringLiteral("HELPER -> "))) helperZip = line.mid(10).trimmed();
+        }
+        QMetaObject::invokeMethod(this, [this, zip, helperZip] {
+            if (!zip.isEmpty() || !helperZip.isEmpty()) {
+                setStatus(t(QStringLiteral("builder_done")));
+                emit builderFinished(zip, helperZip);
+            }
             else emit errorOccurred(QStringLiteral("reexport failed"));
             setBusy(false);
         }, Qt::QueuedConnection);

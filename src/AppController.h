@@ -240,7 +240,7 @@ signals:
     void themeModeChanged();
     void analysisChanged();
     void mergeFinished();
-    void builderFinished(const QString &zipPath);
+    void builderFinished(const QString &zipPath, const QString &helperZipPath);
     void uninstalled();
     void exportZipChanged();
     void cancellableChanged();

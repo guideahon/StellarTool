@@ -1,7 +1,9 @@
 
 2) HELPER (needed for CNS / Skin Suit outfits)
-Requires UE4SS + CNS. Delete any older StellarSoulsOutfitRestore, then copy folder:
-   ue4ss\Mods\StellarSoulsOutfitRestore
-to:
-   StellarBlade\SB\Binaries\Win64\ue4ss\Mods\StellarSoulsOutfitRestore
+Vortex: import {{HELPER_ZIP}} as a separate mod from the -Mod ZIP. On the
+UE4SS Load Order page, enable {{HELPER_NAMES}} and deploy.
+Manual install: requires UE4SS + CNS. Copy the {{HELPER_NAMES}} folder from the
+helper ZIP to:
+   StellarBlade\SB\Binaries\Win64\ue4ss\Mods
+Add `{{HELPER_NAMES}} : 1` to `ue4ss\mods.txt` to enable it.
 Log %USERPROFILE%\StellarSoulsOutfitRestore.log confirms it loads.

@@ -134,6 +134,8 @@ Referencia de arquitectura: [ARCHITECTURE.md](ARCHITECTURE.md). Cada fase termin
 - Ajustes de mundo y progresión (`worldTweaks`): tienda, drops, EXP, mejoras EVE, pesca.
 - Presets nombrados con export/import `.stpreset`.
 - Helper CNS y helper vanilla (ALPHA) compilados dinámicamente.
+- ZIPs Vortex separados para PAKs y scripts UE4SS; el helper queda habilitable
+  desde UE4SS Load Order.
 - Instalación directa en el juego con desinstalación limpia.
 - Detección de paks fantasma en `~mods`.
 - Historial persistente con "usar de plantilla".

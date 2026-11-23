@@ -2,7 +2,8 @@
 
 App **separada** dentro de `Stellar Souls/Builder/`. Reemplaza las ~500 variantes
 prebuilt por **un cuestionario** que compila el mod (pak) + helper (Lua) específico
-para cada usuario, y arma un ZIP instalable con guía localizada (10 idiomas).
+para cada usuario, y arma ZIPs instalables separados cuando la build requiere el
+helper, con guía localizada (10 idiomas).
 
 Reusa el toolchain de **Stellar Tool** (`tools/`: retoc, UAssetGUI, repak) y sus
 10 archivos `i18n/*.json`. No es un merger — es un **compilador por feature**.
@@ -18,8 +19,9 @@ NG+, helper CNS, etc.) se declara UNA vez en `features/manifest.json` como:
 
 El motor toma las respuestas → resuelve el set de transforms → los aplica sobre
 las **tablas base** (JSON UAssetAPI) → `UAssetGUI fromjson` → `retoc`/`repak` →
-pak Zen verificado. En paralelo genera `config.lua` del helper. Empaqueta todo en
-un ZIP con `INSTALL_<lang>.txt`.
+pak Zen verificado. En paralelo genera `config.lua` del helper. Empaqueta los PAKs
+y el helper UE4SS en ZIPs separados para que Vortex aplique su instalador de PAKs
+y su instalador de scripts UE4SS a cada uno.
 
 ## 2. Pipeline
 
@@ -39,7 +41,9 @@ respuestas del cuestionario (QuestionnaireState)
    HelperCompiler  →  StellarSoulsOutfitRestore/ (main.lua fijo + config.lua generado)
         │  (4) empaquetar
         ▼
-   ZipPackager  →  Custom_<hash>.zip  { Paks\… , ue4ss\Mods\… , INSTALL_<lang>.txt }
+   ZipPackager  →  Custom_<hash>-Mod.zip    { Paks\… , INSTALL_<lang>.txt }
+                  Custom_<hash>-Helper.zip { <HelperName>\Scripts\*.lua }
+                  Custom_<hash>-Helper-INSTALL.txt
 ```
 
 ## 3. Componentes
@@ -50,7 +54,7 @@ respuestas del cuestionario (QuestionnaireState)
 | `FeatureResolver` | valida respuestas, aplica deps/conflictos, ordena transforms. |
 | `TableCompiler` | aplica transforms JSON sobre tablas base; invoca UAssetGUI/retoc/repak. Reusa la lógica de `Development/*.py` (midpoint, buff mini-boss, reward routing, etc.). |
 | `HelperCompiler` | escribe `config.lua` desde las respuestas (restoreMode, periodic, intervalos). |
-| `ZipPackager` | arma el árbol de instalación + guía localizada + ZIP. |
+| `ZipPackager` | arma el ZIP de PAKs y, si corresponde, el ZIP de script UE4SS + guías localizadas. |
 | `i18n` | reusa `Stellar Tool/i18n/*.json`; el builder agrega su namespace `builder.*`. |
 
 ## 4. Tablas base (fuente de compilación)
@@ -92,7 +96,7 @@ Viven en `Builder/base_tables/` (JSON UAssetAPI extraídos con retoc). Necesaria
 
 1. **F1 (núcleo)**: manifest + FeatureResolver + HelperCompiler + ZipPackager +
    guía localizada. Gameplay = selección de preset prebuilt como fallback. Entrega
-   ZIP correcto end-to-end para helper + combos ya existentes.
+   ZIPs independientes para PAKs y helper, listos para clasificarse en Vortex.
 2. **F2**: TableCompiler real para el eje Combat (SkillTable/SkillResultTable) y
    Outfit (EffectTable on/off) — porta `merge_build.py`/`build_v5.py`.
 3. **F3**: Mini-Boss/NG+ compilado (CharacterTable/EventSpawn/RewardGroup) — porta

@@ -517,15 +517,20 @@ int HeadlessRunner::runBuild(const Options &o) {
     }
 
     QString zip;
+    QString helperZip;
     QObject::connect(m_controller, &AppController::builderFinished, this,
-                     [&zip](const QString &path) { zip = path; });
+                     [&zip, &helperZip](const QString &path, const QString &helperPath) {
+                         zip = path;
+                         helperZip = helperPath;
+                     });
     out(QStringLiteral("[INFO] Compilando el mod en %1 ...").arg(o.outDir));
     QDir().mkpath(o.outDir);
     m_controller->runBuilder(answers, QUrl::fromLocalFile(o.outDir),
                              o.installPaks, o.installHelper, QString());
     if (!waitIdle()) return 3;
-    if (zip.isEmpty()) return 5;
-    out(QStringLiteral("[OK] %1").arg(zip));
+    if (zip.isEmpty() && helperZip.isEmpty()) return 5;
+    if (!zip.isEmpty()) out(QStringLiteral("[OK] Mod: %1").arg(zip));
+    if (!helperZip.isEmpty()) out(QStringLiteral("[OK] Helper: %1").arg(helperZip));
     if (o.installPaks || o.installHelper)
         out(QStringLiteral("[INFO] Instalado: ") + m_controller->installedStatus());
     return 0;
